@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Shadow/Glow -->
+    <item>
+        <shape>
+            <solid android:color="@color/button_glow" />
+            <corners android:radius="2dp" />
+        </shape>
+    </item>
+
+    <!-- Outer Border -->
+    <item android:bottom="2dp" android:left="2dp" android:right="2dp" android:top="2dp">
+        <shape>
+            <solid android:color="@color/futuristic_orange" />
+        </shape>
+    </item>
+
+    <!-- Inner Background -->
+    <item android:bottom="4dp" android:left="4dp" android:right="4dp" android:top="4dp">
+        <shape>
+            <gradient
+                android:startColor="#2C2C2C"
+                android:centerColor="#121212"
+                android:endColor="#2C2C2C"
+                android:angle="0"/>
+        </shape>
+    </item>
+</layer-list>

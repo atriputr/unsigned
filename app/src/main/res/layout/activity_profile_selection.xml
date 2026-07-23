@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <!-- Full-screen exact image, pixel-perfect -->
+    <ImageView
+        android:id="@+id/bgSelectProfile"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:src="@drawable/bg_select_profile"
+        android:contentDescription="@null"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Percent guidelines matching EXACT positions from the image -->
+
+    <!-- Button 1 (Ideal) -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/btn1Top" android:orientation="horizontal"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.1567" />
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/btn1Bottom" android:orientation="horizontal"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.2159" />
+
+    <!-- Button 2 (Custom) -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/btn2Top" android:orientation="horizontal"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.2279" />
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/btn2Bottom" android:orientation="horizontal"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.2864" />
+
+    <!-- Button 3 (Export) -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/btn3Top" android:orientation="horizontal"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.2996" />
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/btn3Bottom" android:orientation="horizontal"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.3576" />
+
+    <!-- Clock Area -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/clockTop" android:orientation="horizontal"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.45" />
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/clockBottom" android:orientation="horizontal"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.55" />
+
+    <!-- Calendar Button -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/calendarTop" android:orientation="horizontal"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.82" />
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/calendarBottom" android:orientation="horizontal"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.88" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/btnLeft" android:orientation="vertical"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.12" />
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/btnRight" android:orientation="vertical"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        app:layout_constraintGuide_percent="0.878" />
+
+    <!-- Clickable overlays -->
+    <View
+        android:id="@+id/btnIdealProfile"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="?attr/selectableItemBackground"
+        app:layout_constraintTop_toTopOf="@id/btn1Top"
+        app:layout_constraintBottom_toBottomOf="@id/btn1Bottom"
+        app:layout_constraintStart_toStartOf="@id/btnLeft"
+        app:layout_constraintEnd_toEndOf="@id/btnRight" />
+
+    <View
+        android:id="@+id/btnCustomProfile"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="?attr/selectableItemBackground"
+        app:layout_constraintTop_toTopOf="@id/btn2Top"
+        app:layout_constraintBottom_toBottomOf="@id/btn2Bottom"
+        app:layout_constraintStart_toStartOf="@id/btnLeft"
+        app:layout_constraintEnd_toEndOf="@id/btnRight" />
+
+    <View
+        android:id="@+id/btnExportProgress"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="?attr/selectableItemBackground"
+        app:layout_constraintTop_toTopOf="@id/btn3Top"
+        app:layout_constraintBottom_toBottomOf="@id/btn3Bottom"
+        app:layout_constraintStart_toStartOf="@id/btnLeft"
+        app:layout_constraintEnd_toEndOf="@id/btnRight" />
+
+    <View
+        android:id="@+id/viewClock"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="?attr/selectableItemBackground"
+        app:layout_constraintTop_toTopOf="@id/clockTop"
+        app:layout_constraintBottom_toBottomOf="@id/clockBottom"
+        app:layout_constraintStart_toStartOf="@id/btnLeft"
+        app:layout_constraintEnd_toEndOf="@id/btnRight" />
+
+    <View
+        android:id="@+id/btnCalendar"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="?attr/selectableItemBackground"
+        app:layout_constraintTop_toTopOf="@id/calendarTop"
+        app:layout_constraintBottom_toBottomOf="@id/calendarBottom"
+        app:layout_constraintStart_toStartOf="@id/btnLeft"
+        app:layout_constraintEnd_toEndOf="@id/btnRight" />
+
+    <!-- Real functional clock text overlay -->
+    <TextView
+        android:id="@+id/tvNixieClock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFD500"
+        android:textSize="32sp"
+        android:letterSpacing="0.2"
+        android:shadowColor="#FFFF8A00"
+        android:shadowRadius="20"
+        app:layout_constraintTop_toTopOf="@id/clockTop"
+        app:layout_constraintBottom_toBottomOf="@id/clockBottom"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Year Percentage Bar beneath Clock -->
+    <ProgressBar
+        android:id="@+id/pbYearProgress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="200dp"
+        android:layout_height="8dp"
+        android:layout_marginTop="8dp"
+        android:progressDrawable="@drawable/progress_bar_futuristic"
+        app:layout_constraintTop_toBottomOf="@id/tvNixieClock"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/tvYearPercent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="#EBC174"
+        android:textSize="12sp"
+        android:text="YEAR PROGRESS: 0%"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/pbYearProgress"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Overlay for the Glass Window -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/composeOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

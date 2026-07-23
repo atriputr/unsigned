@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="brand_green">#09e8ad</color>
+    <color name="translucent_grey">#80333333</color>
+    <color name="button_grey">#878b7c</color>
+    <color name="button_text_orange">#e09c00</color>
+    <color name="red">#FF0000</color>
+    <color name="futuristic_red">#FF1A1A</color>
+    <color name="futuristic_orange">#FF9500</color>
+    <color name="button_bg_dark">#1A1A1A</color>
+    <color name="button_glow">#4DFF9500</color>
+</resources>
