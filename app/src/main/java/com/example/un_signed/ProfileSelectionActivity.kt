@@ -10,12 +10,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import java.text.SimpleDateFormat
 import java.util.*
 
 class ProfileSelectionActivity : AppCompatActivity() {
 
-    private lateinit var tvClock: TextView
+    private lateinit var tvClock: ComposeView
     private lateinit var pbYearProgress: ProgressBar
     private lateinit var tvYearPercent: TextView
     private lateinit var composeOverlay: ComposeView
@@ -24,8 +23,6 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private val updateTimeRunnable = object : Runnable {
         override fun run() {
             val now = Calendar.getInstance()
-            val currentTime = SimpleDateFormat("HH : mm : ss", Locale.getDefault()).format(now.time)
-            tvClock.text = currentTime
 
             updateYearProgress(now)
 
@@ -45,6 +42,10 @@ class ProfileSelectionActivity : AppCompatActivity() {
         val nokiaFont = FontFamily(Font(R.font.nokia_kokia))
         val jerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
 
+        tvClock.setContent {
+            NixieClock(fontFamily = jerseyFont, onClick = {})
+        }
+
         findViewById<View>(R.id.btnIdealProfile).setOnClickListener {
             showGlassOverlay(nokiaFont, jerseyFont)
         }
@@ -57,11 +58,20 @@ class ProfileSelectionActivity : AppCompatActivity() {
             // Export Action
         }
 
-        findViewById<View>(R.id.btnCalendar).setOnClickListener {
-            // Calendar Action
+        val onYearProgressClick = View.OnClickListener {
+            showCalendarOverlay()
         }
+        pbYearProgress.setOnClickListener(onYearProgressClick)
+        tvYearPercent.setOnClickListener(onYearProgressClick)
 
         timeHandler.post(updateTimeRunnable)
+    }
+
+    private fun showCalendarOverlay() {
+        composeOverlay.visibility = View.VISIBLE
+        composeOverlay.setContent {
+            GlassCalendarOverlay(onClose = { composeOverlay.visibility = View.GONE })
+        }
     }
 
     private fun showGlassOverlay(titleFont: FontFamily, buttonFont: FontFamily) {

@@ -61,17 +61,8 @@
         android:layout_width="wrap_content" android:layout_height="wrap_content"
         app:layout_constraintGuide_percent="0.55" />
 
-    <!-- Calendar Button -->
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/calendarTop" android:orientation="horizontal"
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
-        app:layout_constraintGuide_percent="0.82" />
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/calendarBottom" android:orientation="horizontal"
-        android:layout_width="wrap_content" android:layout_height="wrap_content"
-        app:layout_constraintGuide_percent="0.88" />
 
-    <androidx.constraintlayout.widget.Guideline
+<androidx.constraintlayout.widget.Guideline
         android:id="@+id/btnLeft" android:orientation="vertical"
         android:layout_width="wrap_content" android:layout_height="wrap_content"
         app:layout_constraintGuide_percent="0.12" />
@@ -121,26 +112,11 @@
         app:layout_constraintStart_toStartOf="@id/btnLeft"
         app:layout_constraintEnd_toEndOf="@id/btnRight" />
 
-    <View
-        android:id="@+id/btnCalendar"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:background="?attr/selectableItemBackground"
-        app:layout_constraintTop_toTopOf="@id/calendarTop"
-        app:layout_constraintBottom_toBottomOf="@id/calendarBottom"
-        app:layout_constraintStart_toStartOf="@id/btnLeft"
-        app:layout_constraintEnd_toEndOf="@id/btnRight" />
-
-    <!-- Real functional clock text overlay -->
-    <TextView
+    <!-- Real functional clock overlay -->
+    <androidx.compose.ui.platform.ComposeView
         android:id="@+id/tvNixieClock"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textColor="#FFD500"
-        android:textSize="32sp"
-        android:letterSpacing="0.2"
-        android:shadowColor="#FFFF8A00"
-        android:shadowRadius="20"
         app:layout_constraintTop_toTopOf="@id/clockTop"
         app:layout_constraintBottom_toBottomOf="@id/clockBottom"
         app:layout_constraintStart_toStartOf="parent"
