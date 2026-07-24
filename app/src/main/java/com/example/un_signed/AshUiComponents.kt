@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,11 +30,13 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -142,7 +146,7 @@ fun AshButton(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
-                style = androidx.compose.ui.text.TextStyle(brush = Brush.linearGradient(listOf(BronzeTextStart, BronzeTextEnd)))
+                style = TextStyle(brush = Brush.linearGradient(listOf(BronzeTextStart, BronzeTextEnd)))
             )
 
             Spacer(modifier = Modifier.weight(1f))
@@ -151,7 +155,6 @@ fun AshButton(
     }
 }
 
-// Modes: 0=24h  1=12h  2=Timer  3=Stopwatch  4=Alarm  5=Day+Date  → 6th tap wraps to 0
 @Composable
 fun NixieClock(
     fontFamily: FontFamily,
@@ -168,12 +171,12 @@ fun NixieClock(
     LaunchedEffect(Unit) {
         while (true) {
             time = LocalDateTime.now()
-            kotlinx.coroutines.delay(1000)
+            delay(1000)
         }
     }
 
     if (showAlarmDialog) {
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = { showAlarmDialog = false },
             containerColor = Color(0xFF1C1C1C),
             title = {
@@ -183,7 +186,7 @@ fun NixieClock(
                 Text("Take you to the phone's alarm clock?", color = Color.White.copy(alpha = 0.75f), fontSize = 14.sp)
             },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
+                TextButton(onClick = {
                     showAlarmDialog = false
                     try { context.startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS)) } catch (_: Exception) {}
                 }) {
@@ -191,7 +194,7 @@ fun NixieClock(
                 }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = {
+                TextButton(onClick = {
                     showAlarmDialog = false
                     mode = (mode + 1) % 6   // SKIP → advance to next mode
                 }) {
@@ -201,7 +204,6 @@ fun NixieClock(
         )
     }
 
-    // ── Long-press mode picker ─────────────────────────────────────
     if (showModeMenu) {
         Dialog(onDismissRequest = { showModeMenu = false }) {
             Column(
@@ -358,7 +360,6 @@ fun NixieClock(
     }
 }
 
-// Uses system font so letters are always crisp — pixel font (jerseyFont) garbles at small sizes
 @Composable
 fun NixieActionLabel(text: String) {
     Box(
@@ -378,7 +379,7 @@ fun NixieActionLabel(text: String) {
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Default,
             letterSpacing = 1.sp,
-            style = androidx.compose.ui.text.TextStyle(shadow = Shadow(color = SciFiRed, blurRadius = 24f))
+            style = TextStyle(shadow = Shadow(color = SciFiRed, blurRadius = 24f))
         )
         Text(
             text = text,
@@ -426,7 +427,7 @@ fun NixieTubeDigit(digit: String, fontFamily: FontFamily) {
             color = OrangeFire.copy(alpha = 0.4f),
             fontSize = 46.sp,
             fontFamily = fontFamily,
-            style = androidx.compose.ui.text.TextStyle(shadow = Shadow(color = OrangeFire, blurRadius = 30f))
+            style = TextStyle(shadow = Shadow(color = OrangeFire, blurRadius = 30f))
         )
         Text(
             text = digit,
@@ -434,7 +435,7 @@ fun NixieTubeDigit(digit: String, fontFamily: FontFamily) {
             fontSize = 46.sp,
             fontFamily = fontFamily,
             letterSpacing = 2.sp,
-            style = androidx.compose.ui.text.TextStyle(shadow = Shadow(color = Color.Black, offset = Offset(2f, 2f), blurRadius = 2f))
+            style = TextStyle(shadow = Shadow(color = Color.Black, offset = Offset(2f, 2f), blurRadius = 2f))
         )
     }
 }
@@ -450,7 +451,15 @@ fun NixieColon() {
 }
 
 @Composable
-fun GlassDialogContent(titleFont: FontFamily, buttonFont: FontFamily, onClose: () -> Unit) {
+fun GlassDialogContent(
+    titleFont: FontFamily,
+    buttonFont: FontFamily,
+    onEducationClick: () -> Unit,
+    onHealthClick: () -> Unit,
+    onSkillClick: () -> Unit,
+    onPeaceClick: () -> Unit,
+    onClose: () -> Unit
+) {
     Box(
         modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
         contentAlignment = Alignment.Center
@@ -473,21 +482,328 @@ fun GlassDialogContent(titleFont: FontFamily, buttonFont: FontFamily, onClose: (
                 fontFamily = titleFont,
                 fontStyle = FontStyle.Italic,
                 modifier = Modifier.padding(bottom = 32.dp),
-                style = androidx.compose.ui.text.TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
             )
-            GlassButton("1. EDUCATION", buttonFont)
+            GlassButton("1. EDUCATION", buttonFont, onClick = onEducationClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("2. HEALTH", buttonFont)
+            GlassButton("2. HEALTH", buttonFont, onClick = onHealthClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("3. SKILL", buttonFont)
+            GlassButton("3. SKILL", buttonFont, onClick = onSkillClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("4. PEACE", buttonFont)
+            GlassButton("4. PEACE", buttonFont, onClick = onPeaceClick)
         }
     }
 }
 
 @Composable
-fun GlassButton(text: String, fontFamily: FontFamily) {
+fun EducationOptionsOverlay(
+    titleFont: FontFamily,
+    buttonFont: FontFamily,
+    onBack: () -> Unit,
+    onClose: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .width(340.dp)
+                .padding(24.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
+                .border(width = 1.5.dp, brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+                .padding(24.dp)
+                .clickable(enabled = false) { },
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "EDUCATION",
+                color = Color.White,
+                fontSize = 26.sp,
+                fontFamily = titleFont,
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.padding(bottom = 32.dp),
+                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+            )
+            GlassButton("1. LECTURE", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("2. SUBJECT", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("3. COURSE", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("4. PRACTICE", buttonFont)
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "BACK",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 18.sp,
+                fontFamily = buttonFont,
+                modifier = Modifier.clickable { onBack() }
+            )
+        }
+    }
+}
+
+@Composable
+fun HealthOptionsOverlay(
+    titleFont: FontFamily,
+    buttonFont: FontFamily,
+    onMedsClick: () -> Unit,
+    onBack: () -> Unit,
+    onClose: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .width(340.dp)
+                .padding(24.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
+                .border(width = 1.5.dp, brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+                .padding(24.dp)
+                .clickable(enabled = false) { },
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "HEALTH",
+                color = Color.White,
+                fontSize = 26.sp,
+                fontFamily = titleFont,
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.padding(bottom = 32.dp),
+                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+            )
+            GlassButton("1. WATER", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("2. EXERCISE", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            var junkCount by remember { mutableStateOf(0) }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
+                    .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap       = { junkCount = (junkCount - 1).coerceAtLeast(0) },
+                            onDoubleTap = { junkCount += 1 }
+                        )
+                    },
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("3. JUNK COUNT", color = Color.White, fontSize = 22.sp, fontFamily = buttonFont, letterSpacing = 1.sp)
+                    Text(
+                        "$junkCount",
+                        color = OrangeFire,
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        style = TextStyle(shadow = Shadow(color = OrangeFire, blurRadius = 16f))
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFFE41417))
+                    .border(1.5.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+                    .clickable { onClose() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "SAVE",
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 3.sp,
+                    style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("4. MEDS", buttonFont, onClick = onMedsClick)
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "BACK",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 18.sp,
+                fontFamily = buttonFont,
+                modifier = Modifier.clickable { onBack() }
+            )
+        }
+    }
+}
+
+@Composable
+fun MedsOptionsOverlay(
+    titleFont: FontFamily,
+    buttonFont: FontFamily,
+    onBack: () -> Unit,
+    onClose: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .width(340.dp)
+                .padding(24.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
+                .border(width = 1.5.dp, brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+                .padding(24.dp)
+                .clickable(enabled = false) { },
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "MEDS",
+                color = Color.White,
+                fontSize = 26.sp,
+                fontFamily = titleFont,
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.padding(bottom = 32.dp),
+                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+            )
+            GlassButton("1. SUPPLIMENTS", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("2. SEVERE", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("3. DIET", buttonFont)
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "BACK",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 18.sp,
+                fontFamily = buttonFont,
+                modifier = Modifier.clickable { onBack() }
+            )
+        }
+    }
+}
+
+@Composable
+fun SkillOptionsOverlay(
+    titleFont: FontFamily,
+    buttonFont: FontFamily,
+    onBack: () -> Unit,
+    onClose: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .width(340.dp)
+                .padding(24.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
+                .border(width = 1.5.dp, brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+                .padding(24.dp)
+                .clickable(enabled = false) { },
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "SKILL",
+                color = Color.White,
+                fontSize = 26.sp,
+                fontFamily = titleFont,
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.padding(bottom = 32.dp),
+                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+            )
+            GlassButton("1. HOBBY", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("2. MINOR SKILL TO GROW", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("3. MAJOR SKILL FOR LIFE", buttonFont)
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "BACK",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 18.sp,
+                fontFamily = buttonFont,
+                modifier = Modifier.clickable { onBack() }
+            )
+        }
+    }
+}
+
+@Composable
+fun PeaceOptionsOverlay(
+    titleFont: FontFamily,
+    buttonFont: FontFamily,
+    onBack: () -> Unit,
+    onClose: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .width(340.dp)
+                .padding(24.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
+                .border(width = 1.5.dp, brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+                .padding(24.dp)
+                .clickable(enabled = false) { },
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "PEACE",
+                color = Color.White,
+                fontSize = 26.sp,
+                fontFamily = titleFont,
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.padding(bottom = 32.dp),
+                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+            )
+            GlassButton("1. CYCLING", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("2. YOGA", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("3. WALKING", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("4. SLEEP", buttonFont)
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "BACK",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 18.sp,
+                fontFamily = buttonFont,
+                modifier = Modifier.clickable { onBack() }
+            )
+        }
+    }
+}
+
+@Composable
+fun GlassButton(text: String, fontFamily: FontFamily, onClick: () -> Unit = {}) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -495,7 +811,7 @@ fun GlassButton(text: String, fontFamily: FontFamily) {
             .clip(RoundedCornerShape(14.dp))
             .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
             .border(width = 1.dp, color = Color.White.copy(alpha = 0.25f), shape = RoundedCornerShape(14.dp))
-            .clickable { },
+            .clickable { onClick() },
         contentAlignment = Alignment.CenterStart
     ) {
         Text(
@@ -555,7 +871,7 @@ fun UpcomingEventsList(
                             fontFamily = fontFamily
                         )
                         Text(
-                            text = date.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy")),
+                            text = date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")),
                             color = Color(0xFFEBC174).copy(alpha = 0.7f),
                             fontSize = 12.sp,
                             fontFamily = fontFamily
