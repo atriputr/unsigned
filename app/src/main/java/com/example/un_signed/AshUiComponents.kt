@@ -1,5 +1,7 @@
 package com.example.un_signed
 
+import android.content.Intent
+import android.provider.AlarmClock
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -8,6 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -19,12 +23,14 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.random.Random
@@ -142,10 +148,19 @@ fun AshButton(
     }
 }
 
+// Modes: 0=24h  1=12h  2=Timer  3=Stopwatch  4=Alarm  5=Day+Date  → 6th tap wraps to 0
 @Composable
-fun NixieClock(fontFamily: FontFamily, onClick: () -> Unit) {
+fun NixieClock(
+    fontFamily: FontFamily,
+    onClick: () -> Unit,
+    onTimerTap: (advanceMode: () -> Unit) -> Unit = {},
+    onStopwatchTap: (advanceMode: () -> Unit) -> Unit = {}
+) {
+    var mode by remember { mutableStateOf(0) }
     var time by remember { mutableStateOf(LocalDateTime.now()) }
-    
+    var showAlarmDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
     LaunchedEffect(Unit) {
         while (true) {
             time = LocalDateTime.now()
@@ -153,13 +168,127 @@ fun NixieClock(fontFamily: FontFamily, onClick: () -> Unit) {
         }
     }
 
-    val h = time.format(DateTimeFormatter.ofPattern("HH"))
-    val m = time.format(DateTimeFormatter.ofPattern("mm"))
-    val s = time.format(DateTimeFormatter.ofPattern("ss"))
+    if (showAlarmDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showAlarmDialog = false },
+            containerColor = Color(0xFF1C1C1C),
+            title = {
+                Text("Open Alarm Clock", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            },
+            text = {
+                Text("Take you to the phone's alarm clock?", color = Color.White.copy(alpha = 0.75f), fontSize = 14.sp)
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showAlarmDialog = false
+                    try { context.startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS)) } catch (_: Exception) {}
+                }) {
+                    Text("YES", color = OrangeFire, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showAlarmDialog = false
+                    mode = (mode + 1) % 6   // SKIP → advance to next mode
+                }) {
+                    Text("SKIP", color = Color.White.copy(alpha = 0.5f), letterSpacing = 1.sp)
+                }
+            }
+        )
+    }
 
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                when (mode) {
+                    2 -> onTimerTap { mode = 3 }
+                    3 -> onStopwatchTap { mode = 4 }
+                    4 -> showAlarmDialog = true
+                    else -> { mode = (mode + 1) % 6 }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        when (mode) {
+            0 -> {
+                val h = time.format(DateTimeFormatter.ofPattern("HH"))
+                val m = time.format(DateTimeFormatter.ofPattern("mm"))
+                val s = time.format(DateTimeFormatter.ofPattern("ss"))
+                ClockLayout(h, m, s, fontFamily)
+            }
+            1 -> {
+                val h    = time.format(DateTimeFormatter.ofPattern("hh"))
+                val m    = time.format(DateTimeFormatter.ofPattern("mm"))
+                val s    = time.format(DateTimeFormatter.ofPattern("ss"))
+                val amPm = time.format(DateTimeFormatter.ofPattern("a")).uppercase()
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    ClockLayout(h, m, s, fontFamily)
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        amPm.forEach { NixieTubeDigit(it.toString(), fontFamily) }
+                    }
+                }
+            }
+            2 -> NixieActionLabel("BEGIN A TIMER")
+            3 -> NixieActionLabel("BEGIN STOPWATCH")
+            4 -> NixieActionLabel("SET AN ALARM")
+            5 -> {
+                val dayName  = time.format(DateTimeFormatter.ofPattern("EEE")).uppercase()
+                val dayNum   = time.format(DateTimeFormatter.ofPattern("dd"))
+                val monthAbb = time.format(DateTimeFormatter.ofPattern("MMM")).uppercase()
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        dayName.forEach { NixieTubeDigit(it.toString(), fontFamily) }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        dayNum.forEach { NixieTubeDigit(it.toString(), fontFamily) }
+                        Spacer(Modifier.width(8.dp))
+                        monthAbb.forEach { NixieTubeDigit(it.toString(), fontFamily) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Uses system font so letters are always crisp — pixel font (jerseyFont) garbles at small sizes
+@Composable
+fun NixieActionLabel(text: String) {
+    Box(
+        modifier = Modifier
+            .wrapContentWidth()
+            .height(68.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF110505))
+            .border(1.dp, SciFiRed.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = SciFiRed.copy(alpha = 0.4f),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Default,
+            letterSpacing = 1.sp,
+            style = androidx.compose.ui.text.TextStyle(shadow = Shadow(color = SciFiRed, blurRadius = 24f))
+        )
+        Text(
+            text = text,
+            color = Color(0xFFFF5555),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Default,
+            letterSpacing = 1.sp
+        )
+    }
+}
+
+@Composable
+fun ClockLayout(h: String, m: String, s: String, fontFamily: FontFamily) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
         NixieTubeDigit(h[0].toString(), fontFamily)
@@ -272,5 +401,66 @@ fun GlassButton(text: String, fontFamily: FontFamily) {
             letterSpacing = 1.sp,
             modifier = Modifier.padding(start = 24.dp)
         )
+    }
+}
+
+@Composable
+fun UpcomingEventsList(
+    allTasks: Map<LocalDate, List<CalendarTask>>,
+    fontFamily: FontFamily,
+    onEventClick: (LocalDate) -> Unit
+) {
+    val today = LocalDate.now()
+    val upcomingTasks = allTasks.filterKeys { !it.isBefore(today) }
+        .flatMap { (date, tasks) -> tasks.map { date to it } }
+        .sortedBy { it.first }
+
+    if (upcomingTasks.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+            Text(
+                text = "no events on record",
+                color = Color.White.copy(alpha = 0.4f),
+                fontSize = 18.sp,
+                fontFamily = fontFamily,
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.padding(top = 20.dp)
+            )
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(upcomingTasks) { (date, task) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White.copy(alpha = 0.05f))
+                        .clickable { onEventClick(date) }
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = task.text,
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 16.sp,
+                            fontFamily = fontFamily
+                        )
+                        Text(
+                            text = date.format(java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy")),
+                            color = Color(0xFFEBC174).copy(alpha = 0.7f),
+                            fontSize = 12.sp,
+                            fontFamily = fontFamily
+                        )
+                    }
+                    if (task.isDone) {
+                        Text("✓", color = Color(0xFF09e8ad), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
     }
 }

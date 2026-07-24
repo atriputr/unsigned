@@ -7,9 +7,12 @@ import android.view.View
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import java.time.LocalDate
 import java.util.*
 
 class ProfileSelectionActivity : AppCompatActivity() {
@@ -17,8 +20,15 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private lateinit var tvClock: ComposeView
     private lateinit var pbYearProgress: ProgressBar
     private lateinit var tvYearPercent: TextView
+    private lateinit var cvUpcomingEvents: ComposeView
     private lateinit var composeOverlay: ComposeView
     private val timeHandler = Handler(Looper.getMainLooper())
+    
+    // State for Custom Profiles
+    private val savedCustomProfiles = mutableStateListOf<CustomProfile>()
+    
+    // State for Calendar Tasks
+    private val allCalendarTasks = mutableStateMapOf<LocalDate, List<CalendarTask>>()
 
     private val updateTimeRunnable = object : Runnable {
         override fun run() {
@@ -37,13 +47,28 @@ class ProfileSelectionActivity : AppCompatActivity() {
         tvClock = findViewById(R.id.tvNixieClock)
         pbYearProgress = findViewById(R.id.pbYearProgress)
         tvYearPercent = findViewById(R.id.tvYearPercent)
+        cvUpcomingEvents = findViewById(R.id.cvUpcomingEvents)
         composeOverlay = findViewById(R.id.composeOverlay)
 
         val nokiaFont = FontFamily(Font(R.font.nokia_kokia))
         val jerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
+        val bebasFont = FontFamily(Font(R.font.bebas_neue))
 
         tvClock.setContent {
-            NixieClock(fontFamily = jerseyFont, onClick = {})
+            NixieClock(
+                fontFamily = jerseyFont,
+                onClick = {},
+                onTimerTap      = { advanceMode -> showTimerOverlay(jerseyFont, advanceMode) },
+                onStopwatchTap  = { advanceMode -> showStopwatchOverlay(jerseyFont, advanceMode) }
+            )
+        }
+
+        cvUpcomingEvents.setContent {
+            UpcomingEventsList(
+                allTasks = allCalendarTasks,
+                fontFamily = jerseyFont,
+                onEventClick = { date -> showCalendarOverlay(date) }
+            )
         }
 
         findViewById<View>(R.id.btnIdealProfile).setOnClickListener {
@@ -51,11 +76,11 @@ class ProfileSelectionActivity : AppCompatActivity() {
         }
 
         findViewById<View>(R.id.btnCustomProfile).setOnClickListener {
-            // Custom Action
+            showCustomProfileOverlay(nokiaFont, bebasFont)
         }
 
         findViewById<View>(R.id.btnExportProgress).setOnClickListener {
-            // Export Action
+            showExportOverlay(nokiaFont, jerseyFont)
         }
 
         val onYearProgressClick = View.OnClickListener {
@@ -67,10 +92,46 @@ class ProfileSelectionActivity : AppCompatActivity() {
         timeHandler.post(updateTimeRunnable)
     }
 
-    private fun showCalendarOverlay() {
+    private fun showStopwatchOverlay(fontFamily: FontFamily, advanceMode: () -> Unit) {
         composeOverlay.visibility = View.VISIBLE
         composeOverlay.setContent {
-            GlassCalendarOverlay(onClose = { composeOverlay.visibility = View.GONE })
+            StopwatchOverlay(
+                fontFamily = fontFamily,
+                onSkip = {
+                    composeOverlay.visibility = View.GONE
+                    advanceMode()
+                },
+                onClose = { composeOverlay.visibility = View.GONE }
+            )
+        }
+    }
+
+    private fun showTimerOverlay(fontFamily: FontFamily, advanceMode: () -> Unit) {
+        composeOverlay.visibility = View.VISIBLE
+        composeOverlay.setContent {
+            TimerPickerOverlay(
+                fontFamily = fontFamily,
+                onSkip = {
+                    composeOverlay.visibility = View.GONE
+                    advanceMode()
+                },
+                onClose = { composeOverlay.visibility = View.GONE }
+            )
+        }
+    }
+
+    private fun showCalendarOverlay(initialDate: LocalDate = LocalDate.now()) {
+        composeOverlay.visibility = View.VISIBLE
+        composeOverlay.setContent {
+            GlassCalendarOverlay(
+                allTasks = allCalendarTasks,
+                onUpdateTasks = { date, tasks ->
+                    if (tasks.isEmpty()) allCalendarTasks.remove(date)
+                    else allCalendarTasks[date] = tasks
+                },
+                initialDate = initialDate,
+                onClose = { composeOverlay.visibility = View.GONE }
+            )
         }
     }
 
@@ -80,6 +141,36 @@ class ProfileSelectionActivity : AppCompatActivity() {
             GlassDialogContent(
                 titleFont = titleFont,
                 buttonFont = buttonFont,
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showCustomProfileOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        composeOverlay.visibility = View.VISIBLE
+        composeOverlay.setContent {
+            CustomProfileOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                savedProfiles = savedCustomProfiles,
+                onSave = { name, duration, type ->
+                    savedCustomProfiles.add(CustomProfile(name = name, duration = duration, type = type))
+                },
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showExportOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        composeOverlay.visibility = View.VISIBLE
+        composeOverlay.setContent {
+            ExportProgressOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
                 onClose = {
                     composeOverlay.visibility = View.GONE
                 }

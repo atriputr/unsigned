@@ -35,12 +35,16 @@ data class CalendarTask(
 )
 
 @Composable
-fun GlassCalendarOverlay(onClose: () -> Unit) {
+fun GlassCalendarOverlay(
+    allTasks: Map<LocalDate, List<CalendarTask>>,
+    onUpdateTasks: (LocalDate, List<CalendarTask>) -> Unit,
+    initialDate: LocalDate = LocalDate.now(),
+    onClose: () -> Unit
+) {
     val today = LocalDate.now()
-    var displayYear by remember { mutableStateOf(today.year) }
-    var displayMonth by remember { mutableStateOf(today.monthValue) }
-    var selectedDate by remember { mutableStateOf(today) }
-    var allTasks by remember { mutableStateOf<Map<LocalDate, List<CalendarTask>>>(emptyMap()) }
+    var displayYear by remember { mutableStateOf(initialDate.year) }
+    var displayMonth by remember { mutableStateOf(initialDate.monthValue) }
+    var selectedDate by remember { mutableStateOf(initialDate) }
     var addingTask by remember { mutableStateOf(false) }
     var newTaskText by remember { mutableStateOf("") }
 
@@ -225,7 +229,7 @@ fun GlassCalendarOverlay(onClose: () -> Unit) {
                                 val updated = selectedTasks.map {
                                     if (it.id == task.id) it.copy(isDone = !it.isDone) else it
                                 }
-                                allTasks = allTasks + (selectedDate to updated)
+                                onUpdateTasks(selectedDate, updated)
                             }
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -255,7 +259,7 @@ fun GlassCalendarOverlay(onClose: () -> Unit) {
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = {
                             if (newTaskText.isNotBlank()) {
-                                allTasks = allTasks + (selectedDate to selectedTasks + CalendarTask(text = newTaskText.trim()))
+                                onUpdateTasks(selectedDate, selectedTasks + CalendarTask(text = newTaskText.trim()))
                                 newTaskText = ""
                             }
                             addingTask = false
@@ -287,7 +291,7 @@ fun GlassCalendarOverlay(onClose: () -> Unit) {
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.clickable {
                                 if (newTaskText.isNotBlank()) {
-                                    allTasks = allTasks + (selectedDate to selectedTasks + CalendarTask(text = newTaskText.trim()))
+                                    onUpdateTasks(selectedDate, selectedTasks + CalendarTask(text = newTaskText.trim()))
                                     newTaskText = ""
                                 }
                                 addingTask = false
