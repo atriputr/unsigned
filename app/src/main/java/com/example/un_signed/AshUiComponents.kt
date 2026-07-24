@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -156,9 +159,10 @@ fun NixieClock(
     onTimerTap: (advanceMode: () -> Unit) -> Unit = {},
     onStopwatchTap: (advanceMode: () -> Unit) -> Unit = {}
 ) {
-    var mode by remember { mutableStateOf(0) }
-    var time by remember { mutableStateOf(LocalDateTime.now()) }
+    var mode           by remember { mutableStateOf(0) }
+    var time           by remember { mutableStateOf(LocalDateTime.now()) }
     var showAlarmDialog by remember { mutableStateOf(false) }
+    var showModeMenu   by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
@@ -197,16 +201,117 @@ fun NixieClock(
         )
     }
 
+    // ── Long-press mode picker ─────────────────────────────────────
+    if (showModeMenu) {
+        Dialog(onDismissRequest = { showModeMenu = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xCC1A1A2E), Color(0xCC0D0D1A))
+                        )
+                    )
+                    .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(20.dp))
+                    .padding(vertical = 20.dp, horizontal = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "CLOCK MODE",
+                    color = Color.White.copy(alpha = 0.38f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 4.sp
+                )
+                Spacer(Modifier.height(14.dp))
+
+                val entries = listOf(
+                    Triple(0, "24-HR",      "24-hour digital clock"),
+                    Triple(1, "12-HR",      "12-hour with AM / PM"),
+                    Triple(2, "TIMER",      "Set a countdown timer"),
+                    Triple(3, "STOPWATCH",  "Lap & split timer"),
+                    Triple(4, "ALARM",      "Open phone alarm clock"),
+                    Triple(5, "DAY & DATE", "Show today's day and date")
+                )
+
+                entries.forEach { (idx, label, sub) ->
+                    val isCurrent = mode == idx
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (isCurrent) OrangeFire.copy(alpha = 0.15f)
+                                else Color.Transparent
+                            )
+                            .clickable {
+                                showModeMenu = false
+                                when (idx) {
+                                    2 -> onTimerTap { mode = 3 }
+                                    3 -> onStopwatchTap { mode = 4 }
+                                    4 -> { mode = 4; showAlarmDialog = true }
+                                    else -> mode = idx
+                                }
+                            }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                label,
+                                color = if (isCurrent) OrangeFire else Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                sub,
+                                color = Color.White.copy(alpha = 0.38f),
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Default
+                            )
+                        }
+                        if (isCurrent) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(OrangeFire)
+                            )
+                        }
+                    }
+
+                    if (idx < 5) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .height(0.5.dp)
+                                .background(Color.White.copy(alpha = 0.07f))
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                when (mode) {
-                    2 -> onTimerTap { mode = 3 }
-                    3 -> onStopwatchTap { mode = 4 }
-                    4 -> showAlarmDialog = true
-                    else -> { mode = (mode + 1) % 6 }
-                }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = {
+                        when (mode) {
+                            2 -> onTimerTap { mode = 3 }
+                            3 -> onStopwatchTap { mode = 4 }
+                            4 -> showAlarmDialog = true
+                            else -> mode = (mode + 1) % 6
+                        }
+                    },
+                    onLongPress = { showModeMenu = true }
+                )
             },
         contentAlignment = Alignment.Center
     ) {
