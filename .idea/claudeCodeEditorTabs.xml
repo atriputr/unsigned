@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ClaudeCodeEditorTabs">
+    <option name="activeSessionId" value="bccc67e7-a96f-443b-b502-b45d9e09fb03" />
+    <option name="openSessionIds">
+      <list>
+        <option value="c86cb629-a11e-48f8-ba42-e1e69f381d68" />
+        <option value="de064c94-0c2e-4565-8bff-d8eab8aec405" />
+        <option value="c5fa0f83-81cc-44b5-b94f-70cf613601a4" />
+        <option value="e3b5231c-b254-4ce2-a462-5c787a8979d1" />
+        <option value="e0ac56a9-fdab-4842-9fe8-ff692ade88c9" />
+        <option value="a325f68d-264c-4b0f-8ea0-1ac53713cc7d" />
+        <option value="f7fbae92-960e-464c-a427-1cd42eee61d7" />
+        <option value="9219023f-08f1-459a-8c0d-9f3bf498260b" />
+        <option value="5b8a65b0-49d7-44ce-9722-68e45d873c61" />
+        <option value="bccc67e7-a96f-443b-b502-b45d9e09fb03" />
+      </list>
+    </option>
+    <option name="sessionPaths">
+      <map>
+        <entry key="c5fa0f83-81cc-44b5-b94f-70cf613601a4" value="/sessions/f9e3a694-d49f-4363-96e8-98abf4b5effd" />
+        <entry key="c86cb629-a11e-48f8-ba42-e1e69f381d68" value="/sessions/114b9766-28b4-47bf-b6db-7c2bdc4abf97" />
+      </map>
+    </option>
+    <option name="sessionTitles">
+      <map>
+        <entry key="c5fa0f83-81cc-44b5-b94f-70cf613601a4" value="https://claude.ai/share/7095c21b-ed57-4224-8183-1c" />
+        <entry key="c86cb629-a11e-48f8-ba42-e1e69f381d68" value="on this screen add a new button term as habit" />
+      </map>
+    </option>
+  </component>
+</project>
