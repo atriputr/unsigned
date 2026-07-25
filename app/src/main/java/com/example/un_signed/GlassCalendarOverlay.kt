@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -38,6 +39,7 @@ data class CalendarTask(
 fun GlassCalendarOverlay(
     allTasks: Map<LocalDate, List<CalendarTask>>,
     onUpdateTasks: (LocalDate, List<CalendarTask>) -> Unit,
+    fontFamily: FontFamily,
     initialDate: LocalDate = LocalDate.now(),
     onClose: () -> Unit
 ) {
@@ -96,19 +98,19 @@ fun GlassCalendarOverlay(
 
                 // Header: year nav + month nav
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("$displayYear", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text("$displayYear", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, fontFamily = fontFamily)
                     Spacer(Modifier.width(4.dp))
-                    CalNavArrow("<") { displayYear-- }
+                    CalNavArrow("<", fontFamily) { displayYear-- }
                     Spacer(Modifier.width(2.dp))
-                    CalNavArrow(">") { displayYear++ }
+                    CalNavArrow(">", fontFamily) { displayYear++ }
                     Spacer(Modifier.width(14.dp))
-                    Text(monthName, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text(monthName, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, fontFamily = fontFamily)
                     Spacer(Modifier.width(4.dp))
-                    CalNavArrow("<") {
+                    CalNavArrow("<", fontFamily) {
                         if (displayMonth == 1) { displayYear--; displayMonth = 12 } else displayMonth--
                     }
                     Spacer(Modifier.width(2.dp))
-                    CalNavArrow(">") {
+                    CalNavArrow(">", fontFamily) {
                         if (displayMonth == 12) { displayYear++; displayMonth = 1 } else displayMonth++
                     }
                 }
@@ -121,7 +123,7 @@ fun GlassCalendarOverlay(
                 Row(modifier = Modifier.fillMaxWidth()) {
                     listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").forEach { label ->
                         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                            Text(label, color = Color.White.copy(alpha = 0.55f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(label, color = Color.White.copy(alpha = 0.55f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, fontFamily = fontFamily)
                         }
                     }
                 }
@@ -167,7 +169,8 @@ fun GlassCalendarOverlay(
                                             else           -> Color.White.copy(alpha = 0.28f)
                                         },
                                         fontSize = 13.sp,
-                                        fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal
+                                        fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        fontFamily = fontFamily
                                     )
                                     if (hasTasks) {
                                         Spacer(Modifier.height(1.dp))
@@ -195,26 +198,29 @@ fun GlassCalendarOverlay(
                 Text(
                     selectedDate.month.getDisplayName(DateTextStyle.FULL, Locale.getDefault()),
                     color = Color.White.copy(alpha = 0.72f),
-                    fontSize = 15.sp
+                    fontSize = 15.sp,
+                    fontFamily = fontFamily
                 )
                 Text(
                     "${selectedDate.dayOfMonth}",
                     color = Color.White,
                     fontSize = 54.sp,
                     fontWeight = FontWeight.Thin,
-                    lineHeight = 58.sp
+                    lineHeight = 58.sp,
+                    fontFamily = fontFamily
                 )
                 Text(
                     selectedDate.dayOfWeek.getDisplayName(DateTextStyle.FULL, Locale.getDefault()),
                     color = Color.White.copy(alpha = 0.72f),
-                    fontSize = 15.sp
+                    fontSize = 15.sp,
+                    fontFamily = fontFamily
                 )
 
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = Color.White.copy(alpha = 0.22f))
                 Spacer(Modifier.height(10.dp))
 
-                Text("Tasks", color = Color.White.copy(alpha = 0.55f), fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
+                Text("Tasks", color = Color.White.copy(alpha = 0.55f), fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), fontFamily = fontFamily)
                 Spacer(Modifier.height(6.dp))
 
                 // Task list
@@ -242,10 +248,10 @@ fun GlassCalendarOverlay(
                                 .border(1.5.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(4.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (task.isDone) Text("✓", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            if (task.isDone) Text("✓", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold, fontFamily = fontFamily)
                         }
                         Spacer(Modifier.width(8.dp))
-                        Text(task.text, color = Color.White, fontSize = 13.sp)
+                        Text(task.text, color = Color.White, fontSize = 13.sp, fontFamily = fontFamily)
                     }
                 }
 
@@ -255,7 +261,7 @@ fun GlassCalendarOverlay(
                     BasicTextField(
                         value = newTaskText,
                         onValueChange = { newTaskText = it },
-                        textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
+                        textStyle = TextStyle(color = Color.White, fontSize = 13.sp, fontFamily = fontFamily),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = {
                             if (newTaskText.isNotBlank()) {
@@ -271,7 +277,7 @@ fun GlassCalendarOverlay(
                             .background(Color.White.copy(alpha = 0.14f))
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                         decorationBox = { inner ->
-                            if (newTaskText.isEmpty()) Text("Task name…", color = Color.White.copy(alpha = 0.38f), fontSize = 13.sp)
+                            if (newTaskText.isEmpty()) Text("Task name…", color = Color.White.copy(alpha = 0.38f), fontSize = 13.sp, fontFamily = fontFamily)
                             inner()
                         }
                     )
@@ -281,6 +287,7 @@ fun GlassCalendarOverlay(
                             "Cancel",
                             color = Color.White.copy(alpha = 0.45f),
                             fontSize = 12.sp,
+                            fontFamily = fontFamily,
                             modifier = Modifier.clickable { addingTask = false; newTaskText = "" }.padding(4.dp)
                         )
                         Spacer(Modifier.width(10.dp))
@@ -289,6 +296,7 @@ fun GlassCalendarOverlay(
                             color = Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
+                            fontFamily = fontFamily,
                             modifier = Modifier.clickable {
                                 if (newTaskText.isNotBlank()) {
                                     onUpdateTasks(selectedDate, selectedTasks + CalendarTask(text = newTaskText.trim()))
@@ -309,7 +317,7 @@ fun GlassCalendarOverlay(
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("+ Add Task", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+                        Text("+ Add Task", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, fontFamily = fontFamily)
                     }
                 }
             }
@@ -318,7 +326,7 @@ fun GlassCalendarOverlay(
 }
 
 @Composable
-private fun CalNavArrow(symbol: String, onClick: () -> Unit) {
+private fun CalNavArrow(symbol: String, fontFamily: FontFamily, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(24.dp)
@@ -328,6 +336,6 @@ private fun CalNavArrow(symbol: String, onClick: () -> Unit) {
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(symbol, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(symbol, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, fontFamily = fontFamily)
     }
 }

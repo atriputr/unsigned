@@ -19,6 +19,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -149,36 +150,39 @@ fun StopwatchOverlay(
                 minInt       = minInt,
                 isRunning    = isRunning,
                 showGoldenStar = showStar,
-                onPlayPause  = { isRunning = !isRunning; if (isRunning) pendingReset = false }
+                onPlayPause  = { isRunning = !isRunning; if (isRunning) pendingReset = false },
+                fontFamily   = fontFamily
             )
 
             Spacer(Modifier.height(18.dp))
 
             // ── LAP | RESET | SKIP ────────────────────────────
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SwBtn("LAP",   Color(0xFF23232F), Modifier.weight(1f)) {
+                SwBtn("LAP",   Color(0xFF23232F), Modifier.weight(1f), onClick = {
                     if (elapsedMs > 0L) {
                         val snap  = snapMs()
                         laps      = laps + LapEntry(laps.size + 1, snap - lastLapMs, snap)
                         lastLapMs = snap
                     }
-                }
+                }, fontFamily = fontFamily)
                 SwBtn(
                     "RESET",
                     if (pendingReset) Color(0xFF6B1010) else Color(0xFF2A1212),
-                    Modifier.weight(1f)
-                ) {
-                    if (!pendingReset) {
-                        // 1st press: stop + reset ring to 0, keep laps + total display
-                        isRunning = false; elapsedMs = 0L
-                        startedAt[0] = 0L; baseElapsed[0] = 0L
-                        lastLapMs = 0L; pendingReset = true
-                    } else {
-                        // 2nd press: wipe all lap data
-                        laps = emptyList(); pendingReset = false
-                    }
-                }
-                SwBtn("SKIP",  Color(0xFF122A12), Modifier.weight(1f), onClick = onSkip)
+                    Modifier.weight(1f),
+                    onClick = {
+                        if (!pendingReset) {
+                            // 1st press: stop + reset ring to 0, keep laps + total display
+                            isRunning = false; elapsedMs = 0L
+                            startedAt[0] = 0L; baseElapsed[0] = 0L
+                            lastLapMs = 0L; pendingReset = true
+                        } else {
+                            // 2nd press: wipe all lap data
+                            laps = emptyList(); pendingReset = false
+                        }
+                    },
+                    fontFamily = fontFamily
+                )
+                SwBtn("SKIP",  Color(0xFF122A12), Modifier.weight(1f), onClick = onSkip, fontFamily = fontFamily)
             }
 
             // ── Laps (last 4, newest first) ───────────────────
@@ -195,7 +199,7 @@ fun StopwatchOverlay(
                                 "Lap ${lap.number}",
                                 color = Color.White.copy(alpha = 0.5f),
                                 fontSize = 13.sp,
-                                fontFamily = FontFamily.Default
+                                fontFamily = fontFamily
                             )
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
@@ -203,13 +207,13 @@ fun StopwatchOverlay(
                                     color = OrangeFire,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    fontFamily = FontFamily.Default
+                                    fontFamily = fontFamily
                                 )
                                 Text(
                                     fmt(lap.absoluteMs),
                                     color = Color.White.copy(alpha = 0.32f),
                                     fontSize = 11.sp,
-                                    fontFamily = FontFamily.Default
+                                    fontFamily = fontFamily
                                 )
                             }
                         }
@@ -227,7 +231,8 @@ private fun StopwatchFace(
     minInt: Int,
     isRunning: Boolean,
     showGoldenStar: Boolean,
-    onPlayPause: () -> Unit
+    onPlayPause: () -> Unit,
+    fontFamily: FontFamily = BebasFont
 ) {
     val dialDp  = 200.dp
     val density = LocalDensity.current
@@ -336,6 +341,7 @@ private fun StopwatchFace(
                 color = Color(0xFFD4956A),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
+                fontFamily = fontFamily,
                 textAlign = TextAlign.Center
             )
         }
@@ -352,6 +358,7 @@ private fun StopwatchFace(
                 color = Color(0xFF111111),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
+                fontFamily = fontFamily,
                 textAlign = TextAlign.Center
             )
         }
@@ -400,14 +407,14 @@ private fun StopwatchFace(
                 modifier = Modifier.align(Alignment.Center),
                 contentAlignment = Alignment.Center
             ) {
-                Text("✳", color = Color(0xFFFFD700), fontSize = 22.sp, fontWeight = FontWeight.Light)
+                Text("✳", color = Color(0xFFFFD700), fontSize = 22.sp, fontWeight = FontWeight.Light, fontFamily = fontFamily)
             }
         }
     }
 }
 
 @Composable
-private fun SwBtn(label: String, bg: Color, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun SwBtn(label: String, bg: Color, modifier: Modifier = Modifier, onClick: () -> Unit, fontFamily: FontFamily = BebasFont) {
     Box(
         modifier = modifier
             .height(40.dp)
@@ -417,6 +424,6 @@ private fun SwBtn(label: String, bg: Color, modifier: Modifier = Modifier, onCli
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text(label, color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, fontFamily = fontFamily)
     }
 }

@@ -29,6 +29,9 @@ class ProfileSelectionActivity : AppCompatActivity() {
     
     // State for Calendar Tasks
     private val allCalendarTasks = mutableStateMapOf<LocalDate, List<CalendarTask>>()
+    
+    // State for Habits
+    private val savedHabits = mutableStateListOf<Habit>()
 
     private val updateTimeRunnable = object : Runnable {
         override fun run() {
@@ -50,41 +53,39 @@ class ProfileSelectionActivity : AppCompatActivity() {
         cvUpcomingEvents = findViewById(R.id.cvUpcomingEvents)
         composeOverlay = findViewById(R.id.composeOverlay)
 
-        val nokiaFont = FontFamily(Font(R.font.nokia_kokia))
-        val jerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
 
         tvClock.setContent {
             NixieClock(
-                fontFamily = jerseyFont,
+                fontFamily = bebasFont,
                 onClick = {},
-                onTimerTap      = { advanceMode -> showTimerOverlay(jerseyFont, advanceMode) },
-                onStopwatchTap  = { advanceMode -> showStopwatchOverlay(jerseyFont, advanceMode) }
+                onTimerTap      = { advanceMode -> showTimerOverlay(bebasFont, advanceMode) },
+                onStopwatchTap  = { advanceMode -> showStopwatchOverlay(bebasFont, advanceMode) }
             )
         }
 
         cvUpcomingEvents.setContent {
             UpcomingEventsList(
                 allTasks = allCalendarTasks,
-                fontFamily = jerseyFont,
-                onEventClick = { date -> showCalendarOverlay(date) }
+                fontFamily = bebasFont,
+                onEventClick = { date -> showCalendarOverlay(date, bebasFont) }
             )
         }
 
         findViewById<View>(R.id.btnIdealProfile).setOnClickListener {
-            showGlassOverlay(nokiaFont, jerseyFont)
+            showGlassOverlay(bebasFont, bebasFont)
         }
 
         findViewById<View>(R.id.btnCustomProfile).setOnClickListener {
-            showCustomProfileOverlay(nokiaFont, bebasFont)
+            showCustomProfileOverlay(bebasFont, bebasFont)
         }
 
         findViewById<View>(R.id.btnExportProgress).setOnClickListener {
-            showExportOverlay(nokiaFont, jerseyFont)
+            showExportOverlay(bebasFont, bebasFont)
         }
 
         val onYearProgressClick = View.OnClickListener {
-            showCalendarOverlay()
+            showCalendarOverlay(fontFamily = bebasFont)
         }
         pbYearProgress.setOnClickListener(onYearProgressClick)
         tvYearPercent.setOnClickListener(onYearProgressClick)
@@ -120,7 +121,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         }
     }
 
-    private fun showCalendarOverlay(initialDate: LocalDate = LocalDate.now()) {
+    private fun showCalendarOverlay(initialDate: LocalDate = LocalDate.now(), fontFamily: FontFamily) {
         composeOverlay.visibility = View.VISIBLE
         composeOverlay.setContent {
             GlassCalendarOverlay(
@@ -129,6 +130,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                     if (tasks.isEmpty()) allCalendarTasks.remove(date)
                     else allCalendarTasks[date] = tasks
                 },
+                fontFamily = fontFamily,
                 initialDate = initialDate,
                 onClose = { composeOverlay.visibility = View.GONE }
             )
@@ -141,8 +143,123 @@ class ProfileSelectionActivity : AppCompatActivity() {
             GlassDialogContent(
                 titleFont = titleFont,
                 buttonFont = buttonFont,
+                onEducationClick = {
+                    showEducationOverlay(titleFont, buttonFont)
+                },
+                onHealthClick = {
+                    showHealthOverlay(titleFont, buttonFont)
+                },
+                onSkillClick = {
+                    showSkillOverlay(titleFont, buttonFont)
+                },
+                onPeaceClick = {
+                    showPeaceOverlay(titleFont, buttonFont)
+                },
                 onClose = {
                     composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showEducationOverlay(titleFont: FontFamily, buttonFont: FontFamily) {
+        composeOverlay.setContent {
+            EducationOptionsOverlay(
+                titleFont = titleFont,
+                buttonFont = buttonFont,
+                onBack = {
+                    showGlassOverlay(titleFont, buttonFont)
+                },
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showHealthOverlay(titleFont: FontFamily, buttonFont: FontFamily) {
+        composeOverlay.setContent {
+            HealthOptionsOverlay(
+                titleFont = titleFont,
+                buttonFont = buttonFont,
+                onMedsClick = {
+                    showMedsOverlay(titleFont, buttonFont)
+                },
+                onBack = {
+                    showGlassOverlay(titleFont, buttonFont)
+                },
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showMedsOverlay(titleFont: FontFamily, buttonFont: FontFamily) {
+        composeOverlay.setContent {
+            MedsOptionsOverlay(
+                titleFont = titleFont,
+                buttonFont = buttonFont,
+                onBack = {
+                    showHealthOverlay(titleFont, buttonFont)
+                },
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showSkillOverlay(titleFont: FontFamily, buttonFont: FontFamily) {
+        composeOverlay.setContent {
+            SkillOptionsOverlay(
+                titleFont = titleFont,
+                buttonFont = buttonFont,
+                onBack = {
+                    showGlassOverlay(titleFont, buttonFont)
+                },
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showPeaceOverlay(titleFont: FontFamily, buttonFont: FontFamily) {
+        composeOverlay.setContent {
+            PeaceOptionsOverlay(
+                titleFont = titleFont,
+                buttonFont = buttonFont,
+                onHabitsClick = {
+                    showHabitOverlay(titleFont, buttonFont)
+                },
+                onBack = {
+                    showGlassOverlay(titleFont, buttonFont)
+                },
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showHabitOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        composeOverlay.setContent {
+            HabitOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                savedHabits = savedHabits,
+                onSave = { name ->
+                    savedHabits.add(Habit(name = name))
+                },
+                onUpdateCount = { index, newCount ->
+                    if (index in savedHabits.indices) {
+                        val current = savedHabits[index]
+                        savedHabits[index] = current.copy(count = newCount.coerceAtLeast(0))
+                    }
+                },
+                onClose = {
+                    showPeaceOverlay(titleFont, contentFont)
                 }
             )
         }

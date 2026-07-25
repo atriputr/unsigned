@@ -28,7 +28,7 @@
         android:backgroundTint="#878b7c"
         android:text="@string/select_profile_title"
         android:textColor="@color/black"
-        android:fontFamily="@font/nokia_kokia"
+        android:fontFamily="@font/bebas_neue"
         android:textSize="20sp"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"

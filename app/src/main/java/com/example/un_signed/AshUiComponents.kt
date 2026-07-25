@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +54,8 @@ val BronzeTextStart = Color(0xFFB07D4F)
 val BronzeTextEnd = Color(0xFFC8935F)
 val ChevronStart = Color(0xFFF68F2D)
 val OrangeFire = Color(0xFFFF8A00)
+
+val BebasFont = FontFamily(Font(R.font.bebas_neue))
 
 @Composable
 fun AshButton(
@@ -272,7 +275,7 @@ fun NixieClock(
                                 sub,
                                 color = Color.White.copy(alpha = 0.38f),
                                 fontSize = 11.sp,
-                                fontFamily = FontFamily.Default
+                                fontFamily = fontFamily
                             )
                         }
                         if (isCurrent) {
@@ -337,9 +340,9 @@ fun NixieClock(
                     }
                 }
             }
-            2 -> NixieActionLabel("BEGIN A TIMER")
-            3 -> NixieActionLabel("BEGIN STOPWATCH")
-            4 -> NixieActionLabel("SET AN ALARM")
+            2 -> NixieActionLabel("BEGIN A TIMER", fontFamily)
+            3 -> NixieActionLabel("BEGIN STOPWATCH", fontFamily)
+            4 -> NixieActionLabel("SET AN ALARM", fontFamily)
             5 -> {
                 val dayName  = time.format(DateTimeFormatter.ofPattern("EEE")).uppercase()
                 val dayNum   = time.format(DateTimeFormatter.ofPattern("dd"))
@@ -361,7 +364,7 @@ fun NixieClock(
 }
 
 @Composable
-fun NixieActionLabel(text: String) {
+fun NixieActionLabel(text: String, fontFamily: FontFamily = BebasFont) {
     Box(
         modifier = Modifier
             .wrapContentWidth()
@@ -377,7 +380,7 @@ fun NixieActionLabel(text: String) {
             color = SciFiRed.copy(alpha = 0.4f),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Default,
+            fontFamily = fontFamily,
             letterSpacing = 1.sp,
             style = TextStyle(shadow = Shadow(color = SciFiRed, blurRadius = 24f))
         )
@@ -386,7 +389,7 @@ fun NixieActionLabel(text: String) {
             color = Color(0xFFFF5555),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Default,
+            fontFamily = fontFamily,
             letterSpacing = 1.sp
         )
     }
@@ -755,6 +758,7 @@ fun SkillOptionsOverlay(
 fun PeaceOptionsOverlay(
     titleFont: FontFamily,
     buttonFont: FontFamily,
+    onHabitsClick: () -> Unit,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -789,6 +793,8 @@ fun PeaceOptionsOverlay(
             GlassButton("3. WALKING", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
             GlassButton("4. SLEEP", buttonFont)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("5. HABITS", buttonFont, onClick = onHabitsClick)
 
             Spacer(modifier = Modifier.height(24.dp))
             Text(
