@@ -113,7 +113,8 @@ fun TimerPickerOverlay(
                 color = Color.White.copy(alpha = 0.4f),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 4.sp
+                letterSpacing = 4.sp,
+                fontFamily = BebasFont
             )
 
             Spacer(Modifier.height(10.dp))
@@ -198,7 +199,7 @@ fun TimerPickerOverlay(
                         .clickable { onSkip() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Skip", color = Color.White.copy(alpha = 0.55f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text("Skip", color = Color.White.copy(alpha = 0.55f), fontSize = 15.sp, fontWeight = FontWeight.Medium, fontFamily = BebasFont)
                 }
 
             } else {
@@ -233,7 +234,8 @@ fun TimerPickerOverlay(
                         Text(
                             if (isRunning) "PAUSE" else "RESUME",
                             color = if (done) Color.White.copy(alpha = 0.3f) else Color.Black,
-                            fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp
+                            fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp,
+                            fontFamily = BebasFont
                         )
                     }
                     // RESTART — resets to full duration and starts
@@ -251,7 +253,7 @@ fun TimerPickerOverlay(
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("RESTART", color = Color(0xFFFF1C1C), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                        Text("RESTART", color = Color(0xFFFF1C1C), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp, fontFamily = BebasFont)
                     }
                     // STOP — back to picker
                     Box(
@@ -267,7 +269,7 @@ fun TimerPickerOverlay(
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("STOP", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                        Text("STOP", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp, fontFamily = BebasFont)
                     }
                 }
 
@@ -283,7 +285,7 @@ fun TimerPickerOverlay(
                         .clickable { onSkip() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Skip", color = Color.White.copy(alpha = 0.35f), fontSize = 13.sp)
+                    Text("Skip", color = Color.White.copy(alpha = 0.35f), fontSize = 13.sp, fontFamily = BebasFont)
                 }
             }
         }

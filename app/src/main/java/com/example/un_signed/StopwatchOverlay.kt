@@ -19,7 +19,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -105,7 +104,8 @@ fun StopwatchOverlay(
                 color = Color.White.copy(alpha = 0.38f),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 4.sp
+                letterSpacing = 4.sp,
+                fontFamily = BebasFont
             )
 
             Spacer(Modifier.height(10.dp))
@@ -164,7 +164,7 @@ fun StopwatchOverlay(
                         laps      = laps + LapEntry(laps.size + 1, snap - lastLapMs, snap)
                         lastLapMs = snap
                     }
-                }, fontFamily = fontFamily)
+                }, fontFamily = BebasFont)
                 SwBtn(
                     "RESET",
                     if (pendingReset) Color(0xFF6B1010) else Color(0xFF2A1212),
@@ -180,9 +180,9 @@ fun StopwatchOverlay(
                             laps = emptyList(); pendingReset = false
                         }
                     },
-                    fontFamily = fontFamily
+                    fontFamily = BebasFont
                 )
-                SwBtn("SKIP",  Color(0xFF122A12), Modifier.weight(1f), onClick = onSkip, fontFamily = fontFamily)
+                SwBtn("SKIP",  Color(0xFF122A12), Modifier.weight(1f), onClick = onSkip, fontFamily = BebasFont)
             }
 
             // ── Laps (last 4, newest first) ───────────────────
@@ -232,7 +232,7 @@ private fun StopwatchFace(
     isRunning: Boolean,
     showGoldenStar: Boolean,
     onPlayPause: () -> Unit,
-    fontFamily: FontFamily = BebasFont
+    fontFamily: FontFamily
 ) {
     val dialDp  = 200.dp
     val density = LocalDensity.current
@@ -341,8 +341,8 @@ private fun StopwatchFace(
                 color = Color(0xFFD4956A),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = fontFamily,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                fontFamily = fontFamily
             )
         }
 
@@ -358,8 +358,8 @@ private fun StopwatchFace(
                 color = Color(0xFF111111),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = fontFamily,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                fontFamily = fontFamily
             )
         }
 
@@ -414,7 +414,7 @@ private fun StopwatchFace(
 }
 
 @Composable
-private fun SwBtn(label: String, bg: Color, modifier: Modifier = Modifier, onClick: () -> Unit, fontFamily: FontFamily = BebasFont) {
+private fun SwBtn(label: String, bg: Color, modifier: Modifier = Modifier, onClick: () -> Unit, fontFamily: FontFamily) {
     Box(
         modifier = modifier
             .height(40.dp)

@@ -56,6 +56,7 @@ val ChevronStart = Color(0xFFF68F2D)
 val OrangeFire = Color(0xFFFF8A00)
 
 val BebasFont = FontFamily(Font(R.font.bebas_neue))
+val JerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
 
 @Composable
 fun AshButton(
@@ -149,7 +150,7 @@ fun AshButton(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp,
-                style = TextStyle(brush = Brush.linearGradient(listOf(BronzeTextStart, BronzeTextEnd)))
+                style = TextStyle(brush = Brush.linearGradient(listOf(BronzeTextStart, BronzeTextEnd)), fontFamily = BebasFont)
             )
 
             Spacer(modifier = Modifier.weight(1f))
@@ -183,17 +184,17 @@ fun NixieClock(
             onDismissRequest = { showAlarmDialog = false },
             containerColor = Color(0xFF1C1C1C),
             title = {
-                Text("Open Alarm Clock", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text("Open Alarm Clock", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, fontFamily = BebasFont)
             },
             text = {
-                Text("Take you to the phone's alarm clock?", color = Color.White.copy(alpha = 0.75f), fontSize = 14.sp)
+                Text("Take you to the phone's alarm clock?", color = Color.White.copy(alpha = 0.75f), fontSize = 14.sp, fontFamily = BebasFont)
             },
             confirmButton = {
                 TextButton(onClick = {
                     showAlarmDialog = false
                     try { context.startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS)) } catch (_: Exception) {}
                 }) {
-                    Text("YES", color = OrangeFire, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text("YES", color = OrangeFire, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, fontFamily = BebasFont)
                 }
             },
             dismissButton = {
@@ -201,7 +202,7 @@ fun NixieClock(
                     showAlarmDialog = false
                     mode = (mode + 1) % 6   // SKIP → advance to next mode
                 }) {
-                    Text("SKIP", color = Color.White.copy(alpha = 0.5f), letterSpacing = 1.sp)
+                    Text("SKIP", color = Color.White.copy(alpha = 0.5f), letterSpacing = 1.sp, fontFamily = BebasFont)
                 }
             }
         )
@@ -227,7 +228,8 @@ fun NixieClock(
                     color = Color.White.copy(alpha = 0.38f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 4.sp
+                    letterSpacing = 4.sp,
+                    fontFamily = BebasFont
                 )
                 Spacer(Modifier.height(14.dp))
 
@@ -269,13 +271,14 @@ fun NixieClock(
                                 color = if (isCurrent) OrangeFire else Color.White,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
+                                letterSpacing = 1.sp,
+                                fontFamily = BebasFont
                             )
                             Text(
                                 sub,
                                 color = Color.White.copy(alpha = 0.38f),
                                 fontSize = 11.sp,
-                                fontFamily = fontFamily
+                                fontFamily = BebasFont
                             )
                         }
                         if (isCurrent) {
@@ -340,9 +343,9 @@ fun NixieClock(
                     }
                 }
             }
-            2 -> NixieActionLabel("BEGIN A TIMER", fontFamily)
-            3 -> NixieActionLabel("BEGIN STOPWATCH", fontFamily)
-            4 -> NixieActionLabel("SET AN ALARM", fontFamily)
+            2 -> NixieActionLabel("BEGIN A TIMER")
+            3 -> NixieActionLabel("BEGIN STOPWATCH")
+            4 -> NixieActionLabel("SET AN ALARM")
             5 -> {
                 val dayName  = time.format(DateTimeFormatter.ofPattern("EEE")).uppercase()
                 val dayNum   = time.format(DateTimeFormatter.ofPattern("dd"))
@@ -502,6 +505,10 @@ fun GlassDialogContent(
 fun EducationOptionsOverlay(
     titleFont: FontFamily,
     buttonFont: FontFamily,
+    onLectureClick: () -> Unit = {},
+    onSubjectClick: () -> Unit = {},
+    onCourseClick: () -> Unit = {},
+    onPracticeClick: () -> Unit = {},
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -529,13 +536,13 @@ fun EducationOptionsOverlay(
                 modifier = Modifier.padding(bottom = 32.dp),
                 style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
             )
-            GlassButton("1. LECTURE", buttonFont)
+            GlassButton("LECTURE", buttonFont, onClick = onLectureClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("2. SUBJECT", buttonFont)
+            GlassButton("SUBJECT", buttonFont, onClick = onSubjectClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("3. COURSE", buttonFont)
+            GlassButton("COURSE", buttonFont, onClick = onCourseClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("4. PRACTICE", buttonFont)
+            GlassButton("PRACTICE", buttonFont, onClick = onPracticeClick)
 
             Spacer(modifier = Modifier.height(24.dp))
             Text(
@@ -581,9 +588,9 @@ fun HealthOptionsOverlay(
                 modifier = Modifier.padding(bottom = 32.dp),
                 style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
             )
-            GlassButton("1. WATER", buttonFont)
+            GlassButton("WATER", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("2. EXERCISE", buttonFont)
+            GlassButton("EXERCISE", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
 
             var junkCount by remember { mutableStateOf(0) }
@@ -608,7 +615,7 @@ fun HealthOptionsOverlay(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("3. JUNK COUNT", color = Color.White, fontSize = 22.sp, fontFamily = buttonFont, letterSpacing = 1.sp)
+                    Text("JUNK COUNT", color = Color.White, fontSize = 22.sp, fontFamily = buttonFont, letterSpacing = 1.sp)
                     Text(
                         "$junkCount",
                         color = OrangeFire,
@@ -642,7 +649,7 @@ fun HealthOptionsOverlay(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("4. MEDS", buttonFont, onClick = onMedsClick)
+            GlassButton("MEDS", buttonFont, onClick = onMedsClick)
 
             Spacer(modifier = Modifier.height(24.dp))
             Text(
@@ -687,11 +694,11 @@ fun MedsOptionsOverlay(
                 modifier = Modifier.padding(bottom = 32.dp),
                 style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
             )
-            GlassButton("1. SUPPLIMENTS", buttonFont)
+            GlassButton("SUPPLIMENTS", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("2. SEVERE", buttonFont)
+            GlassButton("SEVERE", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("3. DIET", buttonFont)
+            GlassButton("DIET", buttonFont)
 
             Spacer(modifier = Modifier.height(24.dp))
             Text(
@@ -736,11 +743,11 @@ fun SkillOptionsOverlay(
                 modifier = Modifier.padding(bottom = 32.dp),
                 style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
             )
-            GlassButton("1. HOBBY", buttonFont)
+            GlassButton("HOBBY", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("2. MINOR SKILL TO GROW", buttonFont)
+            GlassButton("MINOR SKILL TO GROW", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("3. MAJOR SKILL FOR LIFE", buttonFont)
+            GlassButton("MAJOR SKILL FOR LIFE", buttonFont)
 
             Spacer(modifier = Modifier.height(24.dp))
             Text(
@@ -786,15 +793,15 @@ fun PeaceOptionsOverlay(
                 modifier = Modifier.padding(bottom = 32.dp),
                 style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
             )
-            GlassButton("1. CYCLING", buttonFont)
+            GlassButton("CYCLING", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("2. YOGA", buttonFont)
+            GlassButton("YOGA", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("3. WALKING", buttonFont)
+            GlassButton("WALKING", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("4. SLEEP", buttonFont)
+            GlassButton("SLEEP", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("5. HABITS", buttonFont, onClick = onHabitsClick)
+            GlassButton("HABITS", buttonFont, onClick = onHabitsClick)
 
             Spacer(modifier = Modifier.height(24.dp))
             Text(
@@ -835,56 +842,116 @@ fun GlassButton(text: String, fontFamily: FontFamily, onClick: () -> Unit = {}) 
 fun UpcomingEventsList(
     allTasks: Map<LocalDate, List<CalendarTask>>,
     fontFamily: FontFamily,
-    onEventClick: (LocalDate) -> Unit
+    onEventClick: (LocalDate) -> Unit,
+    activeLectureName: String? = null,
+    activeLectureProgress: Float = 0f,
+    onLectureClick: () -> Unit = {}
 ) {
     val today = LocalDate.now()
     val upcomingTasks = allTasks.filterKeys { !it.isBefore(today) }
         .flatMap { (date, tasks) -> tasks.map { date to it } }
         .sortedBy { it.first }
 
-    if (upcomingTasks.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            Text(
-                text = "no events on record",
-                color = Color.White.copy(alpha = 0.4f),
-                fontSize = 18.sp,
-                fontFamily = fontFamily,
-                fontStyle = FontStyle.Italic,
-                modifier = Modifier.padding(top = 20.dp)
-            )
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(upcomingTasks) { (date, task) ->
-                Row(
+    Column(modifier = Modifier.fillMaxSize()) {
+
+        // ── Lecture banner (hidden when complete) ─────────────────────
+        if (activeLectureName != null && activeLectureProgress < 1f) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onLectureClick() }
+                    .padding(start = 8.dp, end = 8.dp, top = 14.dp, bottom = 10.dp)
+            ) {
+                Text(
+                    text = "YOU HAVE A LECTURE  ›",
+                    color = Color(0xFFEBC174),
+                    fontSize = 15.sp,
+                    fontFamily = fontFamily,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                // RED → YELLOW → GREEN spectrum thin bar
+                Canvas(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.White.copy(alpha = 0.05f))
-                        .clickable { onEventClick(date) }
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .height(5.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = task.text,
-                            color = Color.White.copy(alpha = 0.9f),
-                            fontSize = 16.sp,
-                            fontFamily = fontFamily
-                        )
-                        Text(
-                            text = date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")),
-                            color = Color(0xFFEBC174).copy(alpha = 0.7f),
-                            fontSize = 12.sp,
-                            fontFamily = fontFamily
+                    val w = size.width
+                    val h = size.height
+                    val r = androidx.compose.ui.geometry.CornerRadius(h / 2)
+                    drawRoundRect(
+                        color = Color.White.copy(alpha = 0.12f),
+                        size = size,
+                        cornerRadius = r
+                    )
+                    val fillW = (w * activeLectureProgress).coerceAtLeast(if (activeLectureProgress > 0f) 1f else 0f)
+                    if (fillW > 0f) {
+                        drawRoundRect(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color(0xFFFF2200),
+                                    Color(0xFFFFCC00),
+                                    Color(0xFF00E676)
+                                ),
+                                startX = 0f,
+                                endX = w
+                            ),
+                            size = androidx.compose.ui.geometry.Size(fillW, h),
+                            cornerRadius = r
                         )
                     }
-                    if (task.isDone) {
-                        Text("✓", color = Color(0xFF09e8ad), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        // ── Events list or empty placeholder ─────────────────────────
+        if (upcomingTasks.isEmpty() && (activeLectureName == null || activeLectureProgress >= 1f)) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                Text(
+                    text = "no events on record",
+                    color = Color.White.copy(alpha = 0.4f),
+                    fontSize = 18.sp,
+                    fontFamily = fontFamily,
+                    fontStyle = FontStyle.Italic,
+                    modifier = Modifier.padding(top = 20.dp)
+                )
+            }
+        } else if (upcomingTasks.isNotEmpty()) {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(upcomingTasks) { (date, task) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White.copy(alpha = 0.05f))
+                            .clickable { onEventClick(date) }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = task.text,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 16.sp,
+                                fontFamily = fontFamily
+                            )
+                            Text(
+                                text = date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")),
+                                color = Color(0xFFEBC174).copy(alpha = 0.7f),
+                                fontSize = 12.sp,
+                                fontFamily = fontFamily
+                            )
+                        }
+                        if (task.isDone) {
+                            Text("✓", color = Color(0xFF09e8ad), fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

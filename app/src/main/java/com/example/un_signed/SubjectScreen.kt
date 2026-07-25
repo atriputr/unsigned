@@ -1,0 +1,627 @@
+package com.example.un_signed
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import java.util.*
+
+data class Chapter(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val isCompleted: Boolean = false
+)
+
+data class Subject(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val chapters: List<Chapter> = emptyList()
+)
+
+@Composable
+fun SubjectScreen(
+    titleFont: FontFamily,
+    contentFont: FontFamily,
+    savedSubjects: MutableList<Subject>,
+    onBack: () -> Unit,
+    onClose: () -> Unit
+) {
+    var showEntryOverlay by remember { mutableStateOf(false) }
+    var selectedSubjectForDetail by remember { mutableStateOf<Subject?>(null) }
+    var showPastPage by remember { mutableStateOf(false) }
+
+    val activeSubjects = savedSubjects.filter { subj ->
+        subj.chapters.any { !it.isCompleted } || subj.chapters.isEmpty()
+    }
+    val completedSubjects = savedSubjects.filter { subj ->
+        subj.chapters.isNotEmpty() && subj.chapters.all { it.isCompleted }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.85f))
+    ) {
+        if (!showPastPage) {
+            // MAIN SUBJECT SCREEN
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "SUBJECT MANAGEMENT",
+                    color = Color.White,
+                    fontSize = 26.sp,
+                    fontFamily = titleFont,
+                    fontStyle = FontStyle.Italic,
+                    style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f)),
+                    modifier = Modifier.padding(bottom = 32.dp)
+                )
+
+                // ENTER SUB Button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
+                        .border(width = 1.dp, color = Color.White.copy(alpha = 0.25f), shape = RoundedCornerShape(14.dp))
+                        .clickable { showEntryOverlay = true },
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        text = "ENTER SUB",
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontFamily = titleFont,
+                        modifier = Modifier.padding(start = 24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // PAST Button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFE41417).copy(alpha = 0.8f))
+                        .border(width = 1.dp, color = Color.White.copy(alpha = 0.3f), shape = RoundedCornerShape(14.dp))
+                        .clickable { showPastPage = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "PAST",
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontFamily = titleFont,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "ACTIVE SAVED SUBJECTS",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 18.sp,
+                    fontFamily = titleFont,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Active Subjects List
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(activeSubjects) { subject ->
+                        SubjectListItem(subject, contentFont) {
+                            selectedSubjectForDetail = subject
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "BACK",
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 18.sp,
+                    fontFamily = titleFont,
+                    modifier = Modifier.clickable { onBack() }
+                )
+            }
+        } else {
+            // PAST SUBJECTS PAGE
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "PAST SUBJECTS",
+                    color = Color(0xFF09e8ad),
+                    fontSize = 26.sp,
+                    fontFamily = titleFont,
+                    fontStyle = FontStyle.Italic,
+                    style = TextStyle(shadow = Shadow(color = Color(0xFF09e8ad).copy(alpha = 0.5f), blurRadius = 8f)),
+                    modifier = Modifier.padding(bottom = 32.dp)
+                )
+
+                if (completedSubjects.isEmpty()) {
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text("NO COMPLETED SUBJECTS YET", color = Color.White.copy(alpha = 0.3f), fontFamily = contentFont)
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(completedSubjects) { subject ->
+                            SubjectListItem(subject, contentFont) {
+                                selectedSubjectForDetail = subject
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .clickable { showPastPage = false },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("BACK TO MANAGEMENT", color = Color.White, fontSize = 16.sp, fontFamily = titleFont)
+                }
+            }
+        }
+
+        // ENTRY OVERLAY
+        if (showEntryOverlay) {
+            SubjectEntryOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                onSaveAndExit = { name, chapters ->
+                    savedSubjects.add(Subject(name = name, chapters = chapters))
+                    showEntryOverlay = false
+                },
+                onClose = { showEntryOverlay = false }
+            )
+        }
+
+        // DETAIL OVERLAY (Checkbox checklist)
+        if (selectedSubjectForDetail != null) {
+            SubjectDetailOverlay(
+                subject = selectedSubjectForDetail!!,
+                titleFont = titleFont,
+                contentFont = contentFont,
+                onUpdateChapter = { chapterId, isChecked ->
+                    val subjectIdx = savedSubjects.indexOfFirst { it.id == selectedSubjectForDetail!!.id }
+                    if (subjectIdx != -1) {
+                        val currentSubject = savedSubjects[subjectIdx]
+                        val updatedChapters = currentSubject.chapters.map {
+                            if (it.id == chapterId) it.copy(isCompleted = isChecked) else it
+                        }
+                        savedSubjects[subjectIdx] = currentSubject.copy(chapters = updatedChapters)
+                        selectedSubjectForDetail = savedSubjects[subjectIdx]
+                    }
+                },
+                onClose = { selectedSubjectForDetail = null }
+            )
+        }
+    }
+}
+
+@Composable
+fun SubjectListItem(subject: Subject, font: FontFamily, onClick: () -> Unit) {
+    val completedCount = subject.chapters.count { it.isCompleted }
+    val total = subject.chapters.size
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.08f))
+            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = subject.name.uppercase(),
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontFamily = font,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "$completedCount / $total CHAPTERS DONE",
+                    color = Color(0xFFEBC174).copy(alpha = 0.8f),
+                    fontSize = 14.sp,
+                    fontFamily = font
+                )
+            }
+            Text(
+                text = ">",
+                color = Color.White.copy(alpha = 0.4f),
+                fontSize = 22.sp,
+                fontFamily = font
+            )
+        }
+    }
+}
+
+@Composable
+fun SubjectEntryOverlay(
+    titleFont: FontFamily,
+    contentFont: FontFamily,
+    onSaveAndExit: (String, List<Chapter>) -> Unit,
+    onClose: () -> Unit
+) {
+    var subjectName by remember { mutableStateOf("") }
+    val chapters = remember { mutableStateListOf<Chapter>() }
+    var isEnteringChapters by remember { mutableStateOf(false) }
+    var chapterIdx by remember { mutableStateOf(0) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.9f))
+            .clickable { onClose() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .width(340.dp)
+                .heightIn(max = 650.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Brush.verticalGradient(listOf(Color(0xFF1E1E2E), Color(0xFF0D0D1A))))
+                .border(1.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                .clickable(enabled = false) {}
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (!isEnteringChapters) {
+                Text(
+                    text = "NEW SUBJECT",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontFamily = titleFont,
+                    modifier = Modifier.padding(bottom = 20.dp)
+                )
+
+                // i. Enter subject name
+                Text("SUBJECT NAME", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, fontFamily = titleFont, modifier = Modifier.align(Alignment.Start))
+                BasicTextField(
+                    value = subjectName,
+                    onValueChange = { subjectName = it },
+                    textStyle = TextStyle(color = Color.White, fontSize = 18.sp, fontFamily = contentFont),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.White.copy(alpha = 0.07f))
+                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                        .padding(14.dp),
+                    decorationBox = { inner ->
+                        if (subjectName.isEmpty()) Text("Enter name...", color = Color.White.copy(alpha = 0.2f), fontSize = 18.sp, fontFamily = contentFont)
+                        inner()
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // ii. Enter chapters button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                        .clickable {
+                            if (chapters.isEmpty()) chapters.add(Chapter(name = ""))
+                            isEnteringChapters = true
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "ENTER CHAPTERS (${chapters.count { it.name.isNotBlank() }})",
+                        color = Color(0xFFEBC174),
+                        fontSize = 16.sp,
+                        fontFamily = titleFont
+                    )
+                }
+
+                // --- CHAPTERS LIST (Mid View) ---
+                val filledChapters = chapters.filter { it.name.isNotBlank() }
+                if (filledChapters.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(filledChapters.size) { idx ->
+                            val chapter = filledChapters[idx]
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White.copy(alpha = 0.05f))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = chapter.isCompleted,
+                                    onCheckedChange = { checked ->
+                                        // Update the original list
+                                        val originalIdx = chapters.indexOf(chapter)
+                                        if (originalIdx != -1) {
+                                            chapters[originalIdx] = chapter.copy(isCompleted = checked)
+                                        }
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color(0xFF09e8ad),
+                                        uncheckedColor = Color.White.copy(alpha = 0.3f),
+                                        checkmarkColor = Color.Black
+                                    ),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = chapter.name,
+                                    color = if (chapter.isCompleted) Color(0xFF09e8ad) else Color.White,
+                                    fontSize = 15.sp,
+                                    fontFamily = contentFont
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // iii. Save & Exit
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(55.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF09e8ad).copy(alpha = 0.8f))
+                        .clickable {
+                            if (subjectName.isNotBlank()) {
+                                onSaveAndExit(subjectName, chapters.filter { it.name.isNotBlank() }.toList())
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("SAVE & EXIT", color = Color.Black, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                }
+            } else {
+                // Chapter Entry Flow
+                Text(
+                    text = "CHAPTER ${chapterIdx + 1}",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontFamily = titleFont
+                )
+                Text(
+                    text = "${chapterIdx + 1} of ${chapters.size}",
+                    color = Color.White.copy(alpha = 0.4f),
+                    fontSize = 12.sp,
+                    fontFamily = contentFont
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                BasicTextField(
+                    value = chapters.getOrElse(chapterIdx) { Chapter(name = "") }.name,
+                    onValueChange = { v ->
+                        while (chapters.size <= chapterIdx) chapters.add(Chapter(name = ""))
+                        chapters[chapterIdx] = chapters[chapterIdx].copy(name = v)
+                    },
+                    textStyle = TextStyle(color = Color.White, fontSize = 18.sp, fontFamily = contentFont),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.White.copy(alpha = 0.07f))
+                        .border(1.dp, Color(0xFF09e8ad).copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                        .padding(14.dp),
+                    decorationBox = { inner ->
+                        if (chapters.getOrElse(chapterIdx) { Chapter(name = "") }.name.isEmpty()) {
+                            Text("Chapter name...", color = Color.White.copy(alpha = 0.2f), fontSize = 18.sp, fontFamily = contentFont)
+                        }
+                        inner()
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(30.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // PREVIOUS
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(45.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (chapterIdx > 0) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+                            .border(1.dp, Color.White.copy(alpha = if (chapterIdx > 0) 0.2f else 0.05f), RoundedCornerShape(10.dp))
+                            .clickable(enabled = chapterIdx > 0) { chapterIdx-- },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("← PREV", color = Color.White.copy(alpha = if (chapterIdx > 0) 1f else 0.2f), fontSize = 12.sp, fontFamily = titleFont)
+                    }
+
+                    // SAVE
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(45.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFEBC174).copy(alpha = 0.2f))
+                            .border(1.dp, Color(0xFFEBC174), RoundedCornerShape(10.dp))
+                            .clickable { isEnteringChapters = false },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("SAVE", color = Color(0xFFEBC174), fontSize = 14.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                    }
+
+                    // NEXT
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(45.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF09e8ad).copy(alpha = 0.15f))
+                            .border(1.dp, Color(0xFF09e8ad), RoundedCornerShape(10.dp))
+                            .clickable {
+                                if (chapterIdx == chapters.size - 1) chapters.add(Chapter(name = ""))
+                                chapterIdx++
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("NEXT →", color = Color(0xFF09e8ad), fontSize = 12.sp, fontFamily = titleFont)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SubjectDetailOverlay(
+    subject: Subject,
+    titleFont: FontFamily,
+    contentFont: FontFamily,
+    onUpdateChapter: (String, Boolean) -> Unit,
+    onClose: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.9f))
+            .clickable { onClose() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .width(350.dp)
+                .heightIn(max = 600.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Brush.verticalGradient(listOf(Color(0xFF1A1A2A), Color(0xFF0D0D14))))
+                .border(1.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                .clickable(enabled = false) {}
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = subject.name.uppercase(),
+                color = Color(0xFFEBC174),
+                fontSize = 24.sp,
+                fontFamily = titleFont,
+                style = TextStyle(shadow = Shadow(color = Color(0xFFEBC174).copy(alpha = 0.4f), blurRadius = 8f))
+            )
+            Text(
+                text = "CHAPTER PROGRESS",
+                color = Color.White.copy(alpha = 0.4f),
+                fontSize = 11.sp,
+                fontFamily = contentFont,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(subject.chapters) { chapter ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.White.copy(alpha = 0.05f))
+                            .clickable { onUpdateChapter(chapter.id, !chapter.isCompleted) }
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = chapter.isCompleted,
+                            onCheckedChange = { onUpdateChapter(chapter.id, it) },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF09e8ad),
+                                uncheckedColor = Color.White.copy(alpha = 0.3f),
+                                checkmarkColor = Color.Black
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = chapter.name,
+                            color = if (chapter.isCompleted) Color(0xFF09e8ad) else Color.White,
+                            fontSize = 16.sp,
+                            fontFamily = contentFont,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White.copy(alpha = 0.1f))
+                    .clickable { onClose() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("DONE", color = Color.White, fontSize = 16.sp, fontFamily = titleFont)
+            }
+        }
+    }
+}

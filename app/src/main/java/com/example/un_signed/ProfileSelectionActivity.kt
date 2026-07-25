@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -29,9 +30,20 @@ class ProfileSelectionActivity : AppCompatActivity() {
     
     // State for Calendar Tasks
     private val allCalendarTasks = mutableStateMapOf<LocalDate, List<CalendarTask>>()
+
+    // Active lecture state (drives the home-screen banner)
+    private val activeLectureName        = mutableStateOf<String?>(null)
+    private val activeLectureProgress    = mutableStateOf(0f)
+    private val activeLectureTopics      = mutableStateListOf<LectureTopic>()
+    private val activeLectureDurationMin = mutableStateOf(0)
     
     // State for Habits
     private val savedHabits = mutableStateListOf<Habit>()
+
+    // State for Subjects
+    private val savedSubjects = mutableStateListOf<Subject>()
+    private val savedCourses = mutableStateListOf<Subject>()
+    private val savedPractices = mutableStateListOf<Subject>()
 
     private val updateTimeRunnable = object : Runnable {
         override fun run() {
@@ -54,21 +66,31 @@ class ProfileSelectionActivity : AppCompatActivity() {
         composeOverlay = findViewById(R.id.composeOverlay)
 
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
+        val jerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
 
         tvClock.setContent {
             NixieClock(
-                fontFamily = bebasFont,
+                fontFamily = jerseyFont,
                 onClick = {},
-                onTimerTap      = { advanceMode -> showTimerOverlay(bebasFont, advanceMode) },
-                onStopwatchTap  = { advanceMode -> showStopwatchOverlay(bebasFont, advanceMode) }
+                onTimerTap      = { advanceMode -> showTimerOverlay(jerseyFont, advanceMode) },
+                onStopwatchTap  = { advanceMode -> showStopwatchOverlay(jerseyFont, advanceMode) }
             )
         }
 
         cvUpcomingEvents.setContent {
             UpcomingEventsList(
-                allTasks = allCalendarTasks,
-                fontFamily = bebasFont,
-                onEventClick = { date -> showCalendarOverlay(date, bebasFont) }
+                allTasks              = allCalendarTasks,
+                fontFamily            = bebasFont,
+                onEventClick          = { date -> showCalendarOverlay(date, bebasFont) },
+                activeLectureName     = activeLectureName.value,
+                activeLectureProgress = activeLectureProgress.value,
+                onLectureClick        = {
+                    composeOverlay.visibility = View.VISIBLE
+                    showLectureOverlay(
+                        bebasFont, bebasFont,
+                        onBack = { composeOverlay.visibility = View.GONE }
+                    )
+                }
             )
         }
 
@@ -167,10 +189,104 @@ class ProfileSelectionActivity : AppCompatActivity() {
             EducationOptionsOverlay(
                 titleFont = titleFont,
                 buttonFont = buttonFont,
+                onLectureClick = {
+                    showLectureOverlay(titleFont, buttonFont)
+                },
+                onSubjectClick = {
+                    showSubjectScreen(titleFont, buttonFont)
+                },
+                onCourseClick = {
+                    showCourseScreen(titleFont, buttonFont)
+                },
+                onPracticeClick = {
+                    showPracticeScreen(titleFont, buttonFont)
+                },
                 onBack = {
                     showGlassOverlay(titleFont, buttonFont)
                 },
                 onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showSubjectScreen(titleFont: FontFamily, buttonFont: FontFamily) {
+        composeOverlay.setContent {
+            SubjectScreen(
+                titleFont = titleFont,
+                contentFont = buttonFont,
+                savedSubjects = savedSubjects,
+                onBack = {
+                    showEducationOverlay(titleFont, buttonFont)
+                },
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showCourseScreen(titleFont: FontFamily, buttonFont: FontFamily) {
+        composeOverlay.setContent {
+            CourseScreen(
+                titleFont = titleFont,
+                contentFont = buttonFont,
+                savedCourses = savedCourses,
+                onBack = {
+                    showEducationOverlay(titleFont, buttonFont)
+                },
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showPracticeScreen(titleFont: FontFamily, buttonFont: FontFamily) {
+        composeOverlay.setContent {
+            PracticeScreen(
+                titleFont = titleFont,
+                contentFont = buttonFont,
+                savedPractices = savedPractices,
+                onBack = {
+                    showEducationOverlay(titleFont, buttonFont)
+                },
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
+    private fun showLectureOverlay(
+        titleFont: FontFamily,
+        buttonFont: FontFamily,
+        onBack: () -> Unit = { showEducationOverlay(titleFont, buttonFont) }
+    ) {
+        composeOverlay.setContent {
+            LectureScreen(
+                titleFont        = titleFont,
+                contentFont      = buttonFont,
+                initialName      = activeLectureName.value ?: "",
+                initialDurationMin = activeLectureDurationMin.value,
+                initialTopics    = activeLectureTopics.toList(),
+                onBack           = onBack,
+                onClose          = { composeOverlay.visibility = View.GONE },
+                onSaveAndBegin   = { name, totalMin, topics, progress ->
+                    if (progress >= 1f) {
+                        // All topics checked — dismiss the banner
+                        activeLectureName.value     = null
+                        activeLectureProgress.value = 0f
+                        activeLectureTopics.clear()
+                        activeLectureDurationMin.value = 0
+                    } else {
+                        activeLectureName.value     = name.ifBlank { "LECTURE" }
+                        activeLectureProgress.value = progress
+                        activeLectureTopics.clear()
+                        activeLectureTopics.addAll(topics)
+                        activeLectureDurationMin.value = totalMin
+                    }
                     composeOverlay.visibility = View.GONE
                 }
             )
