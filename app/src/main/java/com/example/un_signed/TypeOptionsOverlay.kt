@@ -59,17 +59,29 @@ fun TypeOptionsOverlay(
                     Text("SELECT TYPE", color = Color.White, fontSize = 22.sp, fontFamily = titleFont)
                     Spacer(modifier = Modifier.height(20.dp))
                     
-                    TypeMainItem("1. REMIND BY", "Remind by" in mainOptions, contentFont, 
+                    TypeMainItem(
+                        text = "REMIND BY", 
+                        checked = "Remind by" in mainOptions, 
+                        enabled = remindOptions.isNotEmpty(),
+                        font = contentFont, 
                         onToggle = { if (it) mainOptions.add("Remind by") else mainOptions.remove("Remind by") },
                         onArrowClick = { currentView = "REMIND" }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    TypeMainItem("2. ADD TIMER BAR", "Timer bar" in mainOptions, contentFont, 
+                    TypeMainItem(
+                        text = "ADD TIMER BAR", 
+                        checked = "Timer bar" in mainOptions, 
+                        enabled = timerOptions.isNotEmpty(),
+                        font = contentFont, 
                         onToggle = { if (it) mainOptions.add("Timer bar") else mainOptions.remove("Timer bar") },
                         onArrowClick = { currentView = "TIMER" }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    TypeMainItem("3. PRIORITY", "Priority" in mainOptions, contentFont, 
+                    TypeMainItem(
+                        text = "PRIORITY", 
+                        checked = "Priority" in mainOptions, 
+                        enabled = priorityOption.isNotEmpty(),
+                        font = contentFont, 
                         onToggle = { if (it) mainOptions.add("Priority") else mainOptions.remove("Priority") },
                         onArrowClick = { currentView = "PRIORITY" }
                     )
@@ -85,15 +97,56 @@ fun TypeOptionsOverlay(
                 }
 
                 "REMIND" -> {
-                    NestedOptionView("REMIND BY", listOf("5m", "10m", "30m", "45m", "1hr", "-1hr", "-3hr", "-5hr", "-12hr"), remindOptions, titleFont, contentFont, onBack = { currentView = "MAIN" })
+                    NestedOptionView(
+                        title = "REMIND BY", 
+                        options = listOf("5m", "10m", "30m", "45m", "1hr", "-1hr", "-3hr", "-5hr", "-12hr"), 
+                        selectedList = remindOptions, 
+                        titleFont = titleFont, 
+                        contentFont = contentFont, 
+                        onBack = { 
+                            if (remindOptions.isNotEmpty()) {
+                                if ("Remind by" !in mainOptions) mainOptions.add("Remind by")
+                            } else {
+                                mainOptions.remove("Remind by")
+                            }
+                            currentView = "MAIN" 
+                        }
+                    )
                 }
 
                 "TIMER" -> {
-                    NestedOptionView("TIMER BAR", listOf("on app", "on home", "on lock"), timerOptions, titleFont, contentFont, onBack = { currentView = "MAIN" })
+                    NestedOptionView(
+                        title = "TIMER BAR", 
+                        options = listOf("on app", "on home", "on lock"), 
+                        selectedList = timerOptions, 
+                        titleFont = titleFont, 
+                        contentFont = contentFont, 
+                        onBack = { 
+                            if (timerOptions.isNotEmpty()) {
+                                if ("Timer bar" !in mainOptions) mainOptions.add("Timer bar")
+                            } else {
+                                mainOptions.remove("Timer bar")
+                            }
+                            currentView = "MAIN" 
+                        }
+                    )
                 }
 
                 "PRIORITY" -> {
-                    PriorityOptionView(priorityOption, titleFont, contentFont, onSelect = { priorityOption = it }, onBack = { currentView = "MAIN" })
+                    PriorityOptionView(
+                        selected = priorityOption, 
+                        titleFont = titleFont, 
+                        contentFont = contentFont, 
+                        onSelect = { priorityOption = it }, 
+                        onBack = { 
+                            if (priorityOption.isNotEmpty()) {
+                                if ("Priority" !in mainOptions) mainOptions.add("Priority")
+                            } else {
+                                mainOptions.remove("Priority")
+                            }
+                            currentView = "MAIN" 
+                        }
+                    )
                 }
             }
         }
@@ -101,7 +154,7 @@ fun TypeOptionsOverlay(
 }
 
 @Composable
-fun TypeMainItem(text: String, checked: Boolean, font: FontFamily, onToggle: (Boolean) -> Unit, onArrowClick: () -> Unit) {
+fun TypeMainItem(text: String, checked: Boolean, enabled: Boolean, font: FontFamily, onToggle: (Boolean) -> Unit, onArrowClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -115,9 +168,21 @@ fun TypeMainItem(text: String, checked: Boolean, font: FontFamily, onToggle: (Bo
         Checkbox(
             checked = checked,
             onCheckedChange = onToggle,
-            colors = CheckboxDefaults.colors(checkedColor = Color(0xFFE41417), uncheckedColor = Color.White.copy(alpha = 0.5f))
+            enabled = enabled,
+            colors = CheckboxDefaults.colors(
+                checkedColor = Color(0xFFE41417), 
+                uncheckedColor = if (enabled) Color.White.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.1f),
+                disabledUncheckedColor = Color.White.copy(alpha = 0.1f),
+                disabledCheckedColor = Color(0xFFE41417).copy(alpha = 0.4f)
+            )
         )
-        Text(text, color = Color.White, fontSize = 18.sp, fontFamily = font, modifier = Modifier.weight(1f))
+        Text(
+            text = text, 
+            color = Color.White, 
+            fontSize = 18.sp, 
+            fontFamily = font, 
+            modifier = Modifier.weight(1f)
+        )
         Text(">", color = Color(0xFFEBC174), fontSize = 20.sp, fontWeight = FontWeight.Bold)
     }
 }

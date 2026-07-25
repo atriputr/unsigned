@@ -3,11 +3,13 @@ package com.example.un_signed
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -16,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -39,16 +42,11 @@ fun CustomProfileOverlay(
     contentFont: FontFamily,
     savedProfiles: List<CustomProfile>,
     onSave: (String, String, String) -> Unit,
+    onDelete: (CustomProfile) -> Unit,
     onClose: () -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var duration by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf("") }
-
-    var showFromPicker by remember { mutableStateOf(false) }
-    var showTillPicker by remember { mutableStateOf(false) }
-    var showTypeOptions by remember { mutableStateOf(false) }
-    var fromDateTime by remember { mutableStateOf<LocalDateTime?>(null) }
+    var showCreatePage by remember { mutableStateOf(false) }
+    var profileToDelete by remember { mutableStateOf<CustomProfile?>(null) }
 
     Box(
         modifier = Modifier
@@ -88,53 +86,24 @@ fun CustomProfileOverlay(
                 style = TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
             )
 
-            CustomInputField(label = "NAME", value = name, onValueChange = { name = it }, labelFont = titleFont, contentFont = contentFont)
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // DURATION FIELD (Clickable)
-            Box(modifier = Modifier.clickable { showFromPicker = true }) {
-                CustomInputField(
-                    label = "DURATION", 
-                    value = duration, 
-                    onValueChange = { duration = it }, 
-                    labelFont = titleFont, 
-                    contentFont = contentFont,
-                    enabled = false // Disable direct typing
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // TYPE FIELD (Clickable)
-            Box(modifier = Modifier.clickable { showTypeOptions = true }) {
-                CustomInputField(
-                    label = "TYPE", 
-                    value = type, 
-                    onValueChange = { type = it }, 
-                    labelFont = titleFont, 
-                    contentFont = contentFont,
-                    enabled = false
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Save Button
+            // CREATE PROFILE Button
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFE41417).copy(alpha = 0.8f))
-                    .clickable {
-                        if (name.isNotBlank()) {
-                            onSave(name, duration, type)
-                            name = ""; duration = ""; type = ""
-                        }
-                    },
-                contentAlignment = Alignment.Center
+                    .height(60.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
+                    .border(width = 1.dp, color = Color.White.copy(alpha = 0.25f), shape = RoundedCornerShape(14.dp))
+                    .clickable { showCreatePage = true },
+                contentAlignment = Alignment.CenterStart
             ) {
-                Text("SAVE PROFILE", color = Color.White, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "CREATE PROFILE",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontFamily = titleFont,
+                    modifier = Modifier.padding(start = 24.dp)
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -152,13 +121,163 @@ fun CustomProfileOverlay(
             Spacer(modifier = Modifier.height(8.dp))
 
             LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(savedProfiles) { profile ->
-                    ProfileListItem(profile, contentFont)
+                    ProfileListItem(profile, contentFont, onLongPress = { profileToDelete = profile })
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "BACK",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 18.sp,
+                fontFamily = titleFont,
+                modifier = Modifier.clickable { onClose() }
+            )
+        }
+
+        if (showCreatePage) {
+            CreateProfileOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                onSave = { n, d, t ->
+                    onSave(n, d, t)
+                    showCreatePage = false
+                },
+                onClose = { showCreatePage = false }
+            )
+        }
+
+        if (profileToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { profileToDelete = null },
+                containerColor = Color(0xFF1A1A1A),
+                title = { Text("DELETE PROFILE", color = Color.White, fontFamily = titleFont) },
+                text = { Text("Are you sure you want to delete this profile?", color = Color.White.copy(alpha = 0.7f), fontFamily = contentFont) },
+                confirmButton = {
+                    Text(
+                        "YES", 
+                        color = Color(0xFFE41417), 
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(16.dp).clickable { 
+                            onDelete(profileToDelete!!)
+                            profileToDelete = null 
+                        }
+                    )
+                },
+                dismissButton = {
+                    Text(
+                        "NO", 
+                        color = Color.White.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(16.dp).clickable { profileToDelete = null }
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun CreateProfileOverlay(
+    titleFont: FontFamily,
+    contentFont: FontFamily,
+    onSave: (String, String, String) -> Unit,
+    onClose: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var duration by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf("") }
+
+    var showFromPicker by remember { mutableStateOf(false) }
+    var showTillPicker by remember { mutableStateOf(false) }
+    var showTypeOptions by remember { mutableStateOf(false) }
+    var fromDateTime by remember { mutableStateOf<LocalDateTime?>(null) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.9f))
+            .clickable { onClose() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .width(350.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Brush.verticalGradient(listOf(Color(0xFF1E1E2E), Color(0xFF0D0D1A))))
+                .border(1.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                .clickable(enabled = false) {}
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "NEW PROFILE",
+                color = Color.White,
+                fontSize = 24.sp,
+                fontFamily = titleFont,
+                fontStyle = FontStyle.Italic,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+
+            CustomInputField(label = "NAME", value = name, onValueChange = { name = it }, labelFont = titleFont, contentFont = contentFont)
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // DURATION FIELD (Clickable)
+            Box(modifier = Modifier.clickable { showFromPicker = true }) {
+                CustomInputField(
+                    label = "DURATION", 
+                    value = duration, 
+                    onValueChange = { duration = it }, 
+                    labelFont = titleFont, 
+                    contentFont = contentFont,
+                    enabled = false
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // TYPE FIELD (Clickable)
+            Box(modifier = Modifier.clickable { showTypeOptions = true }) {
+                CustomInputField(
+                    label = "TYPE", 
+                    value = type, 
+                    onValueChange = { type = it }, 
+                    labelFont = titleFont, 
+                    contentFont = contentFont,
+                    enabled = false
+                )
+            }
+
+            Spacer(modifier = Modifier.height(30.dp))
+
+            // Save Button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(55.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFE41417).copy(alpha = 0.8f))
+                    .clickable {
+                        if (name.isNotBlank()) {
+                            onSave(name, duration, type)
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("SAVE PROFILE", color = Color.White, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = "BACK",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 16.sp,
+                fontFamily = titleFont,
+                modifier = Modifier.clickable { onClose() }
+            )
         }
 
         // --- PICKER OVERLAYS ---
@@ -231,13 +350,18 @@ fun CustomInputField(label: String, value: String, onValueChange: (String) -> Un
 }
 
 @Composable
-fun ProfileListItem(profile: CustomProfile, font: FontFamily) {
+fun ProfileListItem(profile: CustomProfile, font: FontFamily, onLongPress: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(Color.White.copy(alpha = 0.08f))
             .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = { onLongPress() }
+                )
+            }
             .padding(12.dp)
     ) {
         Column {

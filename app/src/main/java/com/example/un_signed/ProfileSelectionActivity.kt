@@ -391,6 +391,9 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 onSave = { name, duration, type ->
                     savedCustomProfiles.add(CustomProfile(name = name, duration = duration, type = type))
                 },
+                onDelete = { profile ->
+                    savedCustomProfiles.remove(profile)
+                },
                 onClose = {
                     composeOverlay.visibility = View.GONE
                 }
