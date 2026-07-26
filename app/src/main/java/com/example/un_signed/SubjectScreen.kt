@@ -272,7 +272,7 @@ fun SubjectListItem(subject: Subject, font: FontFamily, onClick: () -> Unit) {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "$completedCount / $total CHAPTERS DONE",
+                    text = "$completedCount / $total TWIGS DONE",
                     color = Color(0xFFEBC174).copy(alpha = 0.8f),
                     fontSize = 14.sp,
                     fontFamily = font
@@ -293,7 +293,8 @@ fun SubjectEntryOverlay(
     titleFont: FontFamily,
     contentFont: FontFamily,
     onSaveAndExit: (String, List<Chapter>) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    mainTitle: String = "NEW SUBJECT"
 ) {
     var subjectName by remember { mutableStateOf("") }
     val chapters = remember { mutableStateListOf<Chapter>() }
@@ -320,7 +321,7 @@ fun SubjectEntryOverlay(
         ) {
             if (!isEnteringChapters) {
                 Text(
-                    text = "NEW SUBJECT",
+                    text = mainTitle,
                     color = Color.White,
                     fontSize = 24.sp,
                     fontFamily = titleFont,
@@ -328,11 +329,11 @@ fun SubjectEntryOverlay(
                 )
 
                 // i. Enter subject name
-                Text("SUBJECT NAME", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, fontFamily = titleFont, modifier = Modifier.align(Alignment.Start))
+                Text("BRANCH NAME", color = Color.White.copy(alpha = 0.5f), fontSize = 18.sp, fontFamily = titleFont, modifier = Modifier.align(Alignment.Start))
                 BasicTextField(
                     value = subjectName,
                     onValueChange = { subjectName = it },
-                    textStyle = TextStyle(color = Color.White, fontSize = 18.sp, fontFamily = contentFont),
+                    textStyle = TextStyle(color = Color.White, fontSize = 22.sp, fontFamily = contentFont),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 8.dp)
@@ -341,7 +342,7 @@ fun SubjectEntryOverlay(
                         .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
                         .padding(14.dp),
                     decorationBox = { inner ->
-                        if (subjectName.isEmpty()) Text("Enter name...", color = Color.White.copy(alpha = 0.2f), fontSize = 18.sp, fontFamily = contentFont)
+                        if (subjectName.isEmpty()) Text("Enter name...", color = Color.White.copy(alpha = 0.2f), fontSize = 22.sp, fontFamily = contentFont)
                         inner()
                     }
                 )
@@ -363,7 +364,7 @@ fun SubjectEntryOverlay(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "ENTER CHAPTERS (${chapters.count { it.name.isNotBlank() }})",
+                        text = "ENTER TWIGS [${chapters.count { it.name.isNotBlank() }}]",
                         color = Color(0xFFEBC174),
                         fontSize = 16.sp,
                         fontFamily = titleFont
@@ -410,7 +411,7 @@ fun SubjectEntryOverlay(
                                 Text(
                                     text = chapter.name,
                                     color = if (chapter.isCompleted) Color(0xFF09e8ad) else Color.White,
-                                    fontSize = 15.sp,
+                                    fontSize = 16.sp,
                                     fontFamily = contentFont
                                 )
                             }
@@ -439,7 +440,7 @@ fun SubjectEntryOverlay(
             } else {
                 // Chapter Entry Flow
                 Text(
-                    text = "CHAPTER ${chapterIdx + 1}",
+                    text = "TWIGS ${chapterIdx + 1}",
                     color = Color.White,
                     fontSize = 24.sp,
                     fontFamily = titleFont
@@ -468,7 +469,7 @@ fun SubjectEntryOverlay(
                         .padding(14.dp),
                     decorationBox = { inner ->
                         if (chapters.getOrElse(chapterIdx) { Chapter(name = "") }.name.isEmpty()) {
-                            Text("Chapter name...", color = Color.White.copy(alpha = 0.2f), fontSize = 18.sp, fontFamily = contentFont)
+                            Text("Twig Name...", color = Color.White.copy(alpha = 0.2f), fontSize = 18.sp, fontFamily = contentFont)
                         }
                         inner()
                     }
@@ -564,7 +565,7 @@ fun SubjectDetailOverlay(
                 style = TextStyle(shadow = Shadow(color = Color(0xFFEBC174).copy(alpha = 0.4f), blurRadius = 8f))
             )
             Text(
-                text = "CHAPTER PROGRESS",
+                text = "TWIG PROGRESS",
                 color = Color.White.copy(alpha = 0.4f),
                 fontSize = 11.sp,
                 fontFamily = contentFont,

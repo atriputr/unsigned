@@ -560,6 +560,8 @@ fun EducationOptionsOverlay(
 fun HealthOptionsOverlay(
     titleFont: FontFamily,
     buttonFont: FontFamily,
+    junkCount: Int,
+    onJunkCountChange: (Int) -> Unit,
     onMedsClick: () -> Unit,
     onBack: () -> Unit,
     onClose: () -> Unit
@@ -593,8 +595,6 @@ fun HealthOptionsOverlay(
             GlassButton("EXERCISE", buttonFont)
             Spacer(modifier = Modifier.height(16.dp))
 
-            var junkCount by remember { mutableStateOf(0) }
-
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -604,8 +604,8 @@ fun HealthOptionsOverlay(
                     .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
                     .pointerInput(Unit) {
                         detectTapGestures(
-                            onTap       = { junkCount = (junkCount - 1).coerceAtLeast(0) },
-                            onDoubleTap = { junkCount += 1 }
+                            onTap       = { onJunkCountChange((junkCount - 1).coerceAtLeast(0)) },
+                            onDoubleTap = { onJunkCountChange(junkCount + 1) }
                         )
                     },
                 contentAlignment = Alignment.CenterStart

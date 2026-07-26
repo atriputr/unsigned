@@ -198,6 +198,7 @@ fun CourseScreen(
             SubjectEntryOverlay(
                 titleFont = titleFont,
                 contentFont = contentFont,
+                mainTitle = "WHAT IT'S ABOUT!",
                 onSaveAndExit = { name, chapters ->
                     savedCourses.add(Subject(name = name, chapters = chapters))
                     showEntryOverlay = false

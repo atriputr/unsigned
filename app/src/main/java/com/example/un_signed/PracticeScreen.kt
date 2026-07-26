@@ -195,6 +195,7 @@ fun PracticeScreen(
             SubjectEntryOverlay(
                 titleFont = titleFont,
                 contentFont = contentFont,
+                mainTitle = "PRACTICE DETAIL",
                 onSaveAndExit = { name, chapters ->
                     savedPractices.add(Subject(name = name, chapters = chapters))
                     showEntryOverlay = false

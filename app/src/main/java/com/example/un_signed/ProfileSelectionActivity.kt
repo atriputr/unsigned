@@ -37,6 +37,9 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private val activeLectureTopics      = mutableStateListOf<LectureTopic>()
     private val activeLectureDurationMin = mutableStateOf(0)
     
+    // State for Health
+    private val savedJunkCount = mutableStateOf(0)
+
     // State for Habits
     private val savedHabits = mutableStateListOf<Habit>()
 
@@ -298,6 +301,8 @@ class ProfileSelectionActivity : AppCompatActivity() {
             HealthOptionsOverlay(
                 titleFont = titleFont,
                 buttonFont = buttonFont,
+                junkCount = savedJunkCount.value,
+                onJunkCountChange = { savedJunkCount.value = it },
                 onMedsClick = {
                     showMedsOverlay(titleFont, buttonFont)
                 },

@@ -102,16 +102,6 @@
         app:layout_constraintStart_toStartOf="@id/btnLeft"
         app:layout_constraintEnd_toEndOf="@id/btnRight" />
 
-    <View
-        android:id="@+id/viewClock"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:background="?attr/selectableItemBackground"
-        app:layout_constraintTop_toTopOf="@id/clockTop"
-        app:layout_constraintBottom_toBottomOf="@id/clockBottom"
-        app:layout_constraintStart_toStartOf="@id/btnLeft"
-        app:layout_constraintEnd_toEndOf="@id/btnRight" />
-
     <!-- Real functional clock overlay -->
     <androidx.compose.ui.platform.ComposeView
         android:id="@+id/tvNixieClock"
