@@ -3,11 +3,13 @@ package com.example.un_signed
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -15,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -25,6 +28,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.LocalDate
 import java.util.*
 
 data class Chapter(
@@ -36,7 +40,9 @@ data class Chapter(
 data class Subject(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
-    val chapters: List<Chapter> = emptyList()
+    val chapters: List<Chapter> = emptyList(),
+    val durationMin: Int = 0,
+    val repeatInfo: String = ""
 )
 
 @Composable
@@ -213,8 +219,8 @@ fun SubjectScreen(
             SubjectEntryOverlay(
                 titleFont = titleFont,
                 contentFont = contentFont,
-                onSaveAndExit = { name, chapters ->
-                    savedSubjects.add(Subject(name = name, chapters = chapters))
+                onSaveAndExit = { name, chapters, duration ->
+                    savedSubjects.add(Subject(name = name, chapters = chapters, durationMin = duration))
                     showEntryOverlay = false
                 },
                 onClose = { showEntryOverlay = false }
@@ -245,7 +251,12 @@ fun SubjectScreen(
 }
 
 @Composable
-fun SubjectListItem(subject: Subject, font: FontFamily, onClick: () -> Unit) {
+fun SubjectListItem(
+    subject: Subject,
+    font: FontFamily,
+    onLongClick: () -> Unit = {},
+    onClick: () -> Unit
+) {
     val completedCount = subject.chapters.count { it.isCompleted }
     val total = subject.chapters.size
 
@@ -255,7 +266,12 @@ fun SubjectListItem(subject: Subject, font: FontFamily, onClick: () -> Unit) {
             .clip(RoundedCornerShape(12.dp))
             .background(Color.White.copy(alpha = 0.08f))
             .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-            .clickable { onClick() }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { onClick() },
+                    onLongPress = { onLongClick() }
+                )
+            }
             .padding(16.dp)
     ) {
         Row(
@@ -292,11 +308,27 @@ fun SubjectListItem(subject: Subject, font: FontFamily, onClick: () -> Unit) {
 fun SubjectEntryOverlay(
     titleFont: FontFamily,
     contentFont: FontFamily,
-    onSaveAndExit: (String, List<Chapter>) -> Unit,
+    onSaveAndExit: (String, List<Chapter>, Int) -> Unit,
     onClose: () -> Unit,
-    mainTitle: String = "NEW SUBJECT"
+    mainTitle: String = "NEW SUBJECT",
+    labelName: String = "BRANCH NAME",
+    buttonLabel: String = "ENTER TWIGS",
+    showDurationField: Boolean = false,
+    showCalendarFlow: Boolean = false,
+    hideTwigsEntry: Boolean = false,
+    onButtonClick: (() -> Unit)? = null,
+    onRepeatSummaryClick: (() -> Unit)? = null,
+    repeatInfo: String = "",
+    taskCount: Int? = null          // when set, overrides the chapters count in the button label
 ) {
     var subjectName by remember { mutableStateOf("") }
+    var durationMin by remember { mutableStateOf(0) }
+    var showDurationPicker by remember { mutableStateOf(false) }
+    var showCalendarPicker by remember { mutableStateOf(false) }
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var nameStepDone by remember { mutableStateOf(false) }
+    var showEventsSummary by remember { mutableStateOf(false) }
+    
     val chapters = remember { mutableStateListOf<Chapter>() }
     var isEnteringChapters by remember { mutableStateOf(false) }
     var chapterIdx by remember { mutableStateOf(0) }
@@ -329,7 +361,7 @@ fun SubjectEntryOverlay(
                 )
 
                 // i. Enter subject name
-                Text("BRANCH NAME", color = Color.White.copy(alpha = 0.5f), fontSize = 18.sp, fontFamily = titleFont, modifier = Modifier.align(Alignment.Start))
+                Text(labelName, color = Color.White.copy(alpha = 0.5f), fontSize = 18.sp, fontFamily = titleFont, modifier = Modifier.align(Alignment.Start))
                 BasicTextField(
                     value = subjectName,
                     onValueChange = { subjectName = it },
@@ -347,155 +379,217 @@ fun SubjectEntryOverlay(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // ii. Enter chapters button
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.1f))
-                        .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                        .clickable {
-                            if (chapters.isEmpty()) chapters.add(Chapter(name = ""))
-                            isEnteringChapters = true
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "ENTER TWIGS [${chapters.count { it.name.isNotBlank() }}]",
-                        color = Color(0xFFEBC174),
-                        fontSize = 16.sp,
-                        fontFamily = titleFont
-                    )
-                }
-
-                // --- CHAPTERS LIST (Mid View) ---
-                val filledChapters = chapters.filter { it.name.isNotBlank() }
-                if (filledChapters.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    LazyColumn(
+                if (!nameStepDone) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 200.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .height(55.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFEBC174).copy(alpha = 0.8f))
+                            .clickable(enabled = subjectName.isNotBlank()) {
+                                nameStepDone = true
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        items(filledChapters.size) { idx ->
-                            val chapter = filledChapters[idx]
-                            Row(
+                        Text(
+                            text = "MOVE FURTHER",
+                            color = Color.Black,
+                            fontSize = 18.sp,
+                            fontFamily = titleFont,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.alpha(if (subjectName.isNotBlank()) 1f else 0.4f)
+                        )
+                    }
+                }
+
+                if (nameStepDone) {
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    if (showDurationField) {
+                        // --- DISPLAY BOX FOR REPEAT INFO ---
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                "REPEAT SUMMARY",
+                                color = Color.White.copy(alpha = 0.55f),
+                                fontSize = 12.sp,
+                                fontFamily = titleFont
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.White.copy(alpha = 0.05f))
-                                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color.White.copy(alpha = 0.07f))
+                                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(10.dp))
+                                    .clickable(enabled = repeatInfo.isNotBlank() && onRepeatSummaryClick != null) {
+                                        onRepeatSummaryClick?.invoke()
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 13.dp)
                             ) {
-                                Checkbox(
-                                    checked = chapter.isCompleted,
-                                    onCheckedChange = { checked ->
-                                        // Update the original list
-                                        val originalIdx = chapters.indexOf(chapter)
-                                        if (originalIdx != -1) {
-                                            chapters[originalIdx] = chapter.copy(isCompleted = checked)
-                                        }
-                                    },
-                                    colors = CheckboxDefaults.colors(
-                                        checkedColor = Color(0xFF09e8ad),
-                                        uncheckedColor = Color.White.copy(alpha = 0.3f),
-                                        checkmarkColor = Color.Black
-                                    ),
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = chapter.name,
-                                    color = if (chapter.isCompleted) Color(0xFF09e8ad) else Color.White,
+                                    text = if (repeatInfo.isNotBlank()) repeatInfo else "E.G. 10:30 AM",
+                                    color = if (repeatInfo.isBlank()) Color.White.copy(alpha = 0.22f) else Color.White,
                                     fontSize = 16.sp,
                                     fontFamily = contentFont
                                 )
                             }
                         }
+                        Spacer(modifier = Modifier.height(20.dp))
                     }
-                }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                    // ii. Enter chapters button
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White.copy(alpha = 0.1f))
+                            .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                            .clickable {
+                                if (onButtonClick != null) {
+                                    onButtonClick()
+                                } else {
+                                    if (chapters.isEmpty()) chapters.add(Chapter(name = ""))
+                                    isEnteringChapters = true
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "$buttonLabel [${taskCount ?: chapters.count { it.name.isNotBlank() }}]",
+                            color = Color(0xFFEBC174),
+                            fontSize = 16.sp,
+                            fontFamily = titleFont
+                        )
+                    }
 
-                // iii. Save & Exit
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(55.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF09e8ad).copy(alpha = 0.8f))
-                        .clickable {
-                            if (subjectName.isNotBlank()) {
-                                onSaveAndExit(subjectName, chapters.filter { it.name.isNotBlank() }.toList())
+                    // --- CHAPTERS LIST (Mid View) ---
+                    val filledChapters = chapters.filter { it.name.isNotBlank() }
+                    if (filledChapters.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(filledChapters.size) { idx ->
+                                val chapter = filledChapters[idx]
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White.copy(alpha = 0.05f))
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Checkbox(
+                                        checked = chapter.isCompleted,
+                                        onCheckedChange = { checked ->
+                                            val originalIdx = chapters.indexOf(chapter)
+                                            if (originalIdx != -1) {
+                                                chapters[originalIdx] = chapter.copy(isCompleted = checked)
+                                            }
+                                        },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = Color(0xFF09e8ad),
+                                            uncheckedColor = Color.White.copy(alpha = 0.3f),
+                                            checkmarkColor = Color.Black
+                                        ),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = chapter.name,
+                                        color = if (chapter.isCompleted) Color(0xFF09e8ad) else Color.White,
+                                        fontSize = 16.sp,
+                                        fontFamily = contentFont
+                                    )
+                                }
                             }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("SAVE & EXIT", color = Color.Black, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // iii. Save & Exit
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(55.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF09e8ad).copy(alpha = 0.8f))
+                            .clickable {
+                                if (subjectName.isNotBlank()) {
+                                    onSaveAndExit(subjectName, chapters.filter { it.name.isNotBlank() }.toList(), durationMin)
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("SAVE & EXIT", color = Color.Black, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                    }
                 }
             } else {
-                // Chapter Entry Flow
-                Text(
-                    text = "TWIGS ${chapterIdx + 1}",
-                    color = Color.White,
-                    fontSize = 24.sp,
-                    fontFamily = titleFont
-                )
-                Text(
-                    text = "${chapterIdx + 1} of ${chapters.size}",
-                    color = Color.White.copy(alpha = 0.4f),
-                    fontSize = 12.sp,
-                    fontFamily = contentFont
-                )
+                if (!hideTwigsEntry) {
+                    Text(
+                        text = "TWIGS ${chapterIdx + 1}",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontFamily = titleFont
+                    )
+                    Text(
+                        text = "${chapterIdx + 1} of ${chapters.size}",
+                        color = Color.White.copy(alpha = 0.4f),
+                        fontSize = 12.sp,
+                        fontFamily = contentFont
+                    )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                BasicTextField(
-                    value = chapters.getOrElse(chapterIdx) { Chapter(name = "") }.name,
-                    onValueChange = { v ->
-                        while (chapters.size <= chapterIdx) chapters.add(Chapter(name = ""))
-                        chapters[chapterIdx] = chapters[chapterIdx].copy(name = v)
-                    },
-                    textStyle = TextStyle(color = Color.White, fontSize = 18.sp, fontFamily = contentFont),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color.White.copy(alpha = 0.07f))
-                        .border(1.dp, Color(0xFF09e8ad).copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-                        .padding(14.dp),
-                    decorationBox = { inner ->
-                        if (chapters.getOrElse(chapterIdx) { Chapter(name = "") }.name.isEmpty()) {
-                            Text("Twig Name...", color = Color.White.copy(alpha = 0.2f), fontSize = 18.sp, fontFamily = contentFont)
+                    BasicTextField(
+                        value = chapters.getOrElse(chapterIdx) { Chapter(name = "") }.name,
+                        onValueChange = { v ->
+                            while (chapters.size <= chapterIdx) chapters.add(Chapter(name = ""))
+                            chapters[chapterIdx] = chapters[chapterIdx].copy(name = v)
+                        },
+                        textStyle = TextStyle(color = Color.White, fontSize = 18.sp, fontFamily = contentFont),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.White.copy(alpha = 0.07f))
+                            .border(1.dp, Color(0xFF09e8ad).copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                            .padding(14.dp),
+                        decorationBox = { inner ->
+                            if (chapters.getOrElse(chapterIdx) { Chapter(name = "") }.name.isEmpty()) {
+                                Text("Twig Name...", color = Color.White.copy(alpha = 0.2f), fontSize = 18.sp, fontFamily = contentFont)
+                            }
+                            inner()
                         }
-                        inner()
-                    }
-                )
+                    )
 
-                Spacer(modifier = Modifier.height(30.dp))
+                    Spacer(modifier = Modifier.height(30.dp))
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // PREVIOUS
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(45.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (chapterIdx > 0) Color.White.copy(alpha = 0.1f) else Color.Transparent)
-                            .border(1.dp, Color.White.copy(alpha = if (chapterIdx > 0) 0.2f else 0.05f), RoundedCornerShape(10.dp))
-                            .clickable(enabled = chapterIdx > 0) { chapterIdx-- },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("← PREV", color = Color.White.copy(alpha = if (chapterIdx > 0) 1f else 0.2f), fontSize = 12.sp, fontFamily = titleFont)
+                    if (!hideTwigsEntry) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(45.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (chapterIdx > 0) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+                                .border(1.dp, Color.White.copy(alpha = if (chapterIdx > 0) 0.2f else 0.05f), RoundedCornerShape(10.dp))
+                                .clickable(enabled = chapterIdx > 0) { chapterIdx-- },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("← PREV", color = Color.White.copy(alpha = if (chapterIdx > 0) 1f else 0.2f), fontSize = 12.sp, fontFamily = titleFont)
+                        }
                     }
 
-                    // SAVE
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -509,22 +603,72 @@ fun SubjectEntryOverlay(
                         Text("SAVE", color = Color(0xFFEBC174), fontSize = 14.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
                     }
 
-                    // NEXT
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(45.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFF09e8ad).copy(alpha = 0.15f))
-                            .border(1.dp, Color(0xFF09e8ad), RoundedCornerShape(10.dp))
-                            .clickable {
-                                if (chapterIdx == chapters.size - 1) chapters.add(Chapter(name = ""))
-                                chapterIdx++
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("NEXT →", color = Color(0xFF09e8ad), fontSize = 12.sp, fontFamily = titleFont)
+                    if (!hideTwigsEntry) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(45.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF09e8ad).copy(alpha = 0.15f))
+                                .border(1.dp, Color(0xFF09e8ad), RoundedCornerShape(10.dp))
+                                .clickable {
+                                    if (chapterIdx == chapters.size - 1) chapters.add(Chapter(name = ""))
+                                    chapterIdx++
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("NEXT →", color = Color(0xFF09e8ad), fontSize = 12.sp, fontFamily = titleFont)
+                        }
                     }
+                }
+            }
+        }
+
+        if (showCalendarPicker) {
+            GlassCalendarOverlay(
+                allTasks = emptyMap(),
+                onUpdateTasks = { _, _ -> },
+                fontFamily = titleFont,
+                initialDate = selectedDate,
+                onClose = { 
+                    showCalendarPicker = false 
+                    showDurationPicker = true // Show time wheel after date
+                }
+            )
+        }
+
+        if (showDurationPicker) {
+            DurationClockPicker(
+                initialMinutes = durationMin,
+                titleFont = titleFont,
+                contentFont = contentFont,
+                onConfirm = { totalMin ->
+                    durationMin = totalMin
+                    showDurationPicker = false
+                },
+                onDismiss = { showDurationPicker = false }
+            )
+        }
+
+        if (showEventsSummary) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.95f))
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("PRACTICE CALENDAR", color = Color.White, fontSize = 24.sp, fontFamily = titleFont)
+                    Spacer(Modifier.height(20.dp))
+                    
+                    // Show a calendar view
+                    GlassCalendarOverlay(
+                        allTasks = emptyMap(), // This would show highlighted events
+                        onUpdateTasks = { _, _ -> },
+                        fontFamily = titleFont,
+                        onClose = { showEventsSummary = false }
+                    )
                 }
             }
         }
@@ -537,8 +681,16 @@ fun SubjectDetailOverlay(
     titleFont: FontFamily,
     contentFont: FontFamily,
     onUpdateChapter: (String, Boolean) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onUpdateName: ((String) -> Unit)? = null,
+    onAddChapter: ((String) -> Unit)? = null,
+    onRemoveChapter: ((String) -> Unit)? = null,
+    onEditRepeat: (() -> Unit)? = null
 ) {
+    val editable = onUpdateName != null
+    var editedName by remember(subject.id) { mutableStateOf(subject.name) }
+    var newTwigText by remember { mutableStateOf("") }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -549,7 +701,7 @@ fun SubjectDetailOverlay(
         Column(
             modifier = Modifier
                 .width(350.dp)
-                .heightIn(max = 600.dp)
+                .heightIn(max = 640.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(Brush.verticalGradient(listOf(Color(0xFF1A1A2A), Color(0xFF0D0D14))))
                 .border(1.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
@@ -557,25 +709,108 @@ fun SubjectDetailOverlay(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = subject.name.uppercase(),
-                color = Color(0xFFEBC174),
-                fontSize = 24.sp,
-                fontFamily = titleFont,
-                style = TextStyle(shadow = Shadow(color = Color(0xFFEBC174).copy(alpha = 0.4f), blurRadius = 8f))
-            )
-            Text(
-                text = "TWIG PROGRESS",
-                color = Color.White.copy(alpha = 0.4f),
-                fontSize = 11.sp,
-                fontFamily = contentFont,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+            // ── Name: editable or static ─────────────────────────
+            if (editable) {
+                BasicTextField(
+                    value = editedName,
+                    onValueChange = { editedName = it },
+                    textStyle = TextStyle(
+                        color = Color(0xFFEBC174),
+                        fontSize = 22.sp,
+                        fontFamily = titleFont,
+                        shadow = Shadow(color = Color(0xFFEBC174).copy(alpha = 0.4f), blurRadius = 8f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFEBC174).copy(alpha = 0.06f))
+                        .border(1.dp, Color(0xFFEBC174).copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    decorationBox = { inner ->
+                        if (editedName.isEmpty()) Text(
+                            "Practice name…",
+                            color = Color(0xFFEBC174).copy(0.3f),
+                            fontSize = 22.sp,
+                            fontFamily = titleFont
+                        )
+                        inner()
+                    }
+                )
+                Text(
+                    "TAP NAME TO EDIT",
+                    color = Color(0xFFEBC174).copy(0.35f),
+                    fontSize = 10.sp,
+                    fontFamily = contentFont,
+                    modifier = Modifier.padding(top = 3.dp)
+                )
+            } else {
+                Text(
+                    text = subject.name.uppercase(),
+                    color = Color(0xFFEBC174),
+                    fontSize = 24.sp,
+                    fontFamily = titleFont,
+                    style = TextStyle(shadow = Shadow(color = Color(0xFFEBC174).copy(alpha = 0.4f), blurRadius = 8f))
+                )
+                Text(
+                    text = "TWIG PROGRESS",
+                    color = Color.White.copy(alpha = 0.4f),
+                    fontSize = 11.sp,
+                    fontFamily = contentFont,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
+            // ── Repeat summary (if saved) ────────────────────────
+            if (subject.repeatInfo.isNotBlank()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "REPEAT SUMMARY",
+                        color = Color.White.copy(0.45f),
+                        fontSize = 11.sp,
+                        fontFamily = titleFont
+                    )
+                    Spacer(modifier = Modifier.height(5.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.White.copy(0.05f))
+                            .border(
+                                1.dp,
+                                if (onEditRepeat != null) Color(0xFFEBC174).copy(0.4f)
+                                else Color.White.copy(0.12f),
+                                RoundedCornerShape(10.dp)
+                            )
+                            .then(if (onEditRepeat != null) Modifier.clickable { onEditRepeat() } else Modifier)
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = subject.repeatInfo,
+                            color = Color.White.copy(0.8f),
+                            fontSize = 13.sp,
+                            fontFamily = contentFont
+                        )
+                    }
+                    if (onEditRepeat != null) {
+                        Text(
+                            "TAP TO EDIT SCHEDULE",
+                            color = Color(0xFFEBC174).copy(0.35f),
+                            fontSize = 10.sp,
+                            fontFamily = contentFont,
+                            modifier = Modifier.padding(top = 3.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = Color.White.copy(alpha = 0.10f))
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            // ── Twig list ─────────────────────────────────────────
             LazyColumn(
                 modifier = Modifier.fillMaxWidth().weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -603,25 +838,94 @@ fun SubjectDetailOverlay(
                         Text(
                             text = chapter.name,
                             color = if (chapter.isCompleted) Color(0xFF09e8ad) else Color.White,
-                            fontSize = 16.sp,
+                            fontSize = 15.sp,
                             fontFamily = contentFont,
                             modifier = Modifier.weight(1f)
                         )
+                        if (editable && onRemoveChapter != null) {
+                            Text(
+                                text = "✕",
+                                color = Color(0xFFE41417).copy(0.7f),
+                                fontSize = 14.sp,
+                                fontFamily = titleFont,
+                                modifier = Modifier
+                                    .clickable { onRemoveChapter(chapter.id) }
+                                    .padding(horizontal = 6.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // ── Add twig row (edit mode only) ────────────────────
+            if (editable && onAddChapter != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    BasicTextField(
+                        value = newTwigText,
+                        onValueChange = { newTwigText = it },
+                        textStyle = TextStyle(color = Color.White, fontSize = 14.sp, fontFamily = contentFont),
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White.copy(0.06f))
+                            .border(1.dp, Color(0xFF09e8ad).copy(0.35f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        decorationBox = { inner ->
+                            if (newTwigText.isEmpty()) Text(
+                                "New twig name…",
+                                color = Color.White.copy(0.22f),
+                                fontSize = 14.sp,
+                                fontFamily = contentFont
+                            )
+                            inner()
+                        },
+                        singleLine = true
+                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF09e8ad).copy(0.8f))
+                            .clickable {
+                                if (newTwigText.isNotBlank()) {
+                                    onAddChapter(newTwigText.trim())
+                                    newTwigText = ""
+                                }
+                            }
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("ADD", color = Color.Black, fontSize = 13.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ── Action button ─────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color.White.copy(alpha = 0.1f))
-                    .clickable { onClose() },
+                    .background(if (editable) Color(0xFF09e8ad).copy(0.85f) else Color.White.copy(alpha = 0.1f))
+                    .clickable {
+                        if (editable) onUpdateName?.invoke(editedName.trim().ifBlank { subject.name })
+                        onClose()
+                    },
                 contentAlignment = Alignment.Center
             ) {
-                Text("DONE", color = Color.White, fontSize = 16.sp, fontFamily = titleFont)
+                Text(
+                    if (editable) "SAVE & CLOSE" else "DONE",
+                    color = if (editable) Color.Black else Color.White,
+                    fontSize = 16.sp,
+                    fontFamily = titleFont,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

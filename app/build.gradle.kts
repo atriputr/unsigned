@@ -52,6 +52,8 @@ dependencies {
     implementation(libs.material3)
     implementation(libs.activity.compose)
 
+    implementation("com.google.code.gson:gson:2.11.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)

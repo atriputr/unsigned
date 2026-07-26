@@ -7,6 +7,7 @@ import android.view.View
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private val savedSubjects = mutableStateListOf<Subject>()
     private val savedCourses = mutableStateListOf<Subject>()
     private val savedPractices = mutableStateListOf<Subject>()
+    private var currentSessionId = ""
 
     private val updateTimeRunnable = object : Runnable {
         override fun run() {
@@ -61,6 +63,23 @@ class ProfileSelectionActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile_selection)
+
+        FitDataRepository.init(this)
+        currentSessionId = FitDataRepository.recordSessionStart()
+
+        // Restore persisted data
+        savedSubjects.addAll(FitDataRepository.loadSubjects())
+        savedCourses.addAll(FitDataRepository.loadCourses())
+        savedPractices.addAll(FitDataRepository.loadPractices())
+        savedHabits.addAll(FitDataRepository.loadHabits())
+        savedCustomProfiles.addAll(FitDataRepository.loadCustomProfiles())
+        allCalendarTasks.putAll(FitDataRepository.loadCalendarTasks())
+        val lectureState = FitDataRepository.loadLectureState()
+        activeLectureName.value = lectureState.name
+        activeLectureProgress.value = lectureState.progress
+        activeLectureTopics.addAll(lectureState.topics)
+        activeLectureDurationMin.value = lectureState.durationMin
+        savedJunkCount.value = FitDataRepository.loadJunkHistory()[LocalDate.now().toString()] ?: 0
 
         tvClock = findViewById(R.id.tvNixieClock)
         pbYearProgress = findViewById(R.id.pbYearProgress)
@@ -154,6 +173,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 onUpdateTasks = { date, tasks ->
                     if (tasks.isEmpty()) allCalendarTasks.remove(date)
                     else allCalendarTasks[date] = tasks
+                    FitDataRepository.saveCalendarTasks(allCalendarTasks.toMap())
                 },
                 fontFamily = fontFamily,
                 initialDate = initialDate,
@@ -216,48 +236,45 @@ class ProfileSelectionActivity : AppCompatActivity() {
 
     private fun showSubjectScreen(titleFont: FontFamily, buttonFont: FontFamily) {
         composeOverlay.setContent {
+            LaunchedEffect(savedSubjects.toList()) {
+                FitDataRepository.saveSubjects(savedSubjects.toList())
+            }
             SubjectScreen(
                 titleFont = titleFont,
                 contentFont = buttonFont,
                 savedSubjects = savedSubjects,
-                onBack = {
-                    showEducationOverlay(titleFont, buttonFont)
-                },
-                onClose = {
-                    composeOverlay.visibility = View.GONE
-                }
+                onBack = { showEducationOverlay(titleFont, buttonFont) },
+                onClose = { composeOverlay.visibility = View.GONE }
             )
         }
     }
 
     private fun showCourseScreen(titleFont: FontFamily, buttonFont: FontFamily) {
         composeOverlay.setContent {
+            LaunchedEffect(savedCourses.toList()) {
+                FitDataRepository.saveCourses(savedCourses.toList())
+            }
             CourseScreen(
                 titleFont = titleFont,
                 contentFont = buttonFont,
                 savedCourses = savedCourses,
-                onBack = {
-                    showEducationOverlay(titleFont, buttonFont)
-                },
-                onClose = {
-                    composeOverlay.visibility = View.GONE
-                }
+                onBack = { showEducationOverlay(titleFont, buttonFont) },
+                onClose = { composeOverlay.visibility = View.GONE }
             )
         }
     }
 
     private fun showPracticeScreen(titleFont: FontFamily, buttonFont: FontFamily) {
         composeOverlay.setContent {
+            LaunchedEffect(savedPractices.toList()) {
+                FitDataRepository.savePractices(savedPractices.toList())
+            }
             PracticeScreen(
                 titleFont = titleFont,
                 contentFont = buttonFont,
                 savedPractices = savedPractices,
-                onBack = {
-                    showEducationOverlay(titleFont, buttonFont)
-                },
-                onClose = {
-                    composeOverlay.visibility = View.GONE
-                }
+                onBack = { showEducationOverlay(titleFont, buttonFont) },
+                onClose = { composeOverlay.visibility = View.GONE }
             )
         }
     }
@@ -278,17 +295,19 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 onClose          = { composeOverlay.visibility = View.GONE },
                 onSaveAndBegin   = { name, totalMin, topics, progress ->
                     if (progress >= 1f) {
-                        // All topics checked — dismiss the banner
                         activeLectureName.value     = null
                         activeLectureProgress.value = 0f
                         activeLectureTopics.clear()
                         activeLectureDurationMin.value = 0
+                        FitDataRepository.saveLectureState(LectureState())
                     } else {
-                        activeLectureName.value     = name.ifBlank { "LECTURE" }
+                        val n = name.ifBlank { "LECTURE" }
+                        activeLectureName.value     = n
                         activeLectureProgress.value = progress
                         activeLectureTopics.clear()
                         activeLectureTopics.addAll(topics)
                         activeLectureDurationMin.value = totalMin
+                        FitDataRepository.saveLectureState(LectureState(n, progress, topics, totalMin))
                     }
                     composeOverlay.visibility = View.GONE
                 }
@@ -302,7 +321,10 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 titleFont = titleFont,
                 buttonFont = buttonFont,
                 junkCount = savedJunkCount.value,
-                onJunkCountChange = { savedJunkCount.value = it },
+                onJunkCountChange = { newCount ->
+                    savedJunkCount.value = newCount
+                    FitDataRepository.saveJunkEntry(LocalDate.now(), newCount)
+                },
                 onMedsClick = {
                     showMedsOverlay(titleFont, buttonFont)
                 },
@@ -372,11 +394,12 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 savedHabits = savedHabits,
                 onSave = { name ->
                     savedHabits.add(Habit(name = name))
+                    FitDataRepository.saveHabits(savedHabits.toList())
                 },
                 onUpdateCount = { index, newCount ->
                     if (index in savedHabits.indices) {
-                        val current = savedHabits[index]
-                        savedHabits[index] = current.copy(count = newCount.coerceAtLeast(0))
+                        savedHabits[index] = savedHabits[index].copy(count = newCount.coerceAtLeast(0))
+                        FitDataRepository.saveHabits(savedHabits.toList())
                     }
                 },
                 onClose = {
@@ -395,9 +418,11 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 savedProfiles = savedCustomProfiles,
                 onSave = { name, duration, type ->
                     savedCustomProfiles.add(CustomProfile(name = name, duration = duration, type = type))
+                    FitDataRepository.saveCustomProfiles(savedCustomProfiles.toList())
                 },
                 onDelete = { profile ->
                     savedCustomProfiles.remove(profile)
+                    FitDataRepository.saveCustomProfiles(savedCustomProfiles.toList())
                 },
                 onClose = {
                     composeOverlay.visibility = View.GONE
@@ -439,6 +464,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        FitDataRepository.recordSessionEnd(currentSessionId)
         timeHandler.removeCallbacks(updateTimeRunnable)
         super.onDestroy()
     }
