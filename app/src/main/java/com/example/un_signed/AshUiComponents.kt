@@ -55,8 +55,9 @@ val BronzeTextEnd = Color(0xFFC8935F)
 val ChevronStart = Color(0xFFF68F2D)
 val OrangeFire = Color(0xFFFF8A00)
 
-val BebasFont = FontFamily(Font(R.font.bebas_neue))
+val BebasFont  = FontFamily(Font(R.font.bebas_neue))
 val JerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
+val NokiaFont  = FontFamily(Font(R.font.nokia_kokia))
 
 @Composable
 fun AshButton(

@@ -71,10 +71,13 @@ fun StopwatchOverlay(
     }
 
     // Values derived from elapsed time for the watch face
-    val secSmooth = (elapsedMs % 60_000L) / 60_000.0      // 0.0–1.0 continuous
-    val secInt    = ((elapsedMs / 1000L) % 60L).toInt()   // 0–59 integer
-    val minInt    = ((elapsedMs / 60_000L) % 60L).toInt() // 0–59 minutes
-    val showStar  = elapsedMs >= 3_600_000L                // ≥ 1 hour
+    val secSmooth  = (elapsedMs % 60_000L) / 60_000.0                          // per minute
+    val minSmooth  = (elapsedMs % 3_600_000L) / 3_600_000.0                    // per hour
+    val hourSmooth = (elapsedMs % (12L * 3_600_000L)) / (12.0 * 3_600_000.0)  // per 12 hours
+    val secInt     = ((elapsedMs / 1000L) % 60L).toInt()
+    val minInt     = ((elapsedMs / 60_000L) % 60L).toInt()
+    val hourInt    = ((elapsedMs / 3_600_000L) % 12L).toInt()
+    val showStar   = elapsedMs >= 3_600_000L                                    // ≥ 1 hour
 
     Box(
         modifier = Modifier
@@ -85,7 +88,7 @@ fun StopwatchOverlay(
     ) {
         Column(
             modifier = Modifier
-                .width(290.dp)
+                .width(310.dp)
                 .clip(RoundedCornerShape(24.dp))
                 .background(
                     Brush.verticalGradient(
@@ -136,7 +139,7 @@ fun StopwatchOverlay(
                     text = fmt(elapsedMs),
                     color = Color.White,
                     fontSize = 34.sp,
-                    fontFamily = fontFamily,
+                    fontFamily = NokiaFont,
                     letterSpacing = 2.sp
                 )
             }
@@ -145,13 +148,16 @@ fun StopwatchOverlay(
 
             // ── Circular watch face ───────────────────────────
             StopwatchFace(
-                secSmooth    = secSmooth,
-                secInt       = secInt,
-                minInt       = minInt,
-                isRunning    = isRunning,
+                secSmooth      = secSmooth,
+                minSmooth      = minSmooth,
+                hourSmooth     = hourSmooth,
+                secInt         = secInt,
+                minInt         = minInt,
+                hourInt        = hourInt,
+                isRunning      = isRunning,
                 showGoldenStar = showStar,
-                onPlayPause  = { isRunning = !isRunning; if (isRunning) pendingReset = false },
-                fontFamily   = fontFamily
+                onPlayPause    = { isRunning = !isRunning; if (isRunning) pendingReset = false },
+                fontFamily     = fontFamily
             )
 
             Spacer(Modifier.height(18.dp))
@@ -227,14 +233,17 @@ fun StopwatchOverlay(
 @Composable
 private fun StopwatchFace(
     secSmooth: Double,
+    minSmooth: Double,
+    hourSmooth: Double,
     secInt: Int,
     minInt: Int,
+    hourInt: Int,
     isRunning: Boolean,
     showGoldenStar: Boolean,
     onPlayPause: () -> Unit,
     fontFamily: FontFamily
 ) {
-    val dialDp  = 200.dp
+    val dialDp  = 230.dp
     val density = LocalDensity.current
 
     val dialPx      = with(density) { dialDp.toPx() }
@@ -245,6 +254,9 @@ private fun StopwatchFace(
     val handlePx    = with(density) { 22.dp.toPx() }
     val ppPx        = with(density) { 17.dp.toPx() }
     val minBubblePx = with(density) { 18.dp.toPx() }
+    val hourBubblePx = with(density) { 14.dp.toPx() }
+    // Hours orbit just inside the outer chrome rim
+    val hourTrackR  = (trackRadius + outerRadius) / 2f
 
     // Seconds hand sweeps smoothly around the dial
     val handleAngle = (-PI / 2.0 + secSmooth * 2.0 * PI).toFloat()
@@ -257,9 +269,15 @@ private fun StopwatchFace(
     val ppX     = cx + ppDist * cos(ppAngle)
     val ppY     = cx + ppDist * sin(ppAngle)
 
-    // Minutes bubble fixed at 6 o'clock position in the ring
-    val minX = cx
-    val minY = cx + trackRadius
+    // Minutes bubble orbits the middle of the silver ring once per hour
+    val minAngle = (-PI / 2.0 + minSmooth * 2.0 * PI).toFloat()
+    val minX     = cx + trackRadius * cos(minAngle)
+    val minY     = cx + trackRadius * sin(minAngle)
+
+    // Hours bubble orbits the outer half of the silver ring once per 12 hours
+    val hourAngle = (-PI / 2.0 + hourSmooth * 2.0 * PI).toFloat()
+    val hourX     = cx + hourTrackR * cos(hourAngle)
+    val hourY     = cx + hourTrackR * sin(hourAngle)
 
     Box(modifier = Modifier.size(dialDp)) {
 
@@ -267,65 +285,201 @@ private fun StopwatchFace(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val center = Offset(cx, cx)
 
-            // Drop shadow under disc
-            drawCircle(
-                color = Color.Black.copy(alpha = 0.30f),
-                radius = outerRadius + 6.dp.toPx(),
-                center = Offset(cx, cx + 6.dp.toPx())
-            )
-
-            // Outer disc — light silver/gray
+            // ── 1. Large soft drop shadow ──────────────────────
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFFF6F6F6), Color(0xFFDADADA), Color(0xFFC2C2C2)),
-                    center = center,
-                    radius = outerRadius
+                    colors = listOf(
+                        Color.Black.copy(0.60f),
+                        Color.Black.copy(0.28f),
+                        Color.Transparent
+                    ),
+                    center = Offset(cx, cx + 22.dp.toPx()),
+                    radius = outerRadius + 30.dp.toPx()
                 ),
-                radius = outerRadius,
-                center = center
-            )
-            drawCircle(
-                color = Color(0xFFAAAAAA),
-                radius = outerRadius,
-                center = center,
-                style = Stroke(width = 2.dp.toPx())
+                radius = outerRadius + 30.dp.toPx(),
+                center = Offset(cx, cx + 22.dp.toPx())
             )
 
-            // Inner black circle
-            drawCircle(color = Color(0xFF0D0D0D), radius = innerRadius, center = center)
+            // ── 2. Outer disc — off-centre light source ────────
             drawCircle(
-                color = Color.White.copy(alpha = 0.10f),
-                radius = innerRadius,
-                center = center,
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFFFFFFFF), Color(0xFFEEEEEE), Color(0xFFCCCCCC), Color(0xFF9E9E9E)),
+                    center = Offset(cx - outerRadius * 0.36f, cx - outerRadius * 0.38f),
+                    radius = outerRadius * 1.55f
+                ),
+                radius = outerRadius, center = center
+            )
+            // Top-left specular blob
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.White.copy(0.78f), Color.Transparent),
+                    center = Offset(cx - outerRadius * 0.38f, cx - outerRadius * 0.42f),
+                    radius = outerRadius * 0.50f
+                ),
+                radius = outerRadius, center = center
+            )
+            // Bottom-right shadow
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.Transparent, Color.Black.copy(0.32f)),
+                    center = Offset(cx + outerRadius * 0.30f, cx + outerRadius * 0.34f),
+                    radius = outerRadius * 0.95f
+                ),
+                radius = outerRadius, center = center
+            )
+
+            // ── 3. Outer edge bevel arcs ───────────────────────
+            val edgeR = outerRadius - 1.dp.toPx()
+            val edgeBox = Size(edgeR * 2f, edgeR * 2f)
+            val edgeTL  = Offset(cx - edgeR, cx - edgeR)
+            // Bright arc — top-left (light hits the rim)
+            drawArc(
+                color = Color.White.copy(0.80f),
+                startAngle = 195f, sweepAngle = 150f, useCenter = false,
+                topLeft = edgeTL, size = edgeBox,
+                style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
+            )
+            // Dark arc — bottom-right (shadow side of rim)
+            drawArc(
+                color = Color(0xFF505050).copy(0.65f),
+                startAngle = 15f, sweepAngle = 150f, useCenter = false,
+                topLeft = edgeTL, size = edgeBox,
+                style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
+            )
+
+            // ── 4. Chrome bevel ring — separates disc from hole ─
+            val bevR   = innerRadius + 6.dp.toPx()
+            val bevBox = Size(bevR * 2f, bevR * 2f)
+            val bevTL  = Offset(cx - bevR, cx - bevR)
+            drawCircle(color = Color(0xFF1A1A1A), radius = bevR, center = center)
+            // Bright bevel highlight — top-left
+            drawArc(
+                color = Color(0xFFD8D8D8).copy(0.88f),
+                startAngle = 200f, sweepAngle = 142f, useCenter = false,
+                topLeft = bevTL, size = bevBox,
+                style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+            )
+            // Dark bevel shadow — bottom-right
+            drawArc(
+                color = Color.Black.copy(0.72f),
+                startAngle = 22f, sweepAngle = 142f, useCenter = false,
+                topLeft = bevTL, size = bevBox,
+                style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
+            )
+
+            // ── 5. Inner sunken disc ───────────────────────────
+            drawCircle(color = Color(0xFF080808), radius = innerRadius, center = center)
+            // Top inner shadow (light from above casts shadow into the recess)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.Black.copy(0.80f), Color.Transparent),
+                    center = Offset(cx, cx - innerRadius * 0.48f),
+                    radius = innerRadius * 0.72f
+                ),
+                radius = innerRadius, center = center
+            )
+            // Subtle bottom bounce light
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.Transparent, Color(0xFF1C1C1C)),
+                    center = Offset(cx, cx + innerRadius * 0.52f),
+                    radius = innerRadius * 0.55f
+                ),
+                radius = innerRadius, center = center
+            )
+            // Thin inner rim highlight at top (grazing light on the lip)
+            drawArc(
+                color = Color.White.copy(0.14f),
+                startAngle = 192f, sweepAngle = 156f, useCenter = false,
+                topLeft = Offset(cx - innerRadius + 1f, cx - innerRadius + 1f),
+                size = Size((innerRadius - 1f) * 2f, (innerRadius - 1f) * 2f),
                 style = Stroke(width = 1.5.dp.toPx())
             )
 
-            // Minutes bubble — brown, fixed 6 o'clock in ring
+            // ── 6. Hours bubble — 3-D sphere (deep navy) ──────
+            drawCircle(
+                color = Color.Black.copy(0.50f),
+                radius = hourBubblePx + 4f,
+                center = Offset(hourX, hourY + 5f)
+            )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFF6B3A18), Color(0xFF3A1C08)),
-                    center = Offset(minX, minY),
-                    radius = minBubblePx
+                    colors = listOf(Color(0xFF3A5FA8), Color(0xFF162B6E), Color(0xFF080E2A)),
+                    center = Offset(hourX - hourBubblePx * 0.26f, hourY - hourBubblePx * 0.30f),
+                    radius = hourBubblePx * 1.15f
                 ),
-                radius = minBubblePx,
-                center = Offset(minX, minY)
+                radius = hourBubblePx, center = Offset(hourX, hourY)
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFF8AABF0).copy(0.60f), Color.Transparent),
+                    center = Offset(hourX - hourBubblePx * 0.30f, hourY - hourBubblePx * 0.34f),
+                    radius = hourBubblePx * 0.40f
+                ),
+                radius = hourBubblePx, center = Offset(hourX, hourY)
             )
 
-            // Seconds hand bubble shadow
+            // ── 7. Minutes bubble — 3-D sphere ────────────────
             drawCircle(
-                color = Color.Black.copy(alpha = 0.28f),
-                radius = handlePx + 3f,
-                center = Offset(handleX, handleY + 4f)
+                color = Color.Black.copy(0.45f),
+                radius = minBubblePx + 4f,
+                center = Offset(minX, minY + 5f)
             )
-            // Seconds hand bubble — white
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color.White, Color(0xFFE6E6E6)),
-                    center = Offset(handleX, handleY),
-                    radius = handlePx
+                    colors = listOf(Color(0xFF9B5A26), Color(0xFF5C2E0D), Color(0xFF2A1005)),
+                    center = Offset(minX - minBubblePx * 0.26f, minY - minBubblePx * 0.30f),
+                    radius = minBubblePx * 1.15f
                 ),
-                radius = handlePx,
-                center = Offset(handleX, handleY)
+                radius = minBubblePx, center = Offset(minX, minY)
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFFD4956A).copy(0.55f), Color.Transparent),
+                    center = Offset(minX - minBubblePx * 0.30f, minY - minBubblePx * 0.34f),
+                    radius = minBubblePx * 0.42f
+                ),
+                radius = minBubblePx, center = Offset(minX, minY)
+            )
+
+            // ── 7. Seconds bubble — 3-D sphere ────────────────
+            drawCircle(
+                color = Color.Black.copy(0.42f),
+                radius = handlePx + 5f,
+                center = Offset(handleX, handleY + 6f)
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFFFFFFFF), Color(0xFFEEEEEE), Color(0xFFD4D4D4)),
+                    center = Offset(handleX - handlePx * 0.26f, handleY - handlePx * 0.30f),
+                    radius = handlePx * 1.15f
+                ),
+                radius = handlePx, center = Offset(handleX, handleY)
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.White.copy(0.88f), Color.Transparent),
+                    center = Offset(handleX - handlePx * 0.34f, handleY - handlePx * 0.38f),
+                    radius = handlePx * 0.40f
+                ),
+                radius = handlePx, center = Offset(handleX, handleY)
+            )
+        }
+
+        // ── Hours text inside navy bubble ─────────────────────
+        Box(
+            modifier = Modifier
+                .offset { IntOffset((hourX - hourBubblePx).roundToInt(), (hourY - hourBubblePx).roundToInt()) }
+                .size(with(density) { (hourBubblePx * 2f).toDp() }),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = String.format("%02d", hourInt),
+                color = Color(0xFFABC4F5),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                fontFamily = NokiaFont
             )
         }
 
@@ -338,11 +492,11 @@ private fun StopwatchFace(
         ) {
             Text(
                 text = String.format("%02d", minInt),
-                color = Color(0xFFD4956A),
-                fontSize = 11.sp,
+                color = Color.White,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                fontFamily = fontFamily
+                fontFamily = NokiaFont
             )
         }
 
@@ -355,11 +509,11 @@ private fun StopwatchFace(
         ) {
             Text(
                 text = String.format("%02d", secInt),
-                color = Color(0xFF111111),
-                fontSize = 14.sp,
+                color = Color(0xFF0A0A0A),
+                fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
-                fontFamily = fontFamily
+                fontFamily = NokiaFont
             )
         }
 
