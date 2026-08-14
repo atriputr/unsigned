@@ -39,20 +39,51 @@ fun TimerPickerOverlay(
 ) {
     val context = LocalContext.current
 
+    // ── Restore persisted timer state ────────────────────────────
+    val persisted = remember { FitDataRepository.loadTimerState() }
+    val restoredRemaining = remember(persisted) {
+        if (!persisted.active) 0L
+        else if (persisted.running)
+            (persisted.remainingAtSaveMs - (System.currentTimeMillis() - persisted.savedAtEpochMs)).coerceAtLeast(0L)
+        else
+            persisted.remainingAtSaveMs
+    }
+
     var hours   by remember { mutableStateOf(0) }
     var minutes by remember { mutableStateOf(0) }
     var seconds by remember { mutableStateOf(0) }
     var unit    by remember { mutableStateOf(1) }
 
     // Countdown phase state
-    var timerActive by remember { mutableStateOf(false) }
-    var isRunning   by remember { mutableStateOf(false) }
-    var remainingMs by remember { mutableStateOf(0L) }
-    var totalMs     by remember { mutableStateOf(0L) }
+    var timerActive by remember { mutableStateOf(persisted.active) }
+    var isRunning   by remember { mutableStateOf(persisted.active && persisted.running && restoredRemaining > 0L) }
+    var remainingMs by remember { mutableStateOf(restoredRemaining) }
+    var totalMs     by remember { mutableStateOf(if (persisted.active) persisted.totalMs else 0L) }
 
     val startedAt   = remember { LongArray(1) { 0L } }
     val baseRemain  = remember { LongArray(1) { 0L } }
     var restartKey  by remember { mutableStateOf(0) }
+
+    fun persist() {
+        FitDataRepository.saveTimerState(
+            TimerPersistedState(
+                active = timerActive,
+                running = isRunning,
+                totalMs = totalMs,
+                remainingAtSaveMs = remainingMs,
+                savedAtEpochMs = System.currentTimeMillis()
+            )
+        )
+    }
+
+    // Periodic safety-net while running; save on pause
+    LaunchedEffect(isRunning, timerActive) {
+        if (timerActive && isRunning) {
+            while (true) { delay(5_000L); persist() }
+        } else {
+            persist()
+        }
+    }
 
     LaunchedEffect(isRunning, restartKey) {
         if (isRunning && remainingMs > 0L) {
@@ -91,7 +122,7 @@ fun TimerPickerOverlay(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.7f))
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onClose() },
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { persist(); onClose() },
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -173,6 +204,7 @@ fun TimerPickerOverlay(
                         if (t > 0L) {
                             totalMs = t; remainingMs = t
                             timerActive = true; isRunning = true
+                            persist()
                         }
                     }
                 ) { newVal ->
@@ -250,6 +282,7 @@ fun TimerPickerOverlay(
                                 remainingMs = totalMs
                                 isRunning   = true
                                 restartKey++
+                                persist()
                             },
                         contentAlignment = Alignment.Center
                     ) {
@@ -266,6 +299,7 @@ fun TimerPickerOverlay(
                             .clickable {
                                 isRunning = false; timerActive = false
                                 remainingMs = 0L; totalMs = 0L
+                                FitDataRepository.clearTimerState()
                             },
                         contentAlignment = Alignment.Center
                     ) {

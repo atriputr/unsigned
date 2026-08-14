@@ -19,6 +19,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Theme tint over background image (transparent in DARK, cream/amber in others) -->
+    <View
+        android:id="@+id/bgThemeTint"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Percent guidelines matching EXACT positions from the image -->
 
     <!-- Button 1 (Ideal) -->

@@ -33,6 +33,21 @@ object ReportGenerator {
         val hs = AnalyticsEngine.computeHealthStats(junkHistory, from, to)
         val now = java.time.LocalDateTime.now().toString().take(16).replace('T', ' ')
 
+        // Extended health data
+        val profile        = FitDataRepository.loadUserProfile()
+        val waterHistory   = FitDataRepository.loadWaterHistory()
+        val exerciseAll    = FitDataRepository.loadExerciseEntries()
+        val sleepAll       = FitDataRepository.loadSleepEntries()
+        val logsAll        = FitDataRepository.loadLogEntries()
+        val skillsAll      = FitDataRepository.loadSkillItems()
+        val activitiesAll  = FitDataRepository.loadActivitySessions()
+        val periodDates = generateSequence(from) { it.plusDays(1) }.takeWhile { !it.isAfter(to) }.toList()
+
+        val waterAvg = if (periodDates.isNotEmpty()) periodDates.map { waterHistory[it.toString()]?.let { w -> w.glassesConsumed * w.glassMl } ?: 0 }.average() else 0.0
+        val exerciseTotal = exerciseAll.filter { dateInRange(it.dateIso, from, to) }.sumOf { it.minutes }
+        val sleepInPeriod = sleepAll.filter { dateInRange(it.wakeDateIso, from, to) }
+        val sleepAvgHrs = if (sleepInPeriod.isNotEmpty()) sleepInPeriod.map { it.durationHours }.average() else 0.0
+
         return buildString {
             appendLine("<!DOCTYPE html><html lang='en'><head>")
             appendLine("<meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'>")
@@ -118,9 +133,127 @@ object ReportGenerator {
             ss.mostActiveDate?.let { appendLine(row("Most Active Date", it)) }
             appendLine("</div></div>")
 
+            // ── Health profile ─────────────────────────────
+            if (profile.setupComplete) {
+                appendLine("<div class='section'><div class='section-title'>Health Profile</div><div class='stats-list'>")
+                appendLine(row("Name", profile.name))
+                appendLine(row("Age", "${profile.ageYears}"))
+                appendLine(row("Weight", "%.1f kg".format(profile.weightKg)))
+                appendLine(row("Height", "%.1f cm".format(profile.heightCm)))
+                appendLine(row("BMI", "%.1f (%s)".format(profile.bmi, profile.bmiCategory)))
+                if (profile.bmr > 0) appendLine(row("BMR", "%.0f kcal/day".format(profile.bmr)))
+                if (profile.tdee > 0) appendLine(row("TDEE", "%.0f kcal/day".format(profile.tdee)))
+                appendLine(row("Activity Level", profile.activityLevel))
+                appendLine("</div></div>")
+            }
+
+            // ── Water ─────────────────────────────────────
+            if (waterHistory.isNotEmpty()) {
+                appendLine("<div class='section'><div class='section-title'>Hydration</div><div class='chart-row'>")
+                appendLine("<div class='stats-list'>")
+                appendLine(row("Avg Daily Intake", "%.2f L".format(waterAvg / 1000.0)))
+                val goalDays = periodDates.count {
+                    val e = waterHistory[it.toString()] ?: return@count false
+                    (e.glassesConsumed * e.glassMl) >= e.goalMl
+                }
+                appendLine(row("Days Goal Met", "$goalDays / ${periodDates.size}"))
+                appendLine("</div>")
+                appendLine("<div style='flex:1'>")
+                appendLine("<div class='bar-label-top'>Water Daily Trend (ml)</div>")
+                val trend = periodDates.takeLast(14).map { d -> d.toString() to ((waterHistory[d.toString()]?.let { it.glassesConsumed * it.glassMl }) ?: 0) }
+                val maxMl = trend.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
+                appendLine("<div style='display:flex;align-items:flex-end;height:80px;gap:5px;border-bottom:1px solid #1a2d40;padding-bottom:4px'>")
+                trend.forEach { (date, ml) ->
+                    val h = (ml.toFloat() / maxMl * 64).toInt().coerceAtLeast(2)
+                    appendLine("<div style='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end'>")
+                    appendLine("<div style='width:100%;height:${h}px;background:#4EA8DE;border-radius:2px 2px 0 0;opacity:.85'></div>")
+                    appendLine("<div style='font-size:8px;color:#3a5060;margin-top:3px;writing-mode:vertical-rl;transform:rotate(180deg)'>${date.takeLast(5)}</div>")
+                    appendLine("</div>")
+                }
+                appendLine("</div></div></div></div>")
+            }
+
+            // ── Exercise ──────────────────────────────────
+            if (exerciseAll.isNotEmpty()) {
+                appendLine("<div class='section'><div class='section-title'>Exercise</div><div class='stats-list'>")
+                appendLine(row("Period Total", "$exerciseTotal min"))
+                appendLine(row("Sessions", "${exerciseAll.count { dateInRange(it.dateIso, from, to) }}"))
+                val weeklyAvg = if (periodDates.isNotEmpty()) exerciseTotal * 7.0 / periodDates.size else 0.0
+                appendLine(row("Weekly Average", "%.0f min".format(weeklyAvg)))
+                appendLine(row("WHO Target Ratio", "%.0f%%".format(weeklyAvg / 150.0 * 100.0)))
+                appendLine("</div></div>")
+            }
+
+            // ── Sleep ─────────────────────────────────────
+            if (sleepInPeriod.isNotEmpty()) {
+                appendLine("<div class='section'><div class='section-title'>Sleep</div><div class='chart-row'>")
+                appendLine("<div class='stats-list'>")
+                appendLine(row("Average Duration", "%.2f h".format(sleepAvgHrs)))
+                appendLine(row("Target", "%.1f h".format(profile.recommendedSleepHours)))
+                appendLine(row("Nights Logged", "${sleepInPeriod.size}"))
+                val avgQuality = sleepInPeriod.map { it.quality }.average()
+                appendLine(row("Avg Quality", "%.1f / 5 ★".format(avgQuality)))
+                appendLine("</div>")
+                appendLine("<div style='flex:1'>")
+                appendLine("<div class='bar-label-top'>Sleep Duration (hrs)</div>")
+                val recent = sleepInPeriod.sortedBy { it.wakeDateIso }.takeLast(14)
+                val maxHrs = (recent.maxOfOrNull { it.durationHours } ?: 10.0).coerceAtLeast(1.0)
+                appendLine("<div style='display:flex;align-items:flex-end;height:80px;gap:5px;border-bottom:1px solid #1a2d40;padding-bottom:4px'>")
+                recent.forEach { s ->
+                    val h = (s.durationHours / maxHrs * 64).toInt().coerceAtLeast(2)
+                    val color = if (s.durationHours >= profile.recommendedSleepHours - 1) "#B19CFF" else "#FF9066"
+                    appendLine("<div style='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end'>")
+                    appendLine("<div style='width:100%;height:${h}px;background:$color;border-radius:2px 2px 0 0;opacity:.85'></div>")
+                    appendLine("<div style='font-size:8px;color:#3a5060;margin-top:3px;writing-mode:vertical-rl;transform:rotate(180deg)'>${s.wakeDateIso.takeLast(5)}</div>")
+                    appendLine("</div>")
+                }
+                appendLine("</div></div></div></div>")
+            }
+
+            // ── Meds / Suppliments / Severe / Diet ────────
+            val logsInPeriod = logsAll.filter { dateInRange(it.dateIso, from, to) }
+            if (logsInPeriod.isNotEmpty()) {
+                appendLine("<div class='section'><div class='section-title'>Health Logs</div><div class='stats-list'>")
+                listOf("meds", "suppliments", "severe", "diet").forEach { cat ->
+                    val count = logsInPeriod.count { it.category == cat }
+                    if (count > 0) appendLine(row(cat.replaceFirstChar { it.uppercase() }, "$count entries"))
+                }
+                appendLine("</div></div>")
+            }
+
+            // ── Skills ────────────────────────────────────
+            if (skillsAll.isNotEmpty()) {
+                appendLine("<div class='section'><div class='section-title'>Skill Practice</div><table class='h-table'><tr><th>Skill</th><th>Category</th><th>Minutes</th></tr>")
+                skillsAll.sortedByDescending { it.totalMinutes }.forEach { s ->
+                    appendLine("<tr><td>${s.name}</td><td style='color:#7aa5c0'>${s.category}</td><td>${s.totalMinutes}</td></tr>")
+                }
+                appendLine("</table></div>")
+            }
+
+            // ── Activities ────────────────────────────────
+            val actsInPeriod = activitiesAll.filter { dateInRange(it.dateIso, from, to) }
+            if (actsInPeriod.isNotEmpty()) {
+                appendLine("<div class='section'><div class='section-title'>Activities</div><div class='stats-list'>")
+                listOf("cycling", "yoga", "walking").forEach { act ->
+                    val sessions = actsInPeriod.filter { it.activity == act }
+                    if (sessions.isNotEmpty()) {
+                        val mins = sessions.sumOf { it.durationMinutes }
+                        val km = sessions.mapNotNull { it.distanceKm }.sum()
+                        val extra = if (km > 0) " · %.1f km".format(km) else ""
+                        appendLine(row(act.replaceFirstChar { it.uppercase() }, "${sessions.size} sess · $mins min$extra"))
+                    }
+                }
+                appendLine("</div></div>")
+            }
+
             appendLine("<div class='footer'>Generated by Unsigned App &bull; Your personal growth tracker</div>")
             appendLine("</div></body></html>")
         }
+    }
+
+    private fun dateInRange(iso: String, from: LocalDate, to: LocalDate): Boolean {
+        val d = try { LocalDate.parse(iso) } catch (_: Exception) { return false }
+        return !d.isBefore(from) && !d.isAfter(to)
     }
 
     fun shareReport(context: Context, html: String) {

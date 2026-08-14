@@ -465,31 +465,37 @@ fun GlassDialogContent(
     onHealthClick: () -> Unit,
     onSkillClick: () -> Unit,
     onPeaceClick: () -> Unit,
+    onFocusClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
+    onBriefingClick: () -> Unit = {},
+    onCompareClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {},
     onClose: () -> Unit
 ) {
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
+        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
         contentAlignment = Alignment.Center
     ) {
+        val palette = LocalPalette.current
         Column(
             modifier = Modifier
                 .width(340.dp)
                 .padding(24.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
-                .border(width = 1.5.dp, brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+                .background(palette.surfaceBrush())
+                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
                 .padding(24.dp)
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "IDEAL OPTIONS",
-                color = Color.White,
+                color = palette.onSurface,
                 fontSize = 26.sp,
                 fontFamily = titleFont,
                 fontStyle = FontStyle.Italic,
                 modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
             )
             GlassButton("1. EDUCATION", buttonFont, onClick = onEducationClick)
             Spacer(modifier = Modifier.height(16.dp))
@@ -498,6 +504,58 @@ fun GlassDialogContent(
             GlassButton("3. SKILL", buttonFont, onClick = onSkillClick)
             Spacer(modifier = Modifier.height(16.dp))
             GlassButton("4. PEACE", buttonFont, onClick = onPeaceClick)
+
+            Spacer(modifier = Modifier.height(20.dp))
+            // Row 1: BRIEF · FOCUS · COMPARE
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Text(
+                    "◐ BRIEF",
+                    color = palette.accentPrimary.copy(alpha = 0.90f),
+                    fontSize = 12.sp,
+                    fontFamily = buttonFont,
+                    letterSpacing = 2.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { onBriefingClick() }
+                )
+                Text(
+                    "◇ FOCUS",
+                    color = palette.danger.copy(alpha = if (palette.isLight) 0.85f else 0.85f),
+                    fontSize = 12.sp,
+                    fontFamily = buttonFont,
+                    letterSpacing = 2.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { onFocusClick() }
+                )
+                Text(
+                    "◉ COMPARE",
+                    color = palette.accentSecondary,
+                    fontSize = 12.sp,
+                    fontFamily = buttonFont,
+                    letterSpacing = 2.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { onCompareClick() }
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Text(
+                    "◆ PROFILE",
+                    color = palette.accentSecondary,
+                    fontSize = 12.sp,
+                    fontFamily = buttonFont,
+                    letterSpacing = 2.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { onProfileClick() }
+                )
+                Text(
+                    "◈ SETTINGS",
+                    color = palette.subtle,
+                    fontSize = 12.sp,
+                    fontFamily = buttonFont,
+                    letterSpacing = 2.sp,
+                    modifier = Modifier.clickable { onSettingsClick() }
+                )
+            }
         }
     }
 }
@@ -514,28 +572,29 @@ fun EducationOptionsOverlay(
     onClose: () -> Unit
 ) {
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
+        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
         contentAlignment = Alignment.Center
     ) {
+        val palette = LocalPalette.current
         Column(
             modifier = Modifier
                 .width(340.dp)
                 .padding(24.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
-                .border(width = 1.5.dp, brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+                .background(palette.surfaceBrush())
+                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
                 .padding(24.dp)
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "EDUCATION",
-                color = Color.White,
+                color = palette.onSurface,
                 fontSize = 26.sp,
                 fontFamily = titleFont,
                 fontStyle = FontStyle.Italic,
                 modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
             )
             GlassButton("LECTURE", buttonFont, onClick = onLectureClick)
             Spacer(modifier = Modifier.height(16.dp))
@@ -548,7 +607,7 @@ fun EducationOptionsOverlay(
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "BACK",
-                color = Color.White.copy(alpha = 0.5f),
+                color = palette.faint,
                 fontSize = 18.sp,
                 fontFamily = buttonFont,
                 modifier = Modifier.clickable { onBack() }
@@ -563,37 +622,40 @@ fun HealthOptionsOverlay(
     buttonFont: FontFamily,
     junkCount: Int,
     onJunkCountChange: (Int) -> Unit,
+    onWaterClick: () -> Unit = {},
+    onExerciseClick: () -> Unit = {},
     onMedsClick: () -> Unit,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
+        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
         contentAlignment = Alignment.Center
     ) {
+        val palette = LocalPalette.current
         Column(
             modifier = Modifier
                 .width(340.dp)
                 .padding(24.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
-                .border(width = 1.5.dp, brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+                .background(palette.surfaceBrush())
+                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
                 .padding(24.dp)
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "HEALTH",
-                color = Color.White,
+                color = palette.onSurface,
                 fontSize = 26.sp,
                 fontFamily = titleFont,
                 fontStyle = FontStyle.Italic,
                 modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
             )
-            GlassButton("WATER", buttonFont)
+            GlassButton("WATER", buttonFont, onClick = onWaterClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("EXERCISE", buttonFont)
+            GlassButton("EXERCISE", buttonFont, onClick = onExerciseClick)
             Spacer(modifier = Modifier.height(16.dp))
 
             Box(
@@ -601,8 +663,8 @@ fun HealthOptionsOverlay(
                     .fillMaxWidth()
                     .height(60.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
-                    .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                    .background(palette.chipBg)
+                    .border(1.dp, palette.fieldBorder, RoundedCornerShape(14.dp))
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onTap       = { onJunkCountChange((junkCount - 1).coerceAtLeast(0)) },
@@ -616,13 +678,13 @@ fun HealthOptionsOverlay(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("JUNK COUNT", color = Color.White, fontSize = 22.sp, fontFamily = buttonFont, letterSpacing = 1.sp)
+                    Text("JUNK COUNT", color = palette.onSurface, fontSize = 22.sp, fontFamily = buttonFont, letterSpacing = 1.sp)
                     Text(
                         "$junkCount",
-                        color = OrangeFire,
+                        color = palette.accentPrimary,
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
-                        style = TextStyle(shadow = Shadow(color = OrangeFire, blurRadius = 16f))
+                        style = TextStyle(shadow = Shadow(color = palette.accentPrimary, blurRadius = 16f))
                     )
                 }
             }
@@ -634,8 +696,8 @@ fun HealthOptionsOverlay(
                     .fillMaxWidth()
                     .height(46.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(Color(0xFFE41417))
-                    .border(1.5.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+                    .background(palette.danger)
+                    .border(1.5.dp, palette.onSurface.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
                     .clickable { onClose() },
                 contentAlignment = Alignment.Center
             ) {
@@ -644,8 +706,7 @@ fun HealthOptionsOverlay(
                     color = Color.White,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 3.sp,
-                    style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+                    letterSpacing = 3.sp
                 )
             }
 
@@ -655,7 +716,7 @@ fun HealthOptionsOverlay(
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "BACK",
-                color = Color.White.copy(alpha = 0.5f),
+                color = palette.faint,
                 fontSize = 18.sp,
                 fontFamily = buttonFont,
                 modifier = Modifier.clickable { onBack() }
@@ -668,43 +729,50 @@ fun HealthOptionsOverlay(
 fun MedsOptionsOverlay(
     titleFont: FontFamily,
     buttonFont: FontFamily,
+    onMedsLogClick: () -> Unit = {},
+    onSupplimentsClick: () -> Unit = {},
+    onSevereClick: () -> Unit = {},
+    onDietClick: () -> Unit = {},
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
+        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
         contentAlignment = Alignment.Center
     ) {
+        val palette = LocalPalette.current
         Column(
             modifier = Modifier
                 .width(340.dp)
                 .padding(24.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
-                .border(width = 1.5.dp, brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+                .background(palette.surfaceBrush())
+                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
                 .padding(24.dp)
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "MEDS",
-                color = Color.White,
+                color = palette.onSurface,
                 fontSize = 26.sp,
                 fontFamily = titleFont,
                 fontStyle = FontStyle.Italic,
                 modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
             )
-            GlassButton("SUPPLIMENTS", buttonFont)
+            GlassButton("MEDS LOG", buttonFont, onClick = onMedsLogClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("SEVERE", buttonFont)
+            GlassButton("SUPPLIMENTS", buttonFont, onClick = onSupplimentsClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("DIET", buttonFont)
+            GlassButton("SEVERE", buttonFont, onClick = onSevereClick)
+            Spacer(modifier = Modifier.height(16.dp))
+            GlassButton("DIET", buttonFont, onClick = onDietClick)
 
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "BACK",
-                color = Color.White.copy(alpha = 0.5f),
+                color = palette.faint,
                 fontSize = 18.sp,
                 fontFamily = buttonFont,
                 modifier = Modifier.clickable { onBack() }
@@ -717,43 +785,47 @@ fun MedsOptionsOverlay(
 fun SkillOptionsOverlay(
     titleFont: FontFamily,
     buttonFont: FontFamily,
+    onHobbyClick: () -> Unit = {},
+    onMinorClick: () -> Unit = {},
+    onMajorClick: () -> Unit = {},
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
+        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
         contentAlignment = Alignment.Center
     ) {
+        val palette = LocalPalette.current
         Column(
             modifier = Modifier
                 .width(340.dp)
                 .padding(24.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
-                .border(width = 1.5.dp, brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+                .background(palette.surfaceBrush())
+                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
                 .padding(24.dp)
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "SKILL",
-                color = Color.White,
+                color = palette.onSurface,
                 fontSize = 26.sp,
                 fontFamily = titleFont,
                 fontStyle = FontStyle.Italic,
                 modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
             )
-            GlassButton("HOBBY", buttonFont)
+            GlassButton("HOBBY", buttonFont, onClick = onHobbyClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("MINOR SKILL TO GROW", buttonFont)
+            GlassButton("MINOR SKILL TO GROW", buttonFont, onClick = onMinorClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("MAJOR SKILL FOR LIFE", buttonFont)
+            GlassButton("MAJOR SKILL FOR LIFE", buttonFont, onClick = onMajorClick)
 
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "BACK",
-                color = Color.White.copy(alpha = 0.5f),
+                color = palette.faint,
                 fontSize = 18.sp,
                 fontFamily = buttonFont,
                 modifier = Modifier.clickable { onBack() }
@@ -766,48 +838,53 @@ fun SkillOptionsOverlay(
 fun PeaceOptionsOverlay(
     titleFont: FontFamily,
     buttonFont: FontFamily,
+    onCyclingClick: () -> Unit = {},
+    onYogaClick: () -> Unit = {},
+    onWalkingClick: () -> Unit = {},
+    onSleepClick: () -> Unit = {},
     onHabitsClick: () -> Unit,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.7f)).clickable { onClose() },
+        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
         contentAlignment = Alignment.Center
     ) {
+        val palette = LocalPalette.current
         Column(
             modifier = Modifier
                 .width(340.dp)
                 .padding(24.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
-                .border(width = 1.5.dp, brush = Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+                .background(palette.surfaceBrush())
+                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
                 .padding(24.dp)
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "PEACE",
-                color = Color.White,
+                color = palette.onSurface,
                 fontSize = 26.sp,
                 fontFamily = titleFont,
                 fontStyle = FontStyle.Italic,
                 modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
             )
-            GlassButton("CYCLING", buttonFont)
+            GlassButton("CYCLING", buttonFont, onClick = onCyclingClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("YOGA", buttonFont)
+            GlassButton("YOGA", buttonFont, onClick = onYogaClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("WALKING", buttonFont)
+            GlassButton("WALKING", buttonFont, onClick = onWalkingClick)
             Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("SLEEP", buttonFont)
+            GlassButton("SLEEP", buttonFont, onClick = onSleepClick)
             Spacer(modifier = Modifier.height(16.dp))
             GlassButton("HABITS", buttonFont, onClick = onHabitsClick)
 
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "BACK",
-                color = Color.White.copy(alpha = 0.5f),
+                color = palette.faint,
                 fontSize = 18.sp,
                 fontFamily = buttonFont,
                 modifier = Modifier.clickable { onBack() }
@@ -818,19 +895,25 @@ fun PeaceOptionsOverlay(
 
 @Composable
 fun GlassButton(text: String, fontFamily: FontFamily, onClick: () -> Unit = {}) {
+    val palette = LocalPalette.current
+    val surfaceBrush = if (palette.isLight) {
+        Brush.linearGradient(listOf(palette.onSurface.copy(alpha = 0.06f), palette.onSurface.copy(alpha = 0.02f)))
+    } else {
+        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f)))
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(60.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
-            .border(width = 1.dp, color = Color.White.copy(alpha = 0.25f), shape = RoundedCornerShape(14.dp))
+            .background(surfaceBrush)
+            .border(width = 1.dp, color = palette.fieldBorder, shape = RoundedCornerShape(14.dp))
             .clickable { onClick() },
         contentAlignment = Alignment.CenterStart
     ) {
         Text(
             text = text,
-            color = Color.White,
+            color = palette.onSurface,
             fontSize = 22.sp,
             fontFamily = fontFamily,
             letterSpacing = 1.sp,

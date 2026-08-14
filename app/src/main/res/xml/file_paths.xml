@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <files-path name="fitdata" path="fitdata/" />
+    <files-path name="final_progress" path="final progress/" />
     <cache-path name="reports" path="reports/" />
 </paths>

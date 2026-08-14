@@ -42,12 +42,13 @@ fun HabitOverlay(
     onUpdateCount: (Int, Int) -> Unit, // index, newCount
     onClose: () -> Unit
 ) {
+    val palette = LocalPalette.current
     var habitName by remember { mutableStateOf("") }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f))
+            .background(palette.scrim)
             .clickable { onClose() },
         contentAlignment = Alignment.Center
     ) {
@@ -56,49 +57,40 @@ fun HabitOverlay(
                 .width(360.dp)
                 .heightIn(max = 600.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))
-                    )
-                )
-                .border(
-                    width = 1.5.dp,
-                    brush = Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))
-                    ),
-                    shape = RoundedCornerShape(24.dp)
-                )
+                .background(palette.surfaceBrush())
+                .border(1.5.dp, palette.borderBrush(), RoundedCornerShape(24.dp))
                 .clickable(enabled = false) { }
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "HABITS",
-                color = Color.White,
+                color = palette.onSurface,
                 fontSize = 26.sp,
                 fontFamily = titleFont,
                 fontStyle = FontStyle.Italic,
                 modifier = Modifier.padding(bottom = 20.dp),
-                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
             )
 
             // Input Area
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text("ENTER HABIT", color = Color.White.copy(alpha = 0.6f), fontSize = 18.sp, fontFamily = titleFont)
+                Text("ENTER HABIT", color = palette.subtle, fontSize = 18.sp, fontFamily = titleFont)
                 Spacer(modifier = Modifier.height(4.dp))
                 BasicTextField(
                     value = habitName,
                     onValueChange = { habitName = it },
-                    textStyle = TextStyle(color = Color.White, fontSize = 20.sp, fontFamily = contentFont),
+                    textStyle = TextStyle(color = palette.onSurface, fontSize = 20.sp, fontFamily = contentFont),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(palette.accentPrimary),
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color.White.copy(alpha = 0.1f))
-                        .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                        .background(palette.fieldBg)
+                        .border(1.dp, palette.fieldBorder, RoundedCornerShape(8.dp))
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                     decorationBox = { innerTextField ->
                         if (habitName.isEmpty()) {
-                            Text("New habit...", color = Color.White.copy(alpha = 0.3f), fontSize = 20.sp, fontFamily = contentFont)
+                            Text("New habit...", color = palette.faint, fontSize = 20.sp, fontFamily = contentFont)
                         }
                         innerTextField()
                     }
@@ -113,7 +105,7 @@ fun HabitOverlay(
                     .fillMaxWidth()
                     .height(50.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFE41417).copy(alpha = 0.8f))
+                    .background(palette.danger.copy(alpha = 0.85f))
                     .clickable {
                         if (habitName.isNotBlank()) {
                             onSave(habitName)
@@ -126,12 +118,12 @@ fun HabitOverlay(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = 0.3f), thickness = 1.dp)
+            HorizontalDivider(color = palette.divider, thickness = 1.dp)
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
                 "SAVED HABITS:",
-                color = Color.White.copy(alpha = 0.7f),
+                color = palette.subtle,
                 fontSize = 20.sp,
                 fontFamily = contentFont,
                 modifier = Modifier.align(Alignment.Start)
@@ -157,7 +149,7 @@ fun HabitOverlay(
             Spacer(modifier = Modifier.height(20.dp))
             Text(
                 text = "BACK",
-                color = Color.White.copy(alpha = 0.5f),
+                color = palette.faint,
                 fontSize = 18.sp,
                 fontFamily = titleFont,
                 modifier = Modifier.clickable { onClose() }
@@ -168,12 +160,13 @@ fun HabitOverlay(
 
 @Composable
 fun HabitListItem(habit: Habit, font: FontFamily, onUpdateCount: (Int) -> Unit) {
+    val palette = LocalPalette.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.08f))
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+            .background(palette.chipBg)
+            .border(1.dp, palette.divider, RoundedCornerShape(12.dp))
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { onUpdateCount(-1) },
@@ -188,19 +181,19 @@ fun HabitListItem(habit: Habit, font: FontFamily, onUpdateCount: (Int) -> Unit) 
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = habit.name.uppercase(), 
-                color = Color.White.copy(alpha = 0.9f), 
-                fontSize = 20.sp, 
+                text = habit.name.uppercase(),
+                color = palette.onSurface,
+                fontSize = 20.sp,
                 fontFamily = font,
                 modifier = Modifier.weight(1f)
             )
             Text(
-                text = habit.count.toString(), 
-                color = Color(0xFFFFA500), // Orange color for count
-                fontSize = 24.sp, 
-                fontWeight = FontWeight.Bold, 
+                text = habit.count.toString(),
+                color = palette.accentPrimary,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
                 fontFamily = font,
-                style = TextStyle(shadow = Shadow(color = Color(0xFFFFA500), blurRadius = 10f))
+                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.5f), blurRadius = 10f))
             )
         }
     }

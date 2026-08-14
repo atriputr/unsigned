@@ -1,12 +1,19 @@
 package com.example.un_signed
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateListOf
@@ -24,6 +31,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private lateinit var tvYearPercent: TextView
     private lateinit var cvUpcomingEvents: ComposeView
     private lateinit var composeOverlay: ComposeView
+    private lateinit var bgThemeTint: View
     private val timeHandler = Handler(Looper.getMainLooper())
     
     // State for Custom Profiles
@@ -49,6 +57,15 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private val savedCourses = mutableStateListOf<Subject>()
     private val savedPractices = mutableStateListOf<Subject>()
     private var currentSessionId = ""
+
+    // User profile (loaded on init)
+    private val userProfile = mutableStateOf(UserProfile())
+    // App preferences (units, theme, haptics)
+    private val appPrefs = mutableStateOf(AppPreferences())
+
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* silent: WeatherService already falls back to IP if denied */ }
 
     private val updateTimeRunnable = object : Runnable {
         override fun run() {
@@ -80,12 +97,17 @@ class ProfileSelectionActivity : AppCompatActivity() {
         activeLectureTopics.addAll(lectureState.topics)
         activeLectureDurationMin.value = lectureState.durationMin
         savedJunkCount.value = FitDataRepository.loadJunkHistory()[LocalDate.now().toString()] ?: 0
+        userProfile.value = FitDataRepository.loadUserProfile()
+        appPrefs.value = FitDataRepository.loadAppPreferences()
+        Haptics.enabled = appPrefs.value.hapticsEnabled
 
         tvClock = findViewById(R.id.tvNixieClock)
         pbYearProgress = findViewById(R.id.pbYearProgress)
         tvYearPercent = findViewById(R.id.tvYearPercent)
         cvUpcomingEvents = findViewById(R.id.cvUpcomingEvents)
         composeOverlay = findViewById(R.id.composeOverlay)
+        bgThemeTint = findViewById(R.id.bgThemeTint)
+        applyThemeTint()
 
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
         val jerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
@@ -135,11 +157,217 @@ class ProfileSelectionActivity : AppCompatActivity() {
         tvYearPercent.setOnClickListener(onYearProgressClick)
 
         timeHandler.post(updateTimeRunnable)
+
+        // Back button: close overlay if open, else default (exit)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (composeOverlay.visibility == View.VISIBLE) {
+                    composeOverlay.visibility = View.GONE
+                    composeOverlay.setContent { }
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+
+        // First-run onboarding: force profile setup before anything else
+        if (!userProfile.value.setupComplete) {
+            showProfileOverlay(bebasFont, bebasFont, isOnboarding = true)
+        }
+
+        // Silently request coarse location once so weather can be accurate (IP fallback otherwise)
+        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION))
+        }
+    }
+
+    /** Applies the current theme tint over the baked home background image + updates year-percent color. */
+    private fun applyThemeTint() {
+        val palette = AppPalettes.byName(appPrefs.value.theme)
+        bgThemeTint.setBackgroundColor(palette.homeTint.toArgb())
+        tvYearPercent.setTextColor(palette.onSurface.toArgb())
+    }
+
+    /** Wrap any overlay content in the active theme so every child composable can read LocalPalette. */
+    private fun setThemedContent(makeVisible: Boolean = true, content: @Composable () -> Unit) {
+        if (makeVisible) composeOverlay.visibility = View.VISIBLE
+        composeOverlay.setContent {
+            AppThemeProvider(appPrefs.value.theme) { content() }
+        }
+    }
+
+    private fun showProfileOverlay(
+        titleFont: FontFamily,
+        contentFont: FontFamily,
+        isOnboarding: Boolean = false
+    ) {
+        setThemedContent {
+            UserProfileOverlay(
+                    titleFont = titleFont,
+                    contentFont = contentFont,
+                    existing = userProfile.value,
+                    prefs = appPrefs.value,
+                    onPrefsChange = { p ->
+                        appPrefs.value = p
+                        Haptics.enabled = p.hapticsEnabled
+                        FitDataRepository.saveAppPreferences(p)
+                    },
+                    isOnboarding = isOnboarding,
+                    onSave = { p ->
+                        userProfile.value = p
+                        FitDataRepository.saveUserProfile(p)
+                        composeOverlay.visibility = View.GONE
+                    },
+                    onClose = { if (!isOnboarding) composeOverlay.visibility = View.GONE }
+                )
+        }
+    }
+
+    private fun showWaterOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent(makeVisible = false) {
+            WaterOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                profile = userProfile.value,
+                prefs = appPrefs.value,
+                onClose = { showHealthOverlay(titleFont, contentFont) }
+            )
+        }
+    }
+
+    private fun showExerciseOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent(makeVisible = false) {
+            ExerciseOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                onClose = { showHealthOverlay(titleFont, contentFont) }
+            )
+        }
+    }
+
+    private fun showLogOverlay(category: String, titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent(makeVisible = false) {
+            LogEntryOverlay(
+                category = category,
+                titleFont = titleFont,
+                contentFont = contentFont,
+                onClose = { showMedsOverlay(titleFont, contentFont) }
+            )
+        }
+    }
+
+    private fun showSkillListOverlay(category: String, titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent(makeVisible = false) {
+            SkillListOverlay(
+                category = category,
+                titleFont = titleFont,
+                contentFont = contentFont,
+                onClose = { showSkillOverlay(titleFont, contentFont) }
+            )
+        }
+    }
+
+    private fun showActivityOverlay(activity: String, titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent(makeVisible = false) {
+            ActivityTrackerOverlay(
+                activity = activity,
+                titleFont = titleFont,
+                contentFont = contentFont,
+                prefs = appPrefs.value,
+                onClose = { showPeaceOverlay(titleFont, contentFont) }
+            )
+        }
+    }
+
+    private fun showSleepOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent(makeVisible = false) {
+            SleepOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                profile = userProfile.value,
+                onClose = { showPeaceOverlay(titleFont, contentFont) }
+            )
+        }
+    }
+
+    private fun showBriefingOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent {
+            DailyBriefingOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                profile = userProfile.value,
+                prefs = appPrefs.value,
+                onClose = { composeOverlay.visibility = View.GONE }
+            )
+        }
+    }
+
+    private fun showFocusOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent {
+            FocusOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                onClose = { composeOverlay.visibility = View.GONE }
+            )
+        }
+    }
+
+    private fun showCompareOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent {
+            CompareToGlobeOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                profile = userProfile.value,
+                prefs = appPrefs.value,
+                onClose = { composeOverlay.visibility = View.GONE }
+            )
+        }
+    }
+
+    private fun showSettingsOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent {
+            SettingsOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                prefs = appPrefs.value,
+                onPrefsChange = { p ->
+                    val themeChanged = p.theme != appPrefs.value.theme
+                    appPrefs.value = p
+                    Haptics.enabled = p.hapticsEnabled
+                    FitDataRepository.saveAppPreferences(p)
+                    if (themeChanged) {
+                        applyThemeTint()
+                        showSettingsOverlay(titleFont, contentFont)
+                    }
+                },
+                onEditProfile = { showProfileOverlay(titleFont, contentFont, isOnboarding = false) },
+                onWeightLog   = { showWeightLogOverlay(titleFont, contentFont) },
+                onClose = { composeOverlay.visibility = View.GONE }
+            )
+        }
+    }
+
+    private fun showWeightLogOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent {
+            WeightLogOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                profile = userProfile.value,
+                prefs = appPrefs.value,
+                onProfileWeightChange = { newKg ->
+                    val updated = userProfile.value.copy(weightKg = newKg)
+                    userProfile.value = updated
+                    FitDataRepository.saveUserProfile(updated)
+                },
+                onClose = { showSettingsOverlay(titleFont, contentFont) }
+            )
+        }
     }
 
     private fun showStopwatchOverlay(fontFamily: FontFamily, advanceMode: () -> Unit) {
-        composeOverlay.visibility = View.VISIBLE
-        composeOverlay.setContent {
+        setThemedContent {
             StopwatchOverlay(
                 fontFamily = fontFamily,
                 onSkip = {
@@ -152,8 +380,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     private fun showTimerOverlay(fontFamily: FontFamily, advanceMode: () -> Unit) {
-        composeOverlay.visibility = View.VISIBLE
-        composeOverlay.setContent {
+        setThemedContent {
             TimerPickerOverlay(
                 fontFamily = fontFamily,
                 onSkip = {
@@ -166,8 +393,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     private fun showCalendarOverlay(initialDate: LocalDate = LocalDate.now(), fontFamily: FontFamily) {
-        composeOverlay.visibility = View.VISIBLE
-        composeOverlay.setContent {
+        setThemedContent {
             GlassCalendarOverlay(
                 allTasks = allCalendarTasks,
                 onUpdateTasks = { date, tasks ->
@@ -183,32 +409,26 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     private fun showGlassOverlay(titleFont: FontFamily, buttonFont: FontFamily) {
-        composeOverlay.visibility = View.VISIBLE
-        composeOverlay.setContent {
+        setThemedContent {
             GlassDialogContent(
                 titleFont = titleFont,
                 buttonFont = buttonFont,
-                onEducationClick = {
-                    showEducationOverlay(titleFont, buttonFont)
-                },
-                onHealthClick = {
-                    showHealthOverlay(titleFont, buttonFont)
-                },
-                onSkillClick = {
-                    showSkillOverlay(titleFont, buttonFont)
-                },
-                onPeaceClick = {
-                    showPeaceOverlay(titleFont, buttonFont)
-                },
-                onClose = {
-                    composeOverlay.visibility = View.GONE
-                }
+                onEducationClick = { showEducationOverlay(titleFont, buttonFont) },
+                onHealthClick    = { showHealthOverlay(titleFont, buttonFont) },
+                onSkillClick     = { showSkillOverlay(titleFont, buttonFont) },
+                onPeaceClick     = { showPeaceOverlay(titleFont, buttonFont) },
+                onFocusClick     = { showFocusOverlay(titleFont, buttonFont) },
+                onSettingsClick  = { showSettingsOverlay(titleFont, buttonFont) },
+                onBriefingClick  = { showBriefingOverlay(titleFont, buttonFont) },
+                onCompareClick   = { showCompareOverlay(titleFont, buttonFont) },
+                onProfileClick   = { showProfileOverlay(titleFont, buttonFont, isOnboarding = false) },
+                onClose = { composeOverlay.visibility = View.GONE }
             )
         }
     }
 
     private fun showEducationOverlay(titleFont: FontFamily, buttonFont: FontFamily) {
-        composeOverlay.setContent {
+        setThemedContent(makeVisible = false) {
             EducationOptionsOverlay(
                 titleFont = titleFont,
                 buttonFont = buttonFont,
@@ -235,7 +455,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     private fun showSubjectScreen(titleFont: FontFamily, buttonFont: FontFamily) {
-        composeOverlay.setContent {
+        setThemedContent(makeVisible = false) {
             LaunchedEffect(savedSubjects.toList()) {
                 FitDataRepository.saveSubjects(savedSubjects.toList())
             }
@@ -250,7 +470,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     private fun showCourseScreen(titleFont: FontFamily, buttonFont: FontFamily) {
-        composeOverlay.setContent {
+        setThemedContent(makeVisible = false) {
             LaunchedEffect(savedCourses.toList()) {
                 FitDataRepository.saveCourses(savedCourses.toList())
             }
@@ -265,7 +485,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     private fun showPracticeScreen(titleFont: FontFamily, buttonFont: FontFamily) {
-        composeOverlay.setContent {
+        setThemedContent(makeVisible = false) {
             LaunchedEffect(savedPractices.toList()) {
                 FitDataRepository.savePractices(savedPractices.toList())
             }
@@ -284,7 +504,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         buttonFont: FontFamily,
         onBack: () -> Unit = { showEducationOverlay(titleFont, buttonFont) }
     ) {
-        composeOverlay.setContent {
+        setThemedContent(makeVisible = false) {
             LectureScreen(
                 titleFont        = titleFont,
                 contentFont      = buttonFont,
@@ -316,7 +536,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     private fun showHealthOverlay(titleFont: FontFamily, buttonFont: FontFamily) {
-        composeOverlay.setContent {
+        setThemedContent {
             HealthOptionsOverlay(
                 titleFont = titleFont,
                 buttonFont = buttonFont,
@@ -325,69 +545,62 @@ class ProfileSelectionActivity : AppCompatActivity() {
                     savedJunkCount.value = newCount
                     FitDataRepository.saveJunkEntry(LocalDate.now(), newCount)
                 },
-                onMedsClick = {
-                    showMedsOverlay(titleFont, buttonFont)
-                },
-                onBack = {
-                    showGlassOverlay(titleFont, buttonFont)
-                },
-                onClose = {
-                    composeOverlay.visibility = View.GONE
-                }
+                onWaterClick    = { showWaterOverlay(titleFont, buttonFont) },
+                onExerciseClick = { showExerciseOverlay(titleFont, buttonFont) },
+                onMedsClick     = { showMedsOverlay(titleFont, buttonFont) },
+                onBack          = { showGlassOverlay(titleFont, buttonFont) },
+                onClose         = { composeOverlay.visibility = View.GONE }
             )
         }
     }
 
     private fun showMedsOverlay(titleFont: FontFamily, buttonFont: FontFamily) {
-        composeOverlay.setContent {
+        setThemedContent {
             MedsOptionsOverlay(
                 titleFont = titleFont,
                 buttonFont = buttonFont,
-                onBack = {
-                    showHealthOverlay(titleFont, buttonFont)
-                },
-                onClose = {
-                    composeOverlay.visibility = View.GONE
-                }
+                onMedsLogClick     = { showLogOverlay("meds", titleFont, buttonFont) },
+                onSupplimentsClick = { showLogOverlay("suppliments", titleFont, buttonFont) },
+                onSevereClick      = { showLogOverlay("severe", titleFont, buttonFont) },
+                onDietClick        = { showLogOverlay("diet", titleFont, buttonFont) },
+                onBack             = { showHealthOverlay(titleFont, buttonFont) },
+                onClose            = { composeOverlay.visibility = View.GONE }
             )
         }
     }
 
     private fun showSkillOverlay(titleFont: FontFamily, buttonFont: FontFamily) {
-        composeOverlay.setContent {
+        setThemedContent {
             SkillOptionsOverlay(
                 titleFont = titleFont,
                 buttonFont = buttonFont,
-                onBack = {
-                    showGlassOverlay(titleFont, buttonFont)
-                },
-                onClose = {
-                    composeOverlay.visibility = View.GONE
-                }
+                onHobbyClick = { showSkillListOverlay("hobby", titleFont, buttonFont) },
+                onMinorClick = { showSkillListOverlay("minor", titleFont, buttonFont) },
+                onMajorClick = { showSkillListOverlay("major", titleFont, buttonFont) },
+                onBack       = { showGlassOverlay(titleFont, buttonFont) },
+                onClose      = { composeOverlay.visibility = View.GONE }
             )
         }
     }
 
     private fun showPeaceOverlay(titleFont: FontFamily, buttonFont: FontFamily) {
-        composeOverlay.setContent {
+        setThemedContent {
             PeaceOptionsOverlay(
                 titleFont = titleFont,
                 buttonFont = buttonFont,
-                onHabitsClick = {
-                    showHabitOverlay(titleFont, buttonFont)
-                },
-                onBack = {
-                    showGlassOverlay(titleFont, buttonFont)
-                },
-                onClose = {
-                    composeOverlay.visibility = View.GONE
-                }
+                onCyclingClick = { showActivityOverlay("cycling", titleFont, buttonFont) },
+                onYogaClick    = { showActivityOverlay("yoga", titleFont, buttonFont) },
+                onWalkingClick = { showActivityOverlay("walking", titleFont, buttonFont) },
+                onSleepClick   = { showSleepOverlay(titleFont, buttonFont) },
+                onHabitsClick  = { showHabitOverlay(titleFont, buttonFont) },
+                onBack         = { showGlassOverlay(titleFont, buttonFont) },
+                onClose        = { composeOverlay.visibility = View.GONE }
             )
         }
     }
 
     private fun showHabitOverlay(titleFont: FontFamily, contentFont: FontFamily) {
-        composeOverlay.setContent {
+        setThemedContent(makeVisible = false) {
             HabitOverlay(
                 titleFont = titleFont,
                 contentFont = contentFont,
@@ -410,8 +623,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     private fun showCustomProfileOverlay(titleFont: FontFamily, contentFont: FontFamily) {
-        composeOverlay.visibility = View.VISIBLE
-        composeOverlay.setContent {
+        setThemedContent {
             CustomProfileOverlay(
                 titleFont = titleFont,
                 contentFont = contentFont,
@@ -432,8 +644,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     private fun showExportOverlay(titleFont: FontFamily, contentFont: FontFamily) {
-        composeOverlay.visibility = View.VISIBLE
-        composeOverlay.setContent {
+        setThemedContent {
             ExportProgressOverlay(
                 titleFont = titleFont,
                 contentFont = contentFont,

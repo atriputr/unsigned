@@ -63,8 +63,9 @@ fun ExportProgressOverlay(
         Color(0xFFE53935), Color(0xFF00BCD4), Color(0xFF8BC34A)
     )
 
+    val palette = LocalPalette.current
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.93f))
+        modifier = Modifier.fillMaxSize().background(if (palette.isLight) palette.appBackground else Color.Black.copy(alpha = 0.93f))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Fixed header + period selector
@@ -76,11 +77,11 @@ fun ExportProgressOverlay(
                 ) {
                     Text(
                         "ANALYTICS",
-                        color = Color.White, fontSize = 26.sp, fontFamily = titleFont,
-                        style = TextStyle(shadow = Shadow(Color.White.copy(0.25f), blurRadius = 8f))
+                        color = palette.onSurface, fontSize = 26.sp, fontFamily = titleFont,
+                        style = TextStyle(shadow = Shadow(palette.accentPrimary.copy(0.25f), blurRadius = 8f))
                     )
                     Text(
-                        "✕", color = Color.White.copy(0.5f), fontSize = 22.sp,
+                        "✕", color = palette.faint, fontSize = 22.sp,
                         modifier = Modifier.clickable { onClose() }
                     )
                 }
@@ -93,14 +94,14 @@ fun ExportProgressOverlay(
                         val sel = selectedPeriod == idx
                         Box(
                             modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                                .background(if (sel) Color(0xFF09e8ad) else Color.White.copy(0.1f))
-                                .border(1.dp, if (sel) Color.Transparent else Color.White.copy(0.2f), RoundedCornerShape(8.dp))
+                                .background(if (sel) palette.success else palette.chipBg)
+                                .border(1.dp, if (sel) Color.Transparent else palette.fieldBorder, RoundedCornerShape(8.dp))
                                 .clickable { selectedPeriod = idx }
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(label,
-                                color = if (sel) Color.Black else Color.White,
+                                color = if (sel) Color.Black else palette.onSurface,
                                 fontSize = 14.sp, fontFamily = contentFont, fontWeight = FontWeight.Bold
                             )
                         }
@@ -125,7 +126,7 @@ fun ExportProgressOverlay(
                         }
                         ss.mostActiveDate?.let { d ->
                             Spacer(Modifier.height(8.dp))
-                            Text("Most active day: $d", color = Color.White.copy(0.4f), fontSize = 11.sp, fontFamily = contentFont)
+                            Text("Most active day: $d", color = palette.faint, fontSize = 11.sp, fontFamily = contentFont)
                         }
                     }
                 }
@@ -136,7 +137,7 @@ fun ExportProgressOverlay(
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             val done = es.totalChaptersDone.toFloat()
                             val rem  = (es.totalChapters - es.totalChaptersDone).toFloat().coerceAtLeast(0f)
-                            APie(listOf(done, rem), listOf(Color(0xFF09e8ad), Color.White.copy(0.1f)))
+                            APie(listOf(done, rem), listOf(Color(0xFF09e8ad), palette.divider))
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 ARow("Subjects", "${es.completedSubjects} / ${subjects.size}", contentFont)
                                 ARow("Courses", "${es.completedCourses} / ${courses.size}", contentFont)
@@ -153,7 +154,7 @@ fun ExportProgressOverlay(
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             APie(
                                 listOf(cs.completedTasks.toFloat(), cs.pendingTasks.toFloat()),
-                                listOf(Color(0xFF4FC3F7), Color.White.copy(0.1f))
+                                listOf(Color(0xFF4FC3F7), palette.divider)
                             )
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 ARow("Total", "${cs.totalTasks}", contentFont)
@@ -173,11 +174,11 @@ fun ExportProgressOverlay(
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                                 APie(
                                     if (total > 0f) habits.map { it.count.toFloat() } else listOf(1f),
-                                    if (total > 0f) habitColors else listOf(Color.White.copy(0.1f))
+                                    if (total > 0f) habitColors else listOf(palette.divider)
                                 )
                                 Column(Modifier.weight(1f)) {
                                     habits.forEachIndexed { i, habit ->
-                                        val c = habitColors.getOrElse(i) { Color.White }
+                                        val c = habitColors.getOrElse(i) { palette.onSurface }
                                         Row(
                                             Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                             Arrangement.SpaceBetween, Alignment.CenterVertically
@@ -185,7 +186,7 @@ fun ExportProgressOverlay(
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(c))
                                                 Spacer(Modifier.width(6.dp))
-                                                Text(habit.name, color = Color.White, fontSize = 13.sp, fontFamily = contentFont)
+                                                Text(habit.name, color = palette.onSurface, fontSize = 13.sp, fontFamily = contentFont)
                                             }
                                             Text("${habit.count}x", color = c, fontSize = 14.sp, fontFamily = contentFont, fontWeight = FontWeight.Bold)
                                         }
@@ -205,7 +206,7 @@ fun ExportProgressOverlay(
                         }
                         if (hs.history.isNotEmpty()) {
                             Spacer(Modifier.height(14.dp))
-                            Text("DAILY TREND", color = Color.White.copy(0.35f), fontSize = 10.sp, fontFamily = contentFont, letterSpacing = 2.sp)
+                            Text("DAILY TREND", color = palette.faint, fontSize = 10.sp, fontFamily = contentFont, letterSpacing = 2.sp)
                             Spacer(Modifier.height(8.dp))
                             val maxC = hs.history.maxOf { it.second }.coerceAtLeast(1)
                             Row(
@@ -233,24 +234,76 @@ fun ExportProgressOverlay(
                 // Export buttons
                 item {
                     Spacer(Modifier.height(4.dp))
+
+                    // ── PRIMARY: share the progress card image (Insta / WhatsApp friendly) ─
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFF8A00))
+                            .clickable {
+                                Haptics.click(context)
+                                val bundle = ProgressExporter.saveAll(context, fromDate, today, selectedPeriod)
+                                ProgressExporter.shareImage(context, bundle.png)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("SHARE AS IMAGE (SOCIAL)", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, fontFamily = titleFont, letterSpacing = 2.sp)
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // ── Save the whole progress bundle to /final progress/ ─
                     Box(
                         modifier = Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(12.dp))
                             .background(Color(0xFF09e8ad))
                             .clickable {
-                                val html = ReportGenerator.generate(
-                                    sessions, subjects, courses, practices, habits,
-                                    calTasks, junkHist, fromDate, today, selectedPeriod
-                                )
-                                ReportGenerator.shareReport(context, html)
+                                Haptics.click(context)
+                                val bundle = ProgressExporter.saveAll(context, fromDate, today, selectedPeriod)
+                                Toast.makeText(
+                                    context,
+                                    "Saved to /final progress/ · ${bundle.stem}",
+                                    Toast.LENGTH_LONG
+                                ).show()
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("GENERATE & SHARE REPORT", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, fontFamily = titleFont)
+                        Text("SAVE PROGRESS (PNG + HTML + PPTX)", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, fontFamily = titleFont, letterSpacing = 1.5.sp)
                     }
+
                     Spacer(Modifier.height(8.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(
+                            modifier = Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFEBC174))
+                                .clickable {
+                                    Haptics.click(context)
+                                    val bundle = ProgressExporter.saveAll(context, fromDate, today, selectedPeriod)
+                                    ProgressExporter.sharePptx(context, bundle.pptx)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("SHARE .PPTX", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, fontFamily = titleFont, letterSpacing = 1.sp)
+                        }
+                        Box(
+                            modifier = Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFB19CFF))
+                                .clickable {
+                                    Haptics.click(context)
+                                    val bundle = ProgressExporter.saveAll(context, fromDate, today, selectedPeriod)
+                                    ProgressExporter.shareHtml(context, bundle.html)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("SHARE .HTML", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, fontFamily = titleFont, letterSpacing = 1.sp)
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Legacy: save the HTML report to phone Downloads too (unchanged)
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFFEBC174))
+                        modifier = Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(12.dp))
+                            .background(palette.chipBg)
                             .clickable {
                                 val html = ReportGenerator.generate(
                                     sessions, subjects, courses, practices, habits,
@@ -261,7 +314,7 @@ fun ExportProgressOverlay(
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("SAVE TO DOWNLOADS", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, fontFamily = titleFont)
+                        Text("ALSO SAVE HTML TO DOWNLOADS", color = palette.subtle, fontSize = 11.sp, fontFamily = titleFont, letterSpacing = 1.sp)
                     }
                 }
             }
@@ -273,14 +326,15 @@ fun ExportProgressOverlay(
 
 @Composable
 private fun ACard(title: String, titleFont: FontFamily, content: @Composable ColumnScope.() -> Unit) {
+    val palette = LocalPalette.current
     Column(
         modifier = Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(0.06f))
-            .border(1.dp, Color.White.copy(0.11f), RoundedCornerShape(14.dp))
+            .background(palette.chipBg)
+            .border(1.dp, palette.divider, RoundedCornerShape(14.dp))
             .padding(16.dp)
     ) {
-        Text(title, color = Color(0xFF09e8ad), fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 3.sp)
+        Text(title, color = palette.success, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 3.sp)
         Spacer(Modifier.height(12.dp))
         content()
     }
@@ -288,12 +342,15 @@ private fun ACard(title: String, titleFont: FontFamily, content: @Composable Col
 
 @Composable
 private fun APie(slices: List<Float>, colors: List<Color>, size: Dp = 80.dp) {
+    val palette = LocalPalette.current
+    val centerColor = if (palette.isLight) palette.surfaceBot else Color(0xFF0D0D1A)
+    val emptyColor  = if (palette.isLight) palette.chipBg   else Color.White.copy(0.08f)
     val total = slices.sum()
     Canvas(modifier = Modifier.size(size)) {
         val r = minOf(this.size.width, this.size.height) / 2f
         if (total <= 0f) {
-            drawCircle(Color.White.copy(0.08f))
-            drawCircle(Color(0xFF0D0D1A), r * 0.40f)
+            drawCircle(emptyColor)
+            drawCircle(centerColor, r * 0.40f)
             return@Canvas
         }
         var start = -90f
@@ -307,23 +364,25 @@ private fun APie(slices: List<Float>, colors: List<Color>, size: Dp = 80.dp) {
             )
             start += sweep
         }
-        drawCircle(Color(0xFF0D0D1A), r * 0.40f, Offset(r, r))
+        drawCircle(centerColor, r * 0.40f, Offset(r, r))
     }
 }
 
 @Composable
 private fun AMini(label: String, value: String, font: FontFamily) {
+    val palette = LocalPalette.current
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, color = Color.White, fontSize = 18.sp, fontFamily = font, fontWeight = FontWeight.Bold)
-        Text(label, color = Color.White.copy(0.4f), fontSize = 9.sp, fontFamily = font, letterSpacing = 1.sp)
+        Text(value, color = palette.onSurface, fontSize = 18.sp, fontFamily = font, fontWeight = FontWeight.Bold)
+        Text(label, color = palette.faint, fontSize = 9.sp, fontFamily = font, letterSpacing = 1.sp)
     }
 }
 
 @Composable
 private fun ARow(label: String, value: String, font: FontFamily) {
+    val palette = LocalPalette.current
     Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-        Text(label, color = Color.White.copy(0.55f), fontSize = 13.sp, fontFamily = font)
-        Text(value, color = Color.White, fontSize = 13.sp, fontFamily = font, fontWeight = FontWeight.Bold)
+        Text(label, color = palette.subtle, fontSize = 13.sp, fontFamily = font)
+        Text(value, color = palette.onSurface, fontSize = 13.sp, fontFamily = font, fontWeight = FontWeight.Bold)
     }
 }
 

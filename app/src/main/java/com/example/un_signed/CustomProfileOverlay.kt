@@ -45,13 +45,14 @@ fun CustomProfileOverlay(
     onDelete: (CustomProfile) -> Unit,
     onClose: () -> Unit
 ) {
+    val palette = LocalPalette.current
     var showCreatePage by remember { mutableStateOf(false) }
     var profileToDelete by remember { mutableStateOf<CustomProfile?>(null) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.7f))
+            .background(palette.scrim)
             .clickable { onClose() },
         contentAlignment = Alignment.Center
     ) {
@@ -60,30 +61,20 @@ fun CustomProfileOverlay(
                 .width(360.dp)
                 .heightIn(max = 600.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))
-                    )
-                )
-                .border(
-                    width = 1.5.dp,
-                    brush = Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = 0.4f), Color.Transparent, Color.White.copy(alpha = 0.2f))
-                    ),
-                    shape = RoundedCornerShape(24.dp)
-                )
+                .background(palette.surfaceBrush())
+                .border(1.5.dp, palette.borderBrush(), RoundedCornerShape(24.dp))
                 .clickable(enabled = false) { }
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "CUSTOM PROFILE",
-                color = Color.White,
+                color = palette.onSurface,
                 fontSize = 24.sp,
                 fontFamily = titleFont,
                 fontStyle = FontStyle.Italic,
                 modifier = Modifier.padding(bottom = 20.dp),
-                style = TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = Color.White.copy(alpha = 0.5f), blurRadius = 8f))
+                style = TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
             )
 
             // CREATE PROFILE Button
@@ -92,14 +83,14 @@ fun CustomProfileOverlay(
                     .fillMaxWidth()
                     .height(60.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.15f), Color.White.copy(alpha = 0.05f))))
-                    .border(width = 1.dp, color = Color.White.copy(alpha = 0.25f), shape = RoundedCornerShape(14.dp))
+                    .background(palette.chipBg)
+                    .border(width = 1.dp, color = palette.fieldBorder, shape = RoundedCornerShape(14.dp))
                     .clickable { showCreatePage = true },
                 contentAlignment = Alignment.CenterStart
             ) {
                 Text(
                     text = "CREATE PROFILE",
-                    color = Color.White,
+                    color = palette.onSurface,
                     fontSize = 22.sp,
                     fontFamily = titleFont,
                     modifier = Modifier.padding(start = 24.dp)
@@ -107,12 +98,12 @@ fun CustomProfileOverlay(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = 0.3f), thickness = 1.dp)
+            HorizontalDivider(color = palette.divider, thickness = 1.dp)
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
                 "PREVIOUS/ONGOING PROFILES:",
-                color = Color.White.copy(alpha = 0.7f),
+                color = palette.subtle,
                 fontSize = 22.sp,
                 fontFamily = contentFont,
                 modifier = Modifier.align(Alignment.Start)

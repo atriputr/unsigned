@@ -37,15 +37,35 @@ fun StopwatchOverlay(
     onSkip: () -> Unit,
     onClose: () -> Unit
 ) {
-    var isRunning    by remember { mutableStateOf(false) }
-    var elapsedMs    by remember { mutableStateOf(0L) }
-    var laps         by remember { mutableStateOf(listOf<LapEntry>()) }
-    var lastLapMs    by remember { mutableStateOf(0L) }
+    // ── Restore persisted state (survives app kill) ────────────
+    val initial = remember { FitDataRepository.loadStopwatchState() }
+    val initialElapsed = remember(initial) {
+        if (initial.running && initial.savedAtEpochMs > 0)
+            initial.elapsedMsAtSave + (System.currentTimeMillis() - initial.savedAtEpochMs).coerceAtLeast(0L)
+        else initial.elapsedMsAtSave
+    }
+
+    var isRunning    by remember { mutableStateOf(initial.running) }
+    var elapsedMs    by remember { mutableStateOf(initialElapsed) }
+    var laps         by remember { mutableStateOf(initial.laps) }
+    var lastLapMs    by remember { mutableStateOf(initial.lastLapMs) }
     var pendingReset by remember { mutableStateOf(false) }
 
     // Plain array refs — no State overhead in the hot timing loop
     val startedAt   = remember { LongArray(1) { 0L } }
     val baseElapsed = remember { LongArray(1) { 0L } }
+
+    fun persist() {
+        FitDataRepository.saveStopwatchState(
+            StopwatchPersistedState(
+                laps = laps,
+                elapsedMsAtSave = elapsedMs,
+                running = isRunning,
+                savedAtEpochMs = System.currentTimeMillis(),
+                lastLapMs = lastLapMs
+            )
+        )
+    }
 
     LaunchedEffect(isRunning) {
         if (isRunning) {
@@ -55,6 +75,18 @@ fun StopwatchOverlay(
                 elapsedMs = baseElapsed[0] + (SystemClock.elapsedRealtime() - startedAt[0])
                 delay(16L)
             }
+        }
+    }
+
+    // Periodic safety-net save while running (every 5s) so a crash loses ≤ 5s
+    LaunchedEffect(isRunning) {
+        if (isRunning) {
+            while (true) {
+                delay(5_000L)
+                persist()
+            }
+        } else {
+            persist()   // save on every pause
         }
     }
 
@@ -83,7 +115,7 @@ fun StopwatchOverlay(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.7f))
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onClose() },
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { persist(); onClose() },
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -169,6 +201,7 @@ fun StopwatchOverlay(
                         val snap  = snapMs()
                         laps      = laps + LapEntry(laps.size + 1, snap - lastLapMs, snap)
                         lastLapMs = snap
+                        persist()
                     }
                 }, fontFamily = BebasFont)
                 SwBtn(
@@ -181,14 +214,16 @@ fun StopwatchOverlay(
                             isRunning = false; elapsedMs = 0L
                             startedAt[0] = 0L; baseElapsed[0] = 0L
                             lastLapMs = 0L; pendingReset = true
+                            persist()
                         } else {
                             // 2nd press: wipe all lap data
                             laps = emptyList(); pendingReset = false
+                            FitDataRepository.clearStopwatchState()
                         }
                     },
                     fontFamily = BebasFont
                 )
-                SwBtn("SKIP",  Color(0xFF122A12), Modifier.weight(1f), onClick = onSkip, fontFamily = BebasFont)
+                SwBtn("SKIP",  Color(0xFF122A12), Modifier.weight(1f), onClick = { persist(); onSkip() }, fontFamily = BebasFont)
             }
 
             // ── Laps (last 4, newest first) ───────────────────
