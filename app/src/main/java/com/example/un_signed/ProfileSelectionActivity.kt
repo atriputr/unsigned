@@ -353,7 +353,6 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 onUpdate = {
                     lifecycleScope.launch(Dispatchers.Main) {
                         updateManager.downloadAndInstall(info)
-                        composeOverlay.visibility = View.GONE
                     }
                 },
                 onClose = {

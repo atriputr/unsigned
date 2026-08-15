@@ -59,38 +59,63 @@ class UpdateManager(private val context: Context) {
     suspend fun downloadAndInstall(updateInfo: UpdateInfo) = withContext(Dispatchers.IO) {
         try {
             withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Downloading update...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Initializing download...", Toast.LENGTH_SHORT).show()
             }
             
-            val url = URL(updateInfo.apkUrl)
-            val connection = url.openConnection() as HttpURLConnection
+            var url = URL(updateInfo.apkUrl)
+            var connection = url.openConnection() as HttpURLConnection
+            connection.instanceFollowRedirects = true
             connection.connect()
 
+            // Handle manual redirect if auto-follow fails for large files
+            if (connection.responseCode == HttpURLConnection.HTTP_MOVED_TEMP || 
+                connection.responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
+                connection.responseCode == 307 || connection.responseCode == 308) {
+                val newUrl = connection.getHeaderField("Location")
+                connection.disconnect()
+                url = URL(newUrl)
+                connection = url.openConnection() as HttpURLConnection
+                connection.connect()
+            }
+
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                val errorMsg = "Server Error: ${connection.responseCode}"
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Download failed: ${connection.responseCode}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
                 }
                 return@withContext
             }
 
+            val totalSize = connection.contentLength
             val updateDir = File(context.externalCacheDir, "updates")
             if (!updateDir.exists()) updateDir.mkdirs()
             val apkFile = File(updateDir, "update.apk")
 
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Downloading...", Toast.LENGTH_SHORT).show()
+            }
+
             connection.inputStream.use { input ->
                 FileOutputStream(apkFile).use { output ->
-                    input.copyTo(output)
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Int
+                    var totalDownloaded = 0L
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        output.write(buffer, 0, bytesRead)
+                        totalDownloaded += bytesRead
+                        // We could send progress updates here if we had a state holder
+                    }
                 }
             }
 
             withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Download complete. Starting install...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Download complete! Size: ${apkFile.length() / 1024} KB", Toast.LENGTH_SHORT).show()
                 installApk(apkFile)
             }
         } catch (e: Exception) {
             e.printStackTrace()
             withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Update Error: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Update Error: ${e.localizedMessage ?: e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
