@@ -32,6 +32,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private lateinit var cvUpcomingEvents: ComposeView
     private lateinit var composeOverlay: ComposeView
     private lateinit var bgThemeTint: View
+    private lateinit var cvHomeSkin: ComposeView
     private val timeHandler = Handler(Looper.getMainLooper())
     
     // State for Custom Profiles
@@ -62,6 +63,10 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private val userProfile = mutableStateOf(UserProfile())
     // App preferences (units, theme, haptics)
     private val appPrefs = mutableStateOf(AppPreferences())
+    // Sleep session in progress (for quick-action button)
+    private val sleepSession = mutableStateOf(SleepSessionState())
+    // Water glasses today (for quick-action button)
+    private val waterGlassesToday = mutableStateOf(0)
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -99,6 +104,8 @@ class ProfileSelectionActivity : AppCompatActivity() {
         savedJunkCount.value = FitDataRepository.loadJunkHistory()[LocalDate.now().toString()] ?: 0
         userProfile.value = FitDataRepository.loadUserProfile()
         appPrefs.value = FitDataRepository.loadAppPreferences()
+        sleepSession.value = FitDataRepository.loadSleepSession()
+        waterGlassesToday.value = FitDataRepository.loadWaterEntry(LocalDate.now())?.glassesConsumed ?: 0
         Haptics.enabled = appPrefs.value.hapticsEnabled
 
         tvClock = findViewById(R.id.tvNixieClock)
@@ -107,6 +114,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         cvUpcomingEvents = findViewById(R.id.cvUpcomingEvents)
         composeOverlay = findViewById(R.id.composeOverlay)
         bgThemeTint = findViewById(R.id.bgThemeTint)
+        cvHomeSkin  = findViewById(R.id.cvHomeSkin)
         applyThemeTint()
 
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
@@ -183,11 +191,113 @@ class ProfileSelectionActivity : AppCompatActivity() {
         }
     }
 
-    /** Applies the current theme tint over the baked home background image + updates year-percent color. */
+    /** Applies the current theme tint + refreshes the home skin (used both on init and whenever quick-state changes). */
     private fun applyThemeTint() {
-        val palette = AppPalettes.byName(appPrefs.value.theme)
-        bgThemeTint.setBackgroundColor(palette.homeTint.toArgb())
+        val themeName = appPrefs.value.theme
+        val palette   = AppPalettes.byName(themeName)
         tvYearPercent.setTextColor(palette.onSurface.toArgb())
+
+        pbYearProgress.progressTintList = android.content.res.ColorStateList.valueOf(palette.accentPrimary.toArgb())
+        pbYearProgress.progressBackgroundTintList = android.content.res.ColorStateList.valueOf(palette.divider.toArgb())
+
+        if (themeName == "DARK") {
+            bgThemeTint.setBackgroundColor(0x00000000)
+            cvHomeSkin.visibility = View.GONE
+            cvHomeSkin.setContent { }
+        } else {
+            bgThemeTint.setBackgroundColor(0xFF000000.toInt())
+            val bebasFont = androidx.compose.ui.text.font.FontFamily(androidx.compose.ui.text.font.Font(R.font.bebas_neue))
+            cvHomeSkin.visibility = View.VISIBLE
+            cvHomeSkin.setContent {
+                // Compute derived state
+                val waterEntry = FitDataRepository.loadWaterEntry(LocalDate.now())
+                val goalMl = waterEntry?.goalMl ?: WaterGoal.compute(userProfile.value, FitDataRepository.loadWeatherCache().takeIf { it.isValid })
+                val glassMl = waterEntry?.glassMl ?: 250
+                val targetGlasses = ((goalMl + glassMl - 1) / glassMl).coerceAtLeast(1)
+
+                HomeSkin(
+                    themeName = themeName,
+                    titleFont = bebasFont,
+                    quickState = HomeQuickState(
+                        sleepActive = sleepSession.value.active,
+                        junkCountToday = savedJunkCount.value,
+                        waterGlassesToday = waterGlassesToday.value,
+                        waterTargetGlasses = targetGlasses
+                    ),
+                    quickCallbacks = HomeQuickCallbacks(
+                        onSleepToggle = { onSleepToggle() },
+                        onSleepCancel = { onSleepCancel() },
+                        onJunkIncrement = { onJunkIncrement() },
+                        onWaterIncrement = { onWaterIncrement() }
+                    )
+                )
+            }
+        }
+    }
+
+    // ── Quick action handlers ────────────────────────────────────
+    private fun onSleepToggle() {
+        Haptics.click(this)
+        val s = sleepSession.value
+        if (!s.active) {
+            // Begin sleep — record start timestamp
+            val newState = SleepSessionState(active = true, startedAtEpochMs = System.currentTimeMillis())
+            sleepSession.value = newState
+            FitDataRepository.saveSleepSession(newState)
+        } else {
+            // End sleep — save SleepEntry
+            val endMs = System.currentTimeMillis()
+            val startMs = s.startedAtEpochMs
+            if (endMs > startMs) {
+                val entry = SleepEntry(
+                    wakeDateIso = LocalDate.now().toString(),
+                    bedtimeMs = startMs,
+                    wakeMs = endMs
+                )
+                val all = FitDataRepository.loadSleepEntries().filter { it.wakeDateIso != entry.wakeDateIso } + entry
+                FitDataRepository.saveSleepEntries(all)
+            }
+            sleepSession.value = SleepSessionState()
+            FitDataRepository.clearSleepSession()
+            Haptics.success(this)
+        }
+        applyThemeTint()  // refresh skin so button re-renders
+    }
+
+    private fun onSleepCancel() {
+        Haptics.click(this)
+        sleepSession.value = SleepSessionState()
+        FitDataRepository.clearSleepSession()
+        applyThemeTint()
+    }
+
+    private fun onJunkIncrement() {
+        Haptics.tick(this)
+        val newCount = savedJunkCount.value + 1
+        savedJunkCount.value = newCount
+        FitDataRepository.saveJunkEntry(LocalDate.now(), newCount)
+        applyThemeTint()
+    }
+
+    private fun onWaterIncrement() {
+        Haptics.tick(this)
+        val today = LocalDate.now()
+        val existing = FitDataRepository.loadWaterEntry(today)
+        val goalMl = existing?.goalMl ?: WaterGoal.compute(userProfile.value, FitDataRepository.loadWeatherCache().takeIf { it.isValid })
+        val glassMl = existing?.glassMl ?: 250
+        val newGlasses = (existing?.glassesConsumed ?: 0) + 1
+        waterGlassesToday.value = newGlasses
+        FitDataRepository.saveWaterEntry(
+            today,
+            WaterDailyLog(
+                date = today.toString(),
+                glassesConsumed = newGlasses,
+                glassMl = glassMl,
+                goalMl = goalMl,
+                temperatureC = existing?.temperatureC
+            )
+        )
+        applyThemeTint()
     }
 
     /** Wrap any overlay content in the active theme so every child composable can read LocalPalette. */

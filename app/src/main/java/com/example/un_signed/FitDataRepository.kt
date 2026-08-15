@@ -173,4 +173,9 @@ object FitDataRepository {
     fun saveFocusState(s: FocusTimerState) = saveJson("focus_state.json", s)
     fun loadFocusState(): FocusTimerState = loadJson("focus_state.json", FocusTimerState())
     fun clearFocusState() = saveJson("focus_state.json", FocusTimerState())
+
+    // ── Sleep session in progress ──────────────────────────────
+    fun saveSleepSession(s: SleepSessionState) = saveJson("sleep_session.json", s)
+    fun loadSleepSession(): SleepSessionState = loadJson("sleep_session.json", SleepSessionState())
+    fun clearSleepSession() = saveJson("sleep_session.json", SleepSessionState())
 }

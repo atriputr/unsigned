@@ -180,3 +180,9 @@ data class StopwatchPersistedState(
     val savedAtEpochMs: Long = 0L,          // wall-clock at save moment
     val lastLapMs: Long = 0L
 )
+
+// ── Sleep session in progress (survives app kill) ────────────
+data class SleepSessionState(
+    val active: Boolean = false,
+    val startedAtEpochMs: Long = 0L
+)

@@ -369,28 +369,34 @@ fun NixieClock(
 
 @Composable
 fun NixieActionLabel(text: String, fontFamily: FontFamily = BebasFont) {
+    val palette = LocalPalette.current
+    val (bg, accent, text2) = when (palette.name) {
+        "CREAM" -> Triple(Color(0xFFFFEDF5), Color(0xFFFF6EA8), Color(0xFFE33D8B))
+        "AMBER" -> Triple(Color(0xFF1A0B02), Color(0xFFFFB454), Color(0xFFFFD79A))
+        else    -> Triple(Color(0xFF110505), SciFiRed, Color(0xFFFF5555))
+    }
     Box(
         modifier = Modifier
             .wrapContentWidth()
             .height(68.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF110505))
-            .border(1.dp, SciFiRed.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+            .background(bg)
+            .border(1.dp, accent.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            color = SciFiRed.copy(alpha = 0.4f),
+            color = accent.copy(alpha = 0.4f),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = fontFamily,
             letterSpacing = 1.sp,
-            style = TextStyle(shadow = Shadow(color = SciFiRed, blurRadius = 24f))
+            style = TextStyle(shadow = Shadow(color = accent, blurRadius = 24f))
         )
         Text(
             text = text,
-            color = Color(0xFFFF5555),
+            color = text2,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = fontFamily,
@@ -418,40 +424,55 @@ fun ClockLayout(h: String, m: String, s: String, fontFamily: FontFamily) {
     }
 }
 
+/** Per-theme accent tint for the nixie tube — orange (dark) · baby pink (cream) · warm amber (amber). */
+@Composable
+private fun nixieAccent(): Triple<Color, Color, Color> {
+    // Returns (tubeBg, glowColor, digitColor)
+    val palette = LocalPalette.current
+    return when (palette.name) {
+        "CREAM" -> Triple(Color(0xFFFFEDF5), Color(0xFFFF6EA8), Color(0xFFE33D8B))  // baby-pink
+        "AMBER" -> Triple(Color(0xFF0A0603), Color(0xFFFF8C1A), Color(0xFFFF9E38))  // deep amber glow + warm amber digits (NOT yellow)
+        else    -> Triple(Color(0xFF0D0D0D), OrangeFire, Color(0xFFFFD500))          // classic orange nixie
+    }
+}
+
 @Composable
 fun NixieTubeDigit(digit: String, fontFamily: FontFamily) {
+    val (tubeBg, glow, digitColor) = nixieAccent()
+    val palette = LocalPalette.current
     Box(
         modifier = Modifier
             .width(38.dp)
             .height(68.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF0D0D0D))
-            .border(0.5.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
+            .background(tubeBg)
+            .border(0.5.dp, if (palette.name == "CREAM") Color(0xFFFF6EA8).copy(alpha = 0.35f) else Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = digit,
-            color = OrangeFire.copy(alpha = 0.4f),
+            color = glow.copy(alpha = 0.4f),
             fontSize = 46.sp,
             fontFamily = fontFamily,
-            style = TextStyle(shadow = Shadow(color = OrangeFire, blurRadius = 30f))
+            style = TextStyle(shadow = Shadow(color = glow, blurRadius = 30f))
         )
         Text(
             text = digit,
-            color = Color(0xFFFFD500),
+            color = digitColor,
             fontSize = 46.sp,
             fontFamily = fontFamily,
             letterSpacing = 2.sp,
-            style = TextStyle(shadow = Shadow(color = Color.Black, offset = Offset(2f, 2f), blurRadius = 2f))
+            style = TextStyle(shadow = Shadow(color = if (palette.name == "CREAM") Color.White else Color.Black, offset = Offset(2f, 2f), blurRadius = 2f))
         )
     }
 }
 
 @Composable
 fun NixieColon() {
+    val (_, glow, _) = nixieAccent()
     Column(modifier = Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.Center) {
         repeat(2) {
-            Box(modifier = Modifier.size(5.dp).clip(RoundedCornerShape(50)).background(OrangeFire))
+            Box(modifier = Modifier.size(5.dp).clip(RoundedCornerShape(50)).background(glow))
             if (it == 0) Spacer(modifier = Modifier.height(10.dp))
         }
     }
