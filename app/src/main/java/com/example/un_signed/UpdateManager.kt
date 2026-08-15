@@ -9,6 +9,7 @@ import android.provider.Settings
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import com.google.gson.Gson
@@ -57,9 +58,20 @@ class UpdateManager(private val context: Context) {
 
     suspend fun downloadAndInstall(updateInfo: UpdateInfo) = withContext(Dispatchers.IO) {
         try {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Downloading update...", Toast.LENGTH_SHORT).show()
+            }
+            
             val url = URL(updateInfo.apkUrl)
             val connection = url.openConnection() as HttpURLConnection
             connection.connect()
+
+            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Download failed: ${connection.responseCode}", Toast.LENGTH_LONG).show()
+                }
+                return@withContext
+            }
 
             val updateDir = File(context.externalCacheDir, "updates")
             if (!updateDir.exists()) updateDir.mkdirs()
@@ -72,10 +84,14 @@ class UpdateManager(private val context: Context) {
             }
 
             withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Download complete. Starting install...", Toast.LENGTH_SHORT).show()
                 installApk(apkFile)
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Update Error: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
