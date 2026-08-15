@@ -280,71 +280,89 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 titleFont = bebasFont,
                 quickState = HomeQuickState(
                     sleepActive = sleepSession.value.active,
+                    sleepDisturbances = sleepSession.value.disturbanceCount,
                     junkCountToday = savedJunkCount.value,
                     waterGlassesToday = waterGlassesToday.value,
                     waterTargetGlasses = targetGlasses
                 ),
                 quickCallbacks = HomeQuickCallbacks(
-                    onSleepToggle = { onSleepToggle() },
-                    onSleepCancel = { onSleepCancel() },
-                    onJunkIncrement = { onJunkIncrement() },
-                    onWaterIncrement = { onWaterIncrement() }
+                    onSleepBegin     = { onSleepBegin() },
+                    onSleepDisturbed = { onSleepDisturbed() },
+                    onSleepEnd       = { onSleepEnd() },
+                    onSleepManage    = { showSleepManageOverlay() },
+                    onJunkIncrement  = { onJunkChange(+1) },
+                    onJunkDecrement  = { onJunkChange(-1) },
+                    onJunkReset      = { onJunkReset() },
+                    onWaterIncrement = { onWaterChange(+1) },
+                    onWaterDecrement = { onWaterChange(-1) },
+                    onWaterReset     = { onWaterReset() }
                 )
             )
         }
     }
 
     // ── Quick action handlers ────────────────────────────────────
-    private fun onSleepToggle() {
+    private fun onSleepBegin() {
+        if (sleepSession.value.active) return
         Haptics.click(this)
-        val s = sleepSession.value
-        if (!s.active) {
-            // Begin sleep — record start timestamp
-            val newState = SleepSessionState(active = true, startedAtEpochMs = System.currentTimeMillis())
-            sleepSession.value = newState
-            FitDataRepository.saveSleepSession(newState)
-        } else {
-            // End sleep — save SleepEntry
-            val endMs = System.currentTimeMillis()
-            val startMs = s.startedAtEpochMs
-            if (endMs > startMs) {
-                val entry = SleepEntry(
-                    wakeDateIso = LocalDate.now().toString(),
-                    bedtimeMs = startMs,
-                    wakeMs = endMs
-                )
-                val all = FitDataRepository.loadSleepEntries().filter { it.wakeDateIso != entry.wakeDateIso } + entry
-                FitDataRepository.saveSleepEntries(all)
-            }
-            sleepSession.value = SleepSessionState()
-            FitDataRepository.clearSleepSession()
-            Haptics.success(this)
-        }
-        applyThemeTint()  // refresh skin so button re-renders
+        val newState = SleepSessionState(active = true, startedAtEpochMs = System.currentTimeMillis(), disturbanceCount = 0)
+        sleepSession.value = newState
+        FitDataRepository.saveSleepSession(newState)
+        applyThemeTint()
     }
 
-    private fun onSleepCancel() {
-        Haptics.click(this)
+    private fun onSleepDisturbed() {
+        val s = sleepSession.value
+        if (!s.active) return
+        Haptics.tick(this)
+        val newState = s.copy(disturbanceCount = s.disturbanceCount + 1)
+        sleepSession.value = newState
+        FitDataRepository.saveSleepSession(newState)
+        applyThemeTint()
+    }
+
+    private fun onSleepEnd() {
+        val s = sleepSession.value
+        if (!s.active) return
+        Haptics.success(this)
+        val endMs = System.currentTimeMillis()
+        if (endMs > s.startedAtEpochMs) {
+            val entry = SleepEntry(
+                wakeDateIso = LocalDate.now().toString(),
+                bedtimeMs = s.startedAtEpochMs,
+                wakeMs = endMs,
+                disturbances = s.disturbanceCount
+            )
+            val all = FitDataRepository.loadSleepEntries().filter { it.wakeDateIso != entry.wakeDateIso } + entry
+            FitDataRepository.saveSleepEntries(all)
+        }
         sleepSession.value = SleepSessionState()
         FitDataRepository.clearSleepSession()
         applyThemeTint()
     }
 
-    private fun onJunkIncrement() {
+    private fun onJunkChange(delta: Int) {
         Haptics.tick(this)
-        val newCount = savedJunkCount.value + 1
+        val newCount = (savedJunkCount.value + delta).coerceAtLeast(0)
         savedJunkCount.value = newCount
         FitDataRepository.saveJunkEntry(LocalDate.now(), newCount)
         applyThemeTint()
     }
 
-    private fun onWaterIncrement() {
+    private fun onJunkReset() {
+        Haptics.success(this)
+        savedJunkCount.value = 0
+        FitDataRepository.saveJunkEntry(LocalDate.now(), 0)
+        applyThemeTint()
+    }
+
+    private fun onWaterChange(delta: Int) {
         Haptics.tick(this)
         val today = LocalDate.now()
         val existing = FitDataRepository.loadWaterEntry(today)
         val goalMl = existing?.goalMl ?: WaterGoal.compute(userProfile.value, FitDataRepository.loadWeatherCache().takeIf { it.isValid })
         val glassMl = existing?.glassMl ?: 250
-        val newGlasses = (existing?.glassesConsumed ?: 0) + 1
+        val newGlasses = ((existing?.glassesConsumed ?: 0) + delta).coerceAtLeast(0)
         waterGlassesToday.value = newGlasses
         FitDataRepository.saveWaterEntry(
             today,
@@ -357,6 +375,36 @@ class ProfileSelectionActivity : AppCompatActivity() {
             )
         )
         applyThemeTint()
+    }
+
+    private fun onWaterReset() {
+        Haptics.success(this)
+        val today = LocalDate.now()
+        waterGlassesToday.value = 0
+        // Passing count=0 to saveWaterEntry causes it to remove the entry entirely (see repo impl)
+        FitDataRepository.saveWaterEntry(today, WaterDailyLog(date = today.toString(), glassesConsumed = 0))
+        applyThemeTint()
+    }
+
+    private fun showSleepManageOverlay() {
+        val bebasFont = FontFamily(Font(R.font.bebas_neue))
+        setThemedContent {
+            SleepManageOverlay(
+                titleFont = bebasFont,
+                contentFont = bebasFont,
+                activeSession = sleepSession.value,
+                onDiscardActive = {
+                    sleepSession.value = SleepSessionState()
+                    FitDataRepository.clearSleepSession()
+                    applyThemeTint()
+                },
+                onDeleteEntry = { entry ->
+                    val remaining = FitDataRepository.loadSleepEntries().filter { it.id != entry.id }
+                    FitDataRepository.saveSleepEntries(remaining)
+                },
+                onClose = { composeOverlay.visibility = View.GONE }
+            )
+        }
     }
 
     /** Wrap any overlay content in the active theme so every child composable can read LocalPalette. */

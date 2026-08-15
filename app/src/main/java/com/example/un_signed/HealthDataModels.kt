@@ -111,6 +111,7 @@ data class SleepEntry(
     val bedtimeMs: Long = 0L,
     val wakeMs: Long = 0L,
     val quality: Int = 3,                    // 1-5
+    val disturbances: Int = 0,               // how many times sleep was interrupted
     val notes: String = "",
     val timestamp: Long = System.currentTimeMillis()
 ) {
@@ -184,5 +185,6 @@ data class StopwatchPersistedState(
 // ── Sleep session in progress (survives app kill) ────────────
 data class SleepSessionState(
     val active: Boolean = false,
-    val startedAtEpochMs: Long = 0L
+    val startedAtEpochMs: Long = 0L,
+    val disturbanceCount: Int = 0
 )

@@ -3,15 +3,14 @@ package com.example.un_signed
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -26,6 +25,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CoroutineScope
 
 // Button vertical positions must match the interactive View guidelines in activity_profile_selection.xml
 // so the themed visuals sit exactly where the clickable Views are.
@@ -36,18 +36,74 @@ private const val BTN_HEIGHT_FRAC = 0.06f  // ~6% of screen height per button
 
 /** Live counters passed in from the activity so quick-action buttons can display + increment. */
 data class HomeQuickState(
-    val sleepActive: Boolean,       // is a sleep session currently in progress?
+    val sleepActive: Boolean,          // is a sleep session currently in progress?
+    val sleepDisturbances: Int,        // disturbance count during active session
     val junkCountToday: Int,
     val waterGlassesToday: Int,
     val waterTargetGlasses: Int
 )
 
+/**
+ * Gesture-driven callbacks. Contract:
+ *   Junk & Water:   single tap = −1, double tap = +1, hold 3s = reset to 0
+ *   Sleep (idle):   hold 3s = begin,  hold 8s = open manage popup
+ *   Sleep (active): single tap = record disturbance, double tap = end + save, hold 8s = manage popup
+ */
 data class HomeQuickCallbacks(
-    val onSleepToggle: () -> Unit,       // begin OR end (depending on active state)
-    val onSleepCancel: () -> Unit,       // long-press: discard in-progress session
+    val onSleepBegin: () -> Unit,
+    val onSleepDisturbed: () -> Unit,
+    val onSleepEnd: () -> Unit,
+    val onSleepManage: () -> Unit,
     val onJunkIncrement: () -> Unit,
-    val onWaterIncrement: () -> Unit
+    val onJunkDecrement: () -> Unit,
+    val onJunkReset: () -> Unit,
+    val onWaterIncrement: () -> Unit,
+    val onWaterDecrement: () -> Unit,
+    val onWaterReset: () -> Unit
 )
+
+/** Sleep button gesture bundle — behaviour depends on whether a session is active. */
+private fun Modifier.sleepQuickGestures(
+    scope: CoroutineScope,
+    state: HomeQuickState,
+    cb: HomeQuickCallbacks
+): Modifier {
+    val active = state.sleepActive
+    return this.quickGestures(
+        scope = scope,
+        // Idle:   3 s → begin,   8 s → manage
+        // Active: 8 s → manage only (single/double tap = disturbed / end)
+        longPress1Ms = if (active) 8000L else 3000L,
+        longPress2Ms = if (active) null else 8000L,
+        onSingleTap  = if (active) cb.onSleepDisturbed else { {} },
+        onDoubleTap  = if (active) cb.onSleepEnd else { {} },
+        onLongPress1 = if (active) cb.onSleepManage else cb.onSleepBegin,
+        onLongPress2 = cb.onSleepManage        // only used in idle state (longPress2Ms != null)
+    )
+}
+
+/** Junk / Water shared counter gestures: single = −1, double = +1, hold 3 s = reset. */
+private fun Modifier.counterQuickGestures(
+    scope: CoroutineScope,
+    onIncrement: () -> Unit,
+    onDecrement: () -> Unit,
+    onReset: () -> Unit
+): Modifier = this.quickGestures(
+    scope = scope,
+    longPress1Ms = 3000L,
+    onSingleTap  = onDecrement,
+    onDoubleTap  = onIncrement,
+    onLongPress1 = onReset
+)
+
+// Subtitle helpers so each themed button reads consistently
+private fun sleepLabel(state: HomeQuickState)    = if (state.sleepActive) "SLEEP END" else "SLEEP BEGIN"
+private fun sleepSubtitle(state: HomeQuickState) =
+    if (state.sleepActive) "2× END · ${state.sleepDisturbances} DISTRB."
+    else "HOLD 3s TO START"
+private fun sleepEmoji(state: HomeQuickState)    = if (state.sleepActive) "☾" else "☽"
+private fun junkSubtitle(count: Int)     = "$count · 2× ADD · 1× −1"
+private fun waterSubtitle(g: Int, tgt: Int) = "$g/$tgt · 2× ADD"
 
 /**
  * Full-bleed home skin rendered above the baked background image.
@@ -78,11 +134,9 @@ private fun DarkIndustrialSkin(
     quickState: HomeQuickState,
     quickCallbacks: HomeQuickCallbacks
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    val scope = rememberCoroutineScope()
+    Box(modifier = Modifier.fillMaxSize()) {
         StatusBarBox()
-        // Bottom quick-action bar (Sleep · Junk · Water)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -91,33 +145,40 @@ private fun DarkIndustrialSkin(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             DarkQuickButton(
-                label = if (quickState.sleepActive) "SLEEP END" else "SLEEP BEGIN",
-                subtitle = if (quickState.sleepActive) "long-press to cancel" else "tap to start",
-                emoji = if (quickState.sleepActive) "☾" else "☽",
+                label = sleepLabel(quickState),
+                subtitle = sleepSubtitle(quickState),
+                emoji = sleepEmoji(quickState),
                 highlighted = quickState.sleepActive,
                 titleFont = titleFont,
-                onTap = quickCallbacks.onSleepToggle,
-                onLongPress = if (quickState.sleepActive) quickCallbacks.onSleepCancel else null,
+                gestureModifier = Modifier.sleepQuickGestures(scope, quickState, quickCallbacks),
                 modifier = Modifier.weight(1f)
             )
             DarkQuickButton(
                 label = "JUNK",
-                subtitle = "${quickState.junkCountToday} today",
+                subtitle = junkSubtitle(quickState.junkCountToday),
                 emoji = "☗",
                 highlighted = false,
                 titleFont = titleFont,
-                onTap = quickCallbacks.onJunkIncrement,
-                onLongPress = null,
+                gestureModifier = Modifier.counterQuickGestures(
+                    scope,
+                    onIncrement = quickCallbacks.onJunkIncrement,
+                    onDecrement = quickCallbacks.onJunkDecrement,
+                    onReset = quickCallbacks.onJunkReset
+                ),
                 modifier = Modifier.weight(1f)
             )
             DarkQuickButton(
                 label = "WATER",
-                subtitle = "${quickState.waterGlassesToday}/${quickState.waterTargetGlasses}",
+                subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses),
                 emoji = "◊",
                 highlighted = false,
                 titleFont = titleFont,
-                onTap = quickCallbacks.onWaterIncrement,
-                onLongPress = null,
+                gestureModifier = Modifier.counterQuickGestures(
+                    scope,
+                    onIncrement = quickCallbacks.onWaterIncrement,
+                    onDecrement = quickCallbacks.onWaterDecrement,
+                    onReset = quickCallbacks.onWaterReset
+                ),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -131,8 +192,7 @@ private fun DarkQuickButton(
     emoji: String,
     highlighted: Boolean,
     titleFont: FontFamily,
-    onTap: () -> Unit,
-    onLongPress: (() -> Unit)?,
+    gestureModifier: Modifier,
     modifier: Modifier = Modifier
 ) {
     val primary = Color(0xFFDDDDDD)
@@ -144,13 +204,8 @@ private fun DarkQuickButton(
             .clip(RoundedCornerShape(12.dp))
             .background(if (highlighted) primary else Color.White.copy(alpha = 0.05f))
             .border(1.dp, primary.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-            .pointerInput(highlighted) {
-                detectTapGestures(
-                    onTap = { onTap() },
-                    onLongPress = { onLongPress?.invoke() }
-                )
-            }
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .then(gestureModifier)
+            .padding(horizontal = 6.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -166,8 +221,9 @@ private fun DarkQuickButton(
             Text(
                 subtitle,
                 color = if (highlighted) Color.Black.copy(alpha = 0.7f) else secondary,
-                fontSize = 9.sp,
-                fontFamily = titleFont
+                fontSize = 8.sp,
+                fontFamily = titleFont,
+                letterSpacing = 0.5.sp
             )
         }
     }
@@ -252,6 +308,7 @@ private fun HelloKittySkin(
         }
 
         // Bottom quick-action bar (Sleep · Junk · Water)
+        val scope = rememberCoroutineScope()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -260,33 +317,40 @@ private fun HelloKittySkin(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             KittyQuickButton(
-                label = if (quickState.sleepActive) "SLEEP END" else "SLEEP BEGIN",
-                subtitle = if (quickState.sleepActive) "long-press to cancel" else "tap to start",
-                emoji = if (quickState.sleepActive) "☾" else "☽",
+                label = sleepLabel(quickState),
+                subtitle = sleepSubtitle(quickState),
+                emoji = sleepEmoji(quickState),
                 highlighted = quickState.sleepActive,
                 ink = ink, bow = bow, titleFont = titleFont,
-                onTap = quickCallbacks.onSleepToggle,
-                onLongPress = if (quickState.sleepActive) quickCallbacks.onSleepCancel else null,
+                gestureModifier = Modifier.sleepQuickGestures(scope, quickState, quickCallbacks),
                 modifier = Modifier.weight(1f)
             )
             KittyQuickButton(
                 label = "JUNK",
-                subtitle = "${quickState.junkCountToday} today",
+                subtitle = junkSubtitle(quickState.junkCountToday),
                 emoji = "🍭",
                 highlighted = false,
                 ink = ink, bow = bow, titleFont = titleFont,
-                onTap = quickCallbacks.onJunkIncrement,
-                onLongPress = null,
+                gestureModifier = Modifier.counterQuickGestures(
+                    scope,
+                    onIncrement = quickCallbacks.onJunkIncrement,
+                    onDecrement = quickCallbacks.onJunkDecrement,
+                    onReset = quickCallbacks.onJunkReset
+                ),
                 modifier = Modifier.weight(1f)
             )
             KittyQuickButton(
                 label = "WATER",
-                subtitle = "${quickState.waterGlassesToday}/${quickState.waterTargetGlasses}",
+                subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses),
                 emoji = "💧",
                 highlighted = false,
                 ink = ink, bow = bow, titleFont = titleFont,
-                onTap = quickCallbacks.onWaterIncrement,
-                onLongPress = null,
+                gestureModifier = Modifier.counterQuickGestures(
+                    scope,
+                    onIncrement = quickCallbacks.onWaterIncrement,
+                    onDecrement = quickCallbacks.onWaterDecrement,
+                    onReset = quickCallbacks.onWaterReset
+                ),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -302,8 +366,7 @@ private fun KittyQuickButton(
     ink: Color,
     bow: Color,
     titleFont: FontFamily,
-    onTap: () -> Unit,
-    onLongPress: (() -> Unit)?,
+    gestureModifier: Modifier,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -312,13 +375,8 @@ private fun KittyQuickButton(
             .clip(RoundedCornerShape(18.dp))
             .background(if (highlighted) bow else Color.White)
             .border(2.5.dp, if (highlighted) ink else bow, RoundedCornerShape(18.dp))
-            .pointerInput(highlighted) {
-                detectTapGestures(
-                    onTap = { onTap() },
-                    onLongPress = { onLongPress?.invoke() }
-                )
-            }
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .then(gestureModifier)
+            .padding(horizontal = 6.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -334,8 +392,9 @@ private fun KittyQuickButton(
             Text(
                 subtitle,
                 color = if (highlighted) Color.White.copy(alpha = 0.85f) else ink.copy(alpha = 0.55f),
-                fontSize = 9.sp,
-                fontFamily = titleFont
+                fontSize = 8.sp,
+                fontFamily = titleFont,
+                letterSpacing = 0.5.sp
             )
         }
     }
@@ -540,6 +599,7 @@ private fun LokiAmberSkin(
         }
 
         // Bottom quick-action bar
+        val scope = rememberCoroutineScope()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -548,36 +608,43 @@ private fun LokiAmberSkin(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             LokiQuickButton(
-                label = if (quickState.sleepActive) "SLEEP END" else "SLEEP BEGIN",
-                subtitle = if (quickState.sleepActive) "hold to cancel" else "tap to start",
-                glyph = if (quickState.sleepActive) "☾" else "☽",
+                label = sleepLabel(quickState),
+                subtitle = sleepSubtitle(quickState),
+                glyph = sleepEmoji(quickState),
                 highlighted = quickState.sleepActive,
                 gold = gold, goldDeep = goldDeep, onGold = onGold, emerald = emerald,
                 titleFont = titleFont,
-                onTap = quickCallbacks.onSleepToggle,
-                onLongPress = if (quickState.sleepActive) quickCallbacks.onSleepCancel else null,
+                gestureModifier = Modifier.sleepQuickGestures(scope, quickState, quickCallbacks),
                 modifier = Modifier.weight(1f)
             )
             LokiQuickButton(
                 label = "JUNK",
-                subtitle = "${quickState.junkCountToday} today",
+                subtitle = junkSubtitle(quickState.junkCountToday),
                 glyph = "☗",
                 highlighted = false,
                 gold = gold, goldDeep = goldDeep, onGold = onGold, emerald = emerald,
                 titleFont = titleFont,
-                onTap = quickCallbacks.onJunkIncrement,
-                onLongPress = null,
+                gestureModifier = Modifier.counterQuickGestures(
+                    scope,
+                    onIncrement = quickCallbacks.onJunkIncrement,
+                    onDecrement = quickCallbacks.onJunkDecrement,
+                    onReset = quickCallbacks.onJunkReset
+                ),
                 modifier = Modifier.weight(1f)
             )
             LokiQuickButton(
                 label = "WATER",
-                subtitle = "${quickState.waterGlassesToday}/${quickState.waterTargetGlasses}",
+                subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses),
                 glyph = "◊",
                 highlighted = false,
                 gold = gold, goldDeep = goldDeep, onGold = onGold, emerald = emerald,
                 titleFont = titleFont,
-                onTap = quickCallbacks.onWaterIncrement,
-                onLongPress = null,
+                gestureModifier = Modifier.counterQuickGestures(
+                    scope,
+                    onIncrement = quickCallbacks.onWaterIncrement,
+                    onDecrement = quickCallbacks.onWaterDecrement,
+                    onReset = quickCallbacks.onWaterReset
+                ),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -595,8 +662,7 @@ private fun LokiQuickButton(
     onGold: Color,
     emerald: Color,
     titleFont: FontFamily,
-    onTap: () -> Unit,
-    onLongPress: (() -> Unit)?,
+    gestureModifier: Modifier,
     modifier: Modifier = Modifier
 ) {
     // Outer gold frame → inner emerald/dark plate
@@ -606,12 +672,7 @@ private fun LokiQuickButton(
             .clip(RoundedCornerShape(12.dp))
             .background(Brush.verticalGradient(listOf(gold, goldDeep)))
             .padding(2.dp)
-            .pointerInput(highlighted) {
-                detectTapGestures(
-                    onTap = { onTap() },
-                    onLongPress = { onLongPress?.invoke() }
-                )
-            }
+            .then(gestureModifier)
     ) {
         Column(
             modifier = Modifier
@@ -638,9 +699,9 @@ private fun LokiQuickButton(
             Text(
                 subtitle,
                 color = goldDeep,
-                fontSize = 9.sp,
+                fontSize = 8.sp,
                 fontFamily = titleFont,
-                letterSpacing = 1.sp
+                letterSpacing = 0.5.sp
             )
         }
     }
