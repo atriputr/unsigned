@@ -2,6 +2,7 @@ package com.example.un_signed
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -208,8 +209,18 @@ class ProfileSelectionActivity : AppCompatActivity() {
 
         // Silently request coarse location once so weather can be accurate (IP fallback otherwise)
         val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (!granted) {
-            locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION))
+        val notificationGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        } else true
+
+        val permsToRequest = mutableListOf<String>()
+        if (!granted) permsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (!notificationGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        if (permsToRequest.isNotEmpty()) {
+            locationPermissionLauncher.launch(permsToRequest.toTypedArray())
         }
     }
 
