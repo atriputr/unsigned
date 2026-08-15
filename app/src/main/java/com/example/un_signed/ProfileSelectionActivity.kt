@@ -11,6 +11,7 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.Composable
@@ -21,6 +22,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.util.*
 
@@ -67,6 +71,9 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private val sleepSession = mutableStateOf(SleepSessionState())
     // Water glasses today (for quick-action button)
     private val waterGlassesToday = mutableStateOf(0)
+
+    // Update state
+    private val pendingUpdate = mutableStateOf<UpdateInfo?>(null)
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -116,6 +123,17 @@ class ProfileSelectionActivity : AppCompatActivity() {
         bgThemeTint = findViewById(R.id.bgThemeTint)
         cvHomeSkin  = findViewById(R.id.cvHomeSkin)
         applyThemeTint()
+
+        // Check for updates
+        val updateManager = UpdateManager(this)
+        lifecycleScope.launch(Dispatchers.Main) {
+            val info = updateManager.checkForUpdate()
+            if (info != null) {
+                pendingUpdate.value = info
+                updateManager.showUpdateNotification(info)
+                showUpdateOverlay(info, updateManager)
+            }
+        }
 
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
         val jerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
@@ -305,6 +323,24 @@ class ProfileSelectionActivity : AppCompatActivity() {
         if (makeVisible) composeOverlay.visibility = View.VISIBLE
         composeOverlay.setContent {
             AppThemeProvider(appPrefs.value.theme) { content() }
+        }
+    }
+
+    private fun showUpdateOverlay(info: UpdateInfo, updateManager: UpdateManager) {
+        composeOverlay.visibility = View.VISIBLE
+        composeOverlay.setContent {
+            UpdateOverlay(
+                info = info,
+                onUpdate = {
+                    lifecycleScope.launch(Dispatchers.Main) {
+                        updateManager.downloadAndInstall(info)
+                        composeOverlay.visibility = View.GONE
+                    }
+                },
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
         }
     }
 

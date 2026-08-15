@@ -55,10 +55,6 @@ val BronzeTextEnd = Color(0xFFC8935F)
 val ChevronStart = Color(0xFFF68F2D)
 val OrangeFire = Color(0xFFFF8A00)
 
-val BebasFont  = FontFamily(Font(R.font.bebas_neue))
-val JerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
-val NokiaFont  = FontFamily(Font(R.font.nokia_kokia))
-
 @Composable
 fun AshButton(
     text: String,
@@ -159,6 +155,7 @@ fun AshButton(
         }
     }
 }
+
 
 @Composable
 fun NixieClock(
@@ -367,6 +364,8 @@ fun NixieClock(
     }
 }
 
+
+
 @Composable
 fun NixieActionLabel(text: String, fontFamily: FontFamily = BebasFont) {
     val palette = LocalPalette.current
@@ -405,6 +404,7 @@ fun NixieActionLabel(text: String, fontFamily: FontFamily = BebasFont) {
     }
 }
 
+
 @Composable
 fun ClockLayout(h: String, m: String, s: String, fontFamily: FontFamily) {
     Row(
@@ -424,6 +424,7 @@ fun ClockLayout(h: String, m: String, s: String, fontFamily: FontFamily) {
     }
 }
 
+
 /** Per-theme accent tint for the nixie tube — orange (dark) · baby pink (cream) · warm amber (amber). */
 @Composable
 private fun nixieAccent(): Triple<Color, Color, Color> {
@@ -435,6 +436,7 @@ private fun nixieAccent(): Triple<Color, Color, Color> {
         else    -> Triple(Color(0xFF0D0D0D), OrangeFire, Color(0xFFFFD500))          // classic orange nixie
     }
 }
+
 
 @Composable
 fun NixieTubeDigit(digit: String, fontFamily: FontFamily) {
@@ -467,6 +469,7 @@ fun NixieTubeDigit(digit: String, fontFamily: FontFamily) {
     }
 }
 
+
 @Composable
 fun NixieColon() {
     val (_, glow, _) = nixieAccent()
@@ -477,6 +480,7 @@ fun NixieColon() {
         }
     }
 }
+
 
 @Composable
 fun GlassDialogContent(
@@ -581,6 +585,7 @@ fun GlassDialogContent(
     }
 }
 
+
 @Composable
 fun EducationOptionsOverlay(
     titleFont: FontFamily,
@@ -636,6 +641,7 @@ fun EducationOptionsOverlay(
         }
     }
 }
+
 
 @Composable
 fun HealthOptionsOverlay(
@@ -746,6 +752,7 @@ fun HealthOptionsOverlay(
     }
 }
 
+
 @Composable
 fun MedsOptionsOverlay(
     titleFont: FontFamily,
@@ -802,6 +809,7 @@ fun MedsOptionsOverlay(
     }
 }
 
+
 @Composable
 fun SkillOptionsOverlay(
     titleFont: FontFamily,
@@ -854,6 +862,7 @@ fun SkillOptionsOverlay(
         }
     }
 }
+
 
 @Composable
 fun PeaceOptionsOverlay(
@@ -914,6 +923,7 @@ fun PeaceOptionsOverlay(
     }
 }
 
+
 @Composable
 fun GlassButton(text: String, fontFamily: FontFamily, onClick: () -> Unit = {}) {
     val palette = LocalPalette.current
@@ -942,6 +952,7 @@ fun GlassButton(text: String, fontFamily: FontFamily, onClick: () -> Unit = {}) 
         )
     }
 }
+
 
 @Composable
 fun UpcomingEventsList(
@@ -1063,3 +1074,5 @@ fun UpcomingEventsList(
         }
     }
 }
+
+
