@@ -1,24 +1,29 @@
 package com.example.un_signed
 
-import android.app.Activity
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.provider.Settings
+import android.app.DownloadManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.database.Cursor
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.*
 
 data class UpdateInfo(
     val versionCode: Int,
@@ -56,68 +61,28 @@ class UpdateManager(private val context: Context) {
         null
     }
 
-    suspend fun downloadAndInstall(updateInfo: UpdateInfo) = withContext(Dispatchers.IO) {
-        try {
-            withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Initializing download...", Toast.LENGTH_SHORT).show()
-            }
-            
-            var url = URL(updateInfo.apkUrl)
-            var connection = url.openConnection() as HttpURLConnection
-            connection.instanceFollowRedirects = true
-            connection.connect()
-
-            // Handle manual redirect if auto-follow fails for large files
-            if (connection.responseCode == HttpURLConnection.HTTP_MOVED_TEMP || 
-                connection.responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
-                connection.responseCode == 307 || connection.responseCode == 308) {
-                val newUrl = connection.getHeaderField("Location")
-                connection.disconnect()
-                url = URL(newUrl)
-                connection = url.openConnection() as HttpURLConnection
-                connection.connect()
-            }
-
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                val errorMsg = "Server Error: ${connection.responseCode}"
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
-                }
-                return@withContext
-            }
-
-            val totalSize = connection.contentLength
-            val updateDir = File(context.externalCacheDir, "updates")
-            if (!updateDir.exists()) updateDir.mkdirs()
-            val apkFile = File(updateDir, "update.apk")
-
-            withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Downloading...", Toast.LENGTH_SHORT).show()
-            }
-
-            connection.inputStream.use { input ->
-                FileOutputStream(apkFile).use { output ->
-                    val buffer = ByteArray(8192)
-                    var bytesRead: Int
-                    var totalDownloaded = 0L
-                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                        output.write(buffer, 0, bytesRead)
-                        totalDownloaded += bytesRead
-                        // We could send progress updates here if we had a state holder
-                    }
-                }
-            }
-
-            withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Download complete! Size: ${apkFile.length() / 1024} KB", Toast.LENGTH_SHORT).show()
-                installApk(apkFile)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Update Error: ${e.localizedMessage ?: e.message}", Toast.LENGTH_LONG).show()
-            }
+    /**
+     * Uses system DownloadManager to download the APK. 
+     * This shows progress in the system status bar.
+     */
+    fun downloadUpdate(updateInfo: UpdateInfo) {
+        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val uri = Uri.parse(updateInfo.apkUrl)
+        
+        val request = DownloadManager.Request(uri).apply {
+            setTitle("Downloading Unsigned Update")
+            setDescription("Version ${updateInfo.versionName}")
+            setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "UNSIGNED_Update.apk")
+            setAllowedOverMetered(true)
+            setAllowedOverRoaming(true)
         }
+
+        Toast.makeText(context, "Download started. Check status bar.", Toast.LENGTH_LONG).show()
+        val downloadId = downloadManager.enqueue(request)
+
+        // The installation will be handled by a BroadcastReceiver or we can poll for completion.
+        // For simplicity in this one-page app, let's poll or use a receiver in the activity.
     }
 
     fun showUpdateNotification(info: UpdateInfo) {
@@ -129,8 +94,6 @@ class UpdateManager(private val context: Context) {
             manager.createNotificationChannel(channel)
         }
 
-        // We can't easily trigger the download from the intent without a receiver, 
-        // so we'll just have the notification open the app which will show the overlay.
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
         val pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
@@ -146,6 +109,35 @@ class UpdateManager(private val context: Context) {
         manager.notify(1001, notification)
     }
 
+    fun installDownloadedApk(downloadId: Long) {
+        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor: Cursor = downloadManager.query(query)
+        if (cursor.moveToFirst()) {
+            val statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+            val localUriIdx = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+            if (statusIdx != -1 && localUriIdx != -1 && 
+                DownloadManager.STATUS_SUCCESSFUL == cursor.getInt(statusIdx)) {
+                val uriString = cursor.getString(localUriIdx)
+                if (uriString != null) {
+                    val uri = Uri.parse(uriString)
+                    val path = uri.path
+                    if (path != null) {
+                        installApk(File(path))
+                    }
+                }
+            }
+        }
+        cursor.close()
+    }
+
+    fun installDownloadedApkLegacy() {
+        val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "UNSIGNED_Update.apk")
+        if (file.exists()) {
+            installApk(file)
+        }
+    }
+
     private fun installApk(file: File) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!context.packageManager.canRequestPackageInstalls()) {
@@ -154,7 +146,6 @@ class UpdateManager(private val context: Context) {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
                 context.startActivity(intent)
-                // Note: The user has to manually come back and trigger the update again or we need to listen for permission change.
                 return
             }
         }

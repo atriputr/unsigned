@@ -4,4 +4,5 @@
     <files-path name="final_progress" path="final progress/" />
     <cache-path name="reports" path="reports/" />
     <external-cache-path name="updates" path="updates/" />
+    <external-path name="external_downloads" path="Download/" />
 </paths>

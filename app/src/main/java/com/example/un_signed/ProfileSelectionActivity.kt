@@ -1,6 +1,11 @@
 package com.example.un_signed
 
 import android.Manifest
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -24,7 +29,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -77,6 +81,17 @@ class ProfileSelectionActivity : AppCompatActivity() {
 
     // Update state
     private val pendingUpdate = mutableStateOf<UpdateInfo?>(null)
+    private lateinit var updateManager: UpdateManager
+
+    private val downloadReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) ?: -1
+            if (id != -1L) {
+                // When download is done, show install prompt
+                updateManager.installDownloadedApk(id)
+            }
+        }
+    }
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -130,7 +145,15 @@ class ProfileSelectionActivity : AppCompatActivity() {
         applyThemeTint()
 
         // Check for updates
-        val updateManager = UpdateManager(this)
+        updateManager = UpdateManager(this)
+        val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(downloadReceiver, filter, RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(downloadReceiver, filter)
+        }
+
         lifecycleScope.launch(Dispatchers.Main) {
             val info = updateManager.checkForUpdate()
             if (info != null) {
@@ -351,9 +374,8 @@ class ProfileSelectionActivity : AppCompatActivity() {
             UpdateOverlay(
                 info = info,
                 onUpdate = {
-                    lifecycleScope.launch(Dispatchers.Main) {
-                        updateManager.downloadAndInstall(info)
-                    }
+                    updateManager.downloadUpdate(info)
+                    composeOverlay.visibility = View.GONE
                 },
                 onClose = {
                     composeOverlay.visibility = View.GONE
@@ -841,6 +863,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     override fun onDestroy() {
         FitDataRepository.recordSessionEnd(currentSessionId)
         timeHandler.removeCallbacks(updateTimeRunnable)
+        try { unregisterReceiver(downloadReceiver) } catch (_: Exception) {}
         super.onDestroy()
     }
 }
