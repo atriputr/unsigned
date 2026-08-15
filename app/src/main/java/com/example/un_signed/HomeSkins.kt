@@ -88,6 +88,7 @@ private fun HelloKittySkin(
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(bgTop, bgBot)))
     ) {
+        StatusBarBox()
         val screenH = maxHeight
         val btnHeight = screenH * BTN_HEIGHT_FRAC
         val sideMargin = 24.dp
@@ -366,6 +367,7 @@ private fun LokiAmberSkin(
             .fillMaxSize()
             .background(Brush.radialGradient(listOf(bgTop, bgBot), radius = 1400f))
     ) {
+        StatusBarBox()
         val screenH = maxHeight
         val btnHeight = screenH * BTN_HEIGHT_FRAC
         val sideMargin = 20.dp

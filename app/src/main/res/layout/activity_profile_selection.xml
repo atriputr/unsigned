@@ -19,6 +19,15 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- Persistent Top Bar for Status Bar translucency -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/cvStatusBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Theme tint over background image (transparent in DARK, cream/amber in others) -->
     <View
         android:id="@+id/bgThemeTint"

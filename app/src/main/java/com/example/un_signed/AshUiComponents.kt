@@ -23,12 +23,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -155,7 +158,6 @@ fun AshButton(
         }
     }
 }
-
 
 @Composable
 fun NixieClock(
@@ -364,8 +366,6 @@ fun NixieClock(
     }
 }
 
-
-
 @Composable
 fun NixieActionLabel(text: String, fontFamily: FontFamily = BebasFont) {
     val palette = LocalPalette.current
@@ -404,7 +404,6 @@ fun NixieActionLabel(text: String, fontFamily: FontFamily = BebasFont) {
     }
 }
 
-
 @Composable
 fun ClockLayout(h: String, m: String, s: String, fontFamily: FontFamily) {
     Row(
@@ -424,7 +423,6 @@ fun ClockLayout(h: String, m: String, s: String, fontFamily: FontFamily) {
     }
 }
 
-
 /** Per-theme accent tint for the nixie tube — orange (dark) · baby pink (cream) · warm amber (amber). */
 @Composable
 private fun nixieAccent(): Triple<Color, Color, Color> {
@@ -436,7 +434,6 @@ private fun nixieAccent(): Triple<Color, Color, Color> {
         else    -> Triple(Color(0xFF0D0D0D), OrangeFire, Color(0xFFFFD500))          // classic orange nixie
     }
 }
-
 
 @Composable
 fun NixieTubeDigit(digit: String, fontFamily: FontFamily) {
@@ -469,7 +466,6 @@ fun NixieTubeDigit(digit: String, fontFamily: FontFamily) {
     }
 }
 
-
 @Composable
 fun NixieColon() {
     val (_, glow, _) = nixieAccent()
@@ -480,7 +476,6 @@ fun NixieColon() {
         }
     }
 }
-
 
 @Composable
 fun GlassDialogContent(
@@ -513,6 +508,7 @@ fun GlassDialogContent(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            StatusBarBox()
             Text(
                 text = "IDEAL OPTIONS",
                 color = palette.onSurface,
@@ -585,7 +581,6 @@ fun GlassDialogContent(
     }
 }
 
-
 @Composable
 fun EducationOptionsOverlay(
     titleFont: FontFamily,
@@ -613,6 +608,7 @@ fun EducationOptionsOverlay(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            StatusBarBox()
             Text(
                 text = "EDUCATION",
                 color = palette.onSurface,
@@ -642,7 +638,6 @@ fun EducationOptionsOverlay(
     }
 }
 
-
 @Composable
 fun HealthOptionsOverlay(
     titleFont: FontFamily,
@@ -671,6 +666,7 @@ fun HealthOptionsOverlay(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            StatusBarBox()
             Text(
                 text = "HEALTH",
                 color = palette.onSurface,
@@ -752,7 +748,6 @@ fun HealthOptionsOverlay(
     }
 }
 
-
 @Composable
 fun MedsOptionsOverlay(
     titleFont: FontFamily,
@@ -780,6 +775,7 @@ fun MedsOptionsOverlay(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            StatusBarBox()
             Text(
                 text = "MEDS",
                 color = palette.onSurface,
@@ -809,7 +805,6 @@ fun MedsOptionsOverlay(
     }
 }
 
-
 @Composable
 fun SkillOptionsOverlay(
     titleFont: FontFamily,
@@ -836,6 +831,7 @@ fun SkillOptionsOverlay(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            StatusBarBox()
             Text(
                 text = "SKILL",
                 color = palette.onSurface,
@@ -862,7 +858,6 @@ fun SkillOptionsOverlay(
         }
     }
 }
-
 
 @Composable
 fun PeaceOptionsOverlay(
@@ -892,6 +887,7 @@ fun PeaceOptionsOverlay(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            StatusBarBox()
             Text(
                 text = "PEACE",
                 color = palette.onSurface,
@@ -923,7 +919,6 @@ fun PeaceOptionsOverlay(
     }
 }
 
-
 @Composable
 fun GlassButton(text: String, fontFamily: FontFamily, onClick: () -> Unit = {}) {
     val palette = LocalPalette.current
@@ -952,7 +947,6 @@ fun GlassButton(text: String, fontFamily: FontFamily, onClick: () -> Unit = {}) 
         )
     }
 }
-
 
 @Composable
 fun UpcomingEventsList(
@@ -994,7 +988,7 @@ fun UpcomingEventsList(
                 ) {
                     val w = size.width
                     val h = size.height
-                    val r = androidx.compose.ui.geometry.CornerRadius(h / 2)
+                    val r = CornerRadius(h / 2)
                     drawRoundRect(
                         color = Color.White.copy(alpha = 0.12f),
                         size = size,
@@ -1012,7 +1006,7 @@ fun UpcomingEventsList(
                                 startX = 0f,
                                 endX = w
                             ),
-                            size = androidx.compose.ui.geometry.Size(fillW, h),
+                            size = Size(fillW, h),
                             cornerRadius = r
                         )
                     }
@@ -1075,4 +1069,18 @@ fun UpcomingEventsList(
     }
 }
 
-
+@Composable
+fun StatusBarBox() {
+    val palette = LocalPalette.current
+    val density = LocalDensity.current
+    val topInset = WindowInsets.statusBars.getTop(density)
+    
+    if (topInset > 0) {
+        Spacer(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(with(density) { topInset.toDp() })
+                .background(palette.statusBar)
+        )
+    }
+}

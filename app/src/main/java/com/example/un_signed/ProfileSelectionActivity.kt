@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -37,6 +38,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private lateinit var composeOverlay: ComposeView
     private lateinit var bgThemeTint: View
     private lateinit var cvHomeSkin: ComposeView
+    private lateinit var cvStatusBar: ComposeView
     private val timeHandler = Handler(Looper.getMainLooper())
     
     // State for Custom Profiles
@@ -90,6 +92,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile_selection)
 
@@ -122,6 +125,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         composeOverlay = findViewById(R.id.composeOverlay)
         bgThemeTint = findViewById(R.id.bgThemeTint)
         cvHomeSkin  = findViewById(R.id.cvHomeSkin)
+        cvStatusBar = findViewById(R.id.cvStatusBar)
         applyThemeTint()
 
         // Check for updates
@@ -217,6 +221,10 @@ class ProfileSelectionActivity : AppCompatActivity() {
 
         pbYearProgress.progressTintList = android.content.res.ColorStateList.valueOf(palette.accentPrimary.toArgb())
         pbYearProgress.progressBackgroundTintList = android.content.res.ColorStateList.valueOf(palette.divider.toArgb())
+
+        cvStatusBar.setContent {
+            AppThemeProvider(themeName) { StatusBarBox() }
+        }
 
         if (themeName == "DARK") {
             bgThemeTint.setBackgroundColor(0x00000000)

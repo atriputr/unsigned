@@ -1,10 +1,15 @@
 package com.example.un_signed
 
+import android.app.Activity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 /** Named colour roles used by adaptive overlays (settings, water, sleep, briefing, weight, focus). */
 data class ThemePalette(
@@ -26,7 +31,8 @@ data class ThemePalette(
     val accentPrimary: Color,      // primary interactive accent (mostly OrangeFire-family)
     val accentSecondary: Color,    // secondary accent
     val danger: Color,             // errors / destructive
-    val success: Color             // positive
+    val success: Color,            // positive
+    val statusBar: Color           // status bar color
 ) {
     /** Card surface gradient */
     fun surfaceBrush(): Brush = Brush.verticalGradient(listOf(surfaceTop, surfaceBot))
@@ -53,7 +59,8 @@ object AppPalettes {
         accentPrimary   = Color(0xFFFF8A00),
         accentSecondary = Color(0xFFEBC174),
         danger  = Color(0xFFE41417),
-        success = Color(0xFF09E8AD)
+        success = Color(0xFF09E8AD),
+        statusBar = Color(0xFF333333).copy(alpha = 0.4f) // Grayish translucent
     )
 
     val Cream = ThemePalette(
@@ -75,7 +82,8 @@ object AppPalettes {
         accentPrimary   = Color(0xFFD46A00),
         accentSecondary = Color(0xFFA05A20),
         danger  = Color(0xFFB01418),
-        success = Color(0xFF1E8B4B)
+        success = Color(0xFF1E8B4B),
+        statusBar = Color(0xFFFFB6C1).copy(alpha = 0.4f) // Pinkish translucent
     )
 
     val Amber = ThemePalette(
@@ -97,7 +105,8 @@ object AppPalettes {
         accentPrimary   = Color(0xFFFFB454),
         accentSecondary = Color(0xFFFFD79A),
         danger  = Color(0xFFFF7770),
-        success = Color(0xFFB1E28C)
+        success = Color(0xFFB1E28C),
+        statusBar = Color(0xFFFF8C1A).copy(alpha = 0.4f) // Amber translucent
     )
 
     fun byName(name: String): ThemePalette = when (name.uppercase()) {
@@ -111,7 +120,19 @@ val LocalPalette = staticCompositionLocalOf { AppPalettes.Dark }
 
 @Composable
 fun AppThemeProvider(theme: String, content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalPalette provides AppPalettes.byName(theme)) {
+    val palette = AppPalettes.byName(theme)
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                window.statusBarColor = palette.statusBar.toArgb()
+                val controller = WindowCompat.getInsetsController(window, view)
+                controller.isAppearanceLightStatusBars = palette.isLight
+            }
+        }
+    }
+    CompositionLocalProvider(LocalPalette provides palette) {
         content()
     }
 }
