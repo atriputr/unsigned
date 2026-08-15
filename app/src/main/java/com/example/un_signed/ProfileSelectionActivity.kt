@@ -167,29 +167,33 @@ class ProfileSelectionActivity : AppCompatActivity() {
         val jerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
 
         tvClock.setContent {
-            NixieClock(
-                fontFamily = jerseyFont,
-                onClick = {},
-                onTimerTap      = { advanceMode -> showTimerOverlay(jerseyFont, advanceMode) },
-                onStopwatchTap  = { advanceMode -> showStopwatchOverlay(jerseyFont, advanceMode) }
-            )
+            AppThemeProvider(appPrefs.value.theme) {
+                NixieClock(
+                    fontFamily = jerseyFont,
+                    onClick = {},
+                    onTimerTap      = { advanceMode -> showTimerOverlay(jerseyFont, advanceMode) },
+                    onStopwatchTap  = { advanceMode -> showStopwatchOverlay(jerseyFont, advanceMode) }
+                )
+            }
         }
 
         cvUpcomingEvents.setContent {
-            UpcomingEventsList(
-                allTasks              = allCalendarTasks,
-                fontFamily            = bebasFont,
-                onEventClick          = { date -> showCalendarOverlay(date, bebasFont) },
-                activeLectureName     = activeLectureName.value,
-                activeLectureProgress = activeLectureProgress.value,
-                onLectureClick        = {
-                    composeOverlay.visibility = View.VISIBLE
-                    showLectureOverlay(
-                        bebasFont, bebasFont,
-                        onBack = { composeOverlay.visibility = View.GONE }
-                    )
-                }
-            )
+            AppThemeProvider(appPrefs.value.theme) {
+                UpcomingEventsList(
+                    allTasks              = allCalendarTasks,
+                    fontFamily            = bebasFont,
+                    onEventClick          = { date -> showCalendarOverlay(date, bebasFont) },
+                    activeLectureName     = activeLectureName.value,
+                    activeLectureProgress = activeLectureProgress.value,
+                    onLectureClick        = {
+                        composeOverlay.visibility = View.VISIBLE
+                        showLectureOverlay(
+                            bebasFont, bebasFont,
+                            onBack = { composeOverlay.visibility = View.GONE }
+                        )
+                    }
+                )
+            }
         }
 
         findViewById<View>(R.id.btnIdealProfile).setOnClickListener {
