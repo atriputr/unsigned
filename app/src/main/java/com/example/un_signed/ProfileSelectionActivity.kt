@@ -262,36 +262,35 @@ class ProfileSelectionActivity : AppCompatActivity() {
 
         if (themeName == "DARK") {
             bgThemeTint.setBackgroundColor(0x00000000)
-            cvHomeSkin.visibility = View.GONE
-            cvHomeSkin.setContent { }
         } else {
             bgThemeTint.setBackgroundColor(0xFF000000.toInt())
-            val bebasFont = androidx.compose.ui.text.font.FontFamily(androidx.compose.ui.text.font.Font(R.font.bebas_neue))
-            cvHomeSkin.visibility = View.VISIBLE
-            cvHomeSkin.setContent {
-                // Compute derived state
-                val waterEntry = FitDataRepository.loadWaterEntry(LocalDate.now())
-                val goalMl = waterEntry?.goalMl ?: WaterGoal.compute(userProfile.value, FitDataRepository.loadWeatherCache().takeIf { it.isValid })
-                val glassMl = waterEntry?.glassMl ?: 250
-                val targetGlasses = ((goalMl + glassMl - 1) / glassMl).coerceAtLeast(1)
+        }
 
-                HomeSkin(
-                    themeName = themeName,
-                    titleFont = bebasFont,
-                    quickState = HomeQuickState(
-                        sleepActive = sleepSession.value.active,
-                        junkCountToday = savedJunkCount.value,
-                        waterGlassesToday = waterGlassesToday.value,
-                        waterTargetGlasses = targetGlasses
-                    ),
-                    quickCallbacks = HomeQuickCallbacks(
-                        onSleepToggle = { onSleepToggle() },
-                        onSleepCancel = { onSleepCancel() },
-                        onJunkIncrement = { onJunkIncrement() },
-                        onWaterIncrement = { onWaterIncrement() }
-                    )
+        val bebasFont = FontFamily(Font(R.font.bebas_neue))
+        cvHomeSkin.visibility = View.VISIBLE
+        cvHomeSkin.setContent {
+            // Compute derived state
+            val waterEntry = FitDataRepository.loadWaterEntry(LocalDate.now())
+            val goalMl = waterEntry?.goalMl ?: WaterGoal.compute(userProfile.value, FitDataRepository.loadWeatherCache().takeIf { it.isValid })
+            val glassMl = waterEntry?.glassMl ?: 250
+            val targetGlasses = ((goalMl + glassMl - 1) / glassMl).coerceAtLeast(1)
+
+            HomeSkin(
+                themeName = themeName,
+                titleFont = bebasFont,
+                quickState = HomeQuickState(
+                    sleepActive = sleepSession.value.active,
+                    junkCountToday = savedJunkCount.value,
+                    waterGlassesToday = waterGlassesToday.value,
+                    waterTargetGlasses = targetGlasses
+                ),
+                quickCallbacks = HomeQuickCallbacks(
+                    onSleepToggle = { onSleepToggle() },
+                    onSleepCancel = { onSleepCancel() },
+                    onJunkIncrement = { onJunkIncrement() },
+                    onWaterIncrement = { onWaterIncrement() }
                 )
-            }
+            )
         }
     }
 

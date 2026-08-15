@@ -64,7 +64,112 @@ fun HomeSkin(
     when (themeName.uppercase()) {
         "CREAM" -> HelloKittySkin(titleFont, quickState, quickCallbacks)
         "AMBER" -> LokiAmberSkin(titleFont, quickState, quickCallbacks)
+        "DARK"  -> DarkIndustrialSkin(titleFont, quickState, quickCallbacks)
         else -> Unit
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  DARK INDUSTRIAL  ·  Standard theme
+// ══════════════════════════════════════════════════════════════════
+@Composable
+private fun DarkIndustrialSkin(
+    titleFont: FontFamily,
+    quickState: HomeQuickState,
+    quickCallbacks: HomeQuickCallbacks
+) {
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        StatusBarBox()
+        // Bottom quick-action bar (Sleep · Junk · Water)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 16.dp, vertical = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            DarkQuickButton(
+                label = if (quickState.sleepActive) "SLEEP END" else "SLEEP BEGIN",
+                subtitle = if (quickState.sleepActive) "long-press to cancel" else "tap to start",
+                emoji = if (quickState.sleepActive) "☾" else "☽",
+                highlighted = quickState.sleepActive,
+                titleFont = titleFont,
+                onTap = quickCallbacks.onSleepToggle,
+                onLongPress = if (quickState.sleepActive) quickCallbacks.onSleepCancel else null,
+                modifier = Modifier.weight(1f)
+            )
+            DarkQuickButton(
+                label = "JUNK",
+                subtitle = "${quickState.junkCountToday} today",
+                emoji = "☗",
+                highlighted = false,
+                titleFont = titleFont,
+                onTap = quickCallbacks.onJunkIncrement,
+                onLongPress = null,
+                modifier = Modifier.weight(1f)
+            )
+            DarkQuickButton(
+                label = "WATER",
+                subtitle = "${quickState.waterGlassesToday}/${quickState.waterTargetGlasses}",
+                emoji = "◊",
+                highlighted = false,
+                titleFont = titleFont,
+                onTap = quickCallbacks.onWaterIncrement,
+                onLongPress = null,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DarkQuickButton(
+    label: String,
+    subtitle: String,
+    emoji: String,
+    highlighted: Boolean,
+    titleFont: FontFamily,
+    onTap: () -> Unit,
+    onLongPress: (() -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    val primary = Color(0xFFDDDDDD)
+    val secondary = Color(0xFF888888)
+
+    Box(
+        modifier = modifier
+            .height(78.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (highlighted) primary else Color.White.copy(alpha = 0.05f))
+            .border(1.dp, primary.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            .pointerInput(highlighted) {
+                detectTapGestures(
+                    onTap = { onTap() },
+                    onLongPress = { onLongPress?.invoke() }
+                )
+            }
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(emoji, color = if (highlighted) Color.Black else primary, fontSize = 20.sp)
+            Text(
+                label,
+                color = if (highlighted) Color.Black else primary,
+                fontSize = 11.sp,
+                fontFamily = titleFont,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+            Text(
+                subtitle,
+                color = if (highlighted) Color.Black.copy(alpha = 0.7f) else secondary,
+                fontSize = 9.sp,
+                fontFamily = titleFont
+            )
+        }
     }
 }
 
