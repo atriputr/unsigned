@@ -510,7 +510,6 @@ fun GlassDialogContent(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            StatusBarBox()
             Text(
                 text = "IDEAL OPTIONS",
                 color = palette.onSurface,
@@ -610,7 +609,6 @@ fun EducationOptionsOverlay(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            StatusBarBox()
             Text(
                 text = "EDUCATION",
                 color = palette.onSurface,
@@ -668,7 +666,6 @@ fun HealthOptionsOverlay(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            StatusBarBox()
             Text(
                 text = "HEALTH",
                 color = palette.onSurface,
@@ -777,7 +774,6 @@ fun MedsOptionsOverlay(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            StatusBarBox()
             Text(
                 text = "MEDS",
                 color = palette.onSurface,
@@ -833,7 +829,6 @@ fun SkillOptionsOverlay(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            StatusBarBox()
             Text(
                 text = "SKILL",
                 color = palette.onSurface,
@@ -889,7 +884,6 @@ fun PeaceOptionsOverlay(
                 .clickable(enabled = false) { },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            StatusBarBox()
             Text(
                 text = "PEACE",
                 color = palette.onSurface,

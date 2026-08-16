@@ -62,7 +62,15 @@ data class HomeQuickCallbacks(
     val onWaterReset: () -> Unit
 )
 
-/** Sleep button gesture bundle — behaviour depends on whether a session is active. */
+/**
+ * Sleep button gesture bundle — behaviour depends on whether a session is active.
+ *
+ *   Idle   : hold 3 s → BEGIN sleep      (single threshold; no collision)
+ *   Active : single tap → DISTURBED,  double tap → END,  hold 8 s → MANAGE popup
+ *
+ * (Manage-popup for idle state is reachable via the full Sleep overlay in Peace → Sleep,
+ *  so it doesn't need to fight with the 3-second BEGIN gesture on the home button.)
+ */
 private fun Modifier.sleepQuickGestures(
     scope: CoroutineScope,
     state: HomeQuickState,
@@ -71,14 +79,12 @@ private fun Modifier.sleepQuickGestures(
     val active = state.sleepActive
     return this.quickGestures(
         scope = scope,
-        // Idle:   3 s → begin,   8 s → manage
-        // Active: 8 s → manage only (single/double tap = disturbed / end)
         longPress1Ms = if (active) 8000L else 3000L,
-        longPress2Ms = if (active) null else 8000L,
+        longPress2Ms = null,                              // one hold threshold per state = no collision
         onSingleTap  = if (active) cb.onSleepDisturbed else { {} },
         onDoubleTap  = if (active) cb.onSleepEnd else { {} },
         onLongPress1 = if (active) cb.onSleepManage else cb.onSleepBegin,
-        onLongPress2 = cb.onSleepManage        // only used in idle state (longPress2Ms != null)
+        onLongPress2 = {}
     )
 }
 
