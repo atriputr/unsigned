@@ -492,6 +492,7 @@ fun GlassDialogContent(
     onBriefingClick: () -> Unit = {},
     onCompareClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
+    onTipsClick: () -> Unit = {},
     onClose: () -> Unit
 ) {
     Box(
@@ -560,6 +561,15 @@ fun GlassDialogContent(
             }
             Spacer(modifier = Modifier.height(10.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                Text(
+                    "★ TIPS",
+                    color = Color(0xFF8CD86A),
+                    fontSize = 12.sp,
+                    fontFamily = buttonFont,
+                    letterSpacing = 2.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { onTipsClick() }
+                )
                 Text(
                     "◆ PROFILE",
                     color = palette.accentSecondary,

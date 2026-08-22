@@ -178,4 +178,12 @@ object FitDataRepository {
     fun saveSleepSession(s: SleepSessionState) = saveJson("sleep_session.json", s)
     fun loadSleepSession(): SleepSessionState = loadJson("sleep_session.json", SleepSessionState())
     fun clearSleepSession() = saveJson("sleep_session.json", SleepSessionState())
+
+    // ── Junk log (product-catalogued) ──────────────────────────
+    fun saveJunkLogEntries(entries: List<JunkLogEntry>) = saveJson("junk_log.json", entries)
+    fun loadJunkLogEntries(): List<JunkLogEntry> = loadJson("junk_log.json", emptyList<JunkLogEntry>())
+    fun addJunkLogEntry(entry: JunkLogEntry) {
+        val list = loadJunkLogEntries() + entry
+        saveJunkLogEntries(list)
+    }
 }

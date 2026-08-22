@@ -188,3 +188,25 @@ data class SleepSessionState(
     val startedAtEpochMs: Long = 0L,
     val disturbanceCount: Int = 0
 )
+
+// ── Junk log entry (rich, product-catalogued) ────────────────
+data class JunkLogEntry(
+    val id: String = UUID.randomUUID().toString(),
+    val dateIso: String = LocalDate.now().toString(),
+    val type: String = "food",                 // food | liquid
+    val category: String = "",                 // OFF category tag e.g. "chips"
+    val brand: String = "",
+    val productName: String = "",
+    val productId: String = "",                // OFF barcode
+    val servingGrams: Int = 30,
+    val country: String = "",                  // ISO-2
+    val nutriscore: String = "",               // a-e
+    val novaGroup: Int = 0,                    // 1..4
+    val kcal: Int = 0,
+    val sugarG: Double = 0.0,
+    val satFatG: Double = 0.0,
+    val saltG: Double = 0.0,
+    val additivesCount: Int = 0,
+    val overallSeverity: String = "Ok",        // Ok | Watch | Bad | Critical
+    val timestamp: Long = System.currentTimeMillis()
+)

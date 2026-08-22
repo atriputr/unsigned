@@ -16,7 +16,9 @@ data class ResolvedLocation(
     val latitude: Double,
     val longitude: Double,
     val label: String,      // city/region name (best-effort)
-    val source: String      // "gps" | "network" | "ip"
+    val source: String,     // "gps" | "network" | "ip"
+    val countryCode: String = "",  // ISO 3166-1 alpha-2 (e.g., "IN", "US") — only from ip lookup
+    val countryName: String = ""   // full country name — only from ip lookup
 )
 
 object LocationHelper {
@@ -61,8 +63,19 @@ object LocationHelper {
             val city = json.optString("city", "")
             val region = json.optString("region", "")
             val label = listOf(city, region).filter { it.isNotBlank() }.joinToString(", ")
-            ResolvedLocation(lat, lon, label, "ip")
+            val countryCode = json.optString("country_code", "")
+            val countryName = json.optString("country_name", "")
+            ResolvedLocation(lat, lon, label, "ip", countryCode, countryName)
         } catch (_: Exception) { null }
+    }
+
+    /** Best-effort country ISO code — from cached weather → live IP → empty. */
+    suspend fun countryCode(context: Context): String {
+        val cachedName = FitDataRepository.loadWeatherCache().locationName
+        if (cachedName.isNotBlank()) {
+            // cached weather doesn't carry country; do a live IP lookup only if permission-less
+        }
+        return resolve(context)?.countryCode ?: ""
     }
 
     /** Try device location → fall back to IP lookup. */

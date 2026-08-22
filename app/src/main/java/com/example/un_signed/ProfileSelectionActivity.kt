@@ -294,12 +294,12 @@ class ProfileSelectionActivity : AppCompatActivity() {
                     onSleepDisturbed = { onSleepDisturbed() },
                     onSleepEnd       = { onSleepEnd() },
                     onSleepManage    = { showSleepManageOverlay() },
-                    onJunkIncrement  = { onJunkChange(+1) },
-                    onJunkDecrement  = { onJunkChange(-1) },
-                    onJunkReset      = { onJunkReset() },
-                    onWaterIncrement = { onWaterChange(+1) },
-                    onWaterDecrement = { onWaterChange(-1) },
-                    onWaterReset     = { onWaterReset() }
+                    onJunkIncrement    = { onJunkChange(+1) },
+                    onJunkDecrement    = { onJunkChange(-1) },
+                    onJunkOpenDetailed = { showJunkLogOverlay() },
+                    onWaterIncrement   = { onWaterChange(+1) },
+                    onWaterDecrement   = { onWaterChange(-1) },
+                    onWaterReset       = { onWaterReset() }
                 )
             )
         }
@@ -353,11 +353,25 @@ class ProfileSelectionActivity : AppCompatActivity() {
         applyThemeTint()
     }
 
-    private fun onJunkReset() {
-        Haptics.success(this)
-        savedJunkCount.value = 0
-        FitDataRepository.saveJunkEntry(LocalDate.now(), 0)
-        applyThemeTint()
+    private fun showJunkLogOverlay() {
+        Haptics.click(this)
+        val bebasFont = FontFamily(Font(R.font.bebas_neue))
+        setThemedContent {
+            JunkLogOverlay(
+                titleFont = bebasFont,
+                contentFont = bebasFont,
+                profile = userProfile.value,
+                onSaved = { _ ->
+                    // Also bump the simple daily junk counter so streaks/insights stay in sync
+                    val newCount = savedJunkCount.value + 1
+                    savedJunkCount.value = newCount
+                    FitDataRepository.saveJunkEntry(LocalDate.now(), newCount)
+                    Haptics.success(this@ProfileSelectionActivity)
+                    applyThemeTint()
+                },
+                onClose = { composeOverlay.visibility = View.GONE }
+            )
+        }
     }
 
     private fun onWaterChange(delta: Int) {
@@ -563,6 +577,17 @@ class ProfileSelectionActivity : AppCompatActivity() {
         }
     }
 
+    private fun showTipsOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent {
+            RecommendationsOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                profile = userProfile.value,
+                onClose = { composeOverlay.visibility = View.GONE }
+            )
+        }
+    }
+
     private fun showSettingsOverlay(titleFont: FontFamily, contentFont: FontFamily) {
         setThemedContent {
             SettingsOverlay(
@@ -659,6 +684,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 onBriefingClick  = { showBriefingOverlay(titleFont, buttonFont) },
                 onCompareClick   = { showCompareOverlay(titleFont, buttonFont) },
                 onProfileClick   = { showProfileOverlay(titleFont, buttonFont, isOnboarding = false) },
+                onTipsClick      = { showTipsOverlay(titleFont, buttonFont) },
                 onClose = { composeOverlay.visibility = View.GONE }
             )
         }

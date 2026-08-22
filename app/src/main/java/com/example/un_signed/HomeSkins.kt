@@ -56,7 +56,7 @@ data class HomeQuickCallbacks(
     val onSleepManage: () -> Unit,
     val onJunkIncrement: () -> Unit,
     val onJunkDecrement: () -> Unit,
-    val onJunkReset: () -> Unit,
+    val onJunkOpenDetailed: () -> Unit,     // hold 3s = open catalogued junk-log wizard
     val onWaterIncrement: () -> Unit,
     val onWaterDecrement: () -> Unit,
     val onWaterReset: () -> Unit
@@ -108,7 +108,7 @@ private fun sleepSubtitle(state: HomeQuickState) =
     if (state.sleepActive) "2× END · ${state.sleepDisturbances} DISTRB."
     else "HOLD 3s TO START"
 private fun sleepEmoji(state: HomeQuickState)    = if (state.sleepActive) "☾" else "☽"
-private fun junkSubtitle(count: Int)     = "$count · 2× ADD · 1× −1"
+private fun junkSubtitle(count: Int)     = "$count · 2× ADD · HOLD LOG"
 private fun waterSubtitle(g: Int, tgt: Int) = "$g/$tgt · 2× ADD"
 
 /**
@@ -169,7 +169,7 @@ private fun DarkIndustrialSkin(
                     scope,
                     onIncrement = quickCallbacks.onJunkIncrement,
                     onDecrement = quickCallbacks.onJunkDecrement,
-                    onReset = quickCallbacks.onJunkReset
+                    onReset = quickCallbacks.onJunkOpenDetailed
                 ),
                 modifier = Modifier.weight(1f)
             )
@@ -341,7 +341,7 @@ private fun HelloKittySkin(
                     scope,
                     onIncrement = quickCallbacks.onJunkIncrement,
                     onDecrement = quickCallbacks.onJunkDecrement,
-                    onReset = quickCallbacks.onJunkReset
+                    onReset = quickCallbacks.onJunkOpenDetailed
                 ),
                 modifier = Modifier.weight(1f)
             )
@@ -634,7 +634,7 @@ private fun LokiAmberSkin(
                     scope,
                     onIncrement = quickCallbacks.onJunkIncrement,
                     onDecrement = quickCallbacks.onJunkDecrement,
-                    onReset = quickCallbacks.onJunkReset
+                    onReset = quickCallbacks.onJunkOpenDetailed
                 ),
                 modifier = Modifier.weight(1f)
             )
