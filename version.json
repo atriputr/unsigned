@@ -1,6 +1,6 @@
 {
-  "versionCode": 17,
-  "versionName": "2.6",
+  "versionCode": 18,
+  "versionName": "2.7",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v2.6: Final UI polish for Settings - Added Check for Update and Update Log tiles in the System section. 🚀🛸🤝🏻🦾✨"
+  "releaseNotes": "v2.7: Final sync and deployment to device. Includes all recent Settings and UI fixes. 🚀🛸"
 }
