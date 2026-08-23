@@ -1,6 +1,6 @@
 {
   "versionCode": 15,
-  "versionName": "2.4-test",
+  "versionName": "2.4",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "Forcing update check... Please wait 5 minutes for GitHub cache to clear. 🛸"
+  "releaseNotes": "v2.4: Stable release with enhanced tracking and stopwatch. 🚀🛸"
 }

@@ -38,9 +38,11 @@ class UpdateManager(private val context: Context) {
 
     suspend fun checkForUpdate(): UpdateInfo? = withContext(Dispatchers.IO) {
         try {
-            val url = URL(versionUrl)
+            // Bypass cache by appending a timestamp
+            val url = URL("$versionUrl?t=${System.currentTimeMillis()}")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
+            connection.useCaches = false
             connection.connect()
 
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
@@ -53,10 +55,21 @@ class UpdateManager(private val context: Context) {
 
                 if (updateInfo.versionCode > currentVersionCode) {
                     return@withContext updateInfo
+                } else {
+                    withContext(Dispatchers.Main) {
+                        // Toast.makeText(context, "App is up to date (v$currentVersionCode)", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Update server error: ${connection.responseCode}", Toast.LENGTH_SHORT).show()
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Update check failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
         }
         null
     }
