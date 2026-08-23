@@ -28,6 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -64,11 +66,35 @@ fun JunkLogOverlay(
     var impact by remember { mutableStateOf<JunkImpact?>(null) }
     var country by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf("") }
+    // Live typing suggestions (debounced 400ms, min 3 chars)
+    var suggestions by remember { mutableStateOf<List<OffProduct>>(emptyList()) }
+    var isSuggesting by remember { mutableStateOf(false) }
+    var suggestJob by remember { mutableStateOf<Job?>(null) }
 
     // Fetch country once for country-scoped search
     LaunchedEffect(Unit) {
         val loc = LocationHelper.resolve(ctx)
         country = loc?.countryCode ?: ""
+    }
+
+    // Debounced live suggestions while user types on step 3
+    LaunchedEffect(queryText, categoryTag, step) {
+        suggestJob?.cancel()
+        if (step != 3 || queryText.trim().length < 3) {
+            suggestions = emptyList(); isSuggesting = false
+            return@LaunchedEffect
+        }
+        suggestJob = scope.launch {
+            delay(400L)
+            isSuggesting = true
+            suggestions = OpenFoodFactsService.search(
+                query = queryText,
+                countryCode = country,
+                categoryTag = categoryTag,
+                limit = 6
+            )
+            isSuggesting = false
+        }
     }
 
     Box(
@@ -164,6 +190,52 @@ fun JunkLogOverlay(
                                 }
                             }
                         )
+
+                        // ── Live typing suggestions ──────────────
+                        when {
+                            queryText.trim().length in 1..2 -> {
+                                Text(
+                                    "keep typing… (min 3 chars for suggestions)",
+                                    color = palette.faint, fontSize = 10.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic
+                                )
+                            }
+                            isSuggesting -> {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(RoundedCornerShape(50))
+                                            .background(palette.accentPrimary)
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        "matching products…",
+                                        color = palette.subtle, fontSize = 10.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic
+                                    )
+                                }
+                            }
+                            suggestions.isNotEmpty() -> {
+                                Text(
+                                    "TAP TO PICK  ·  or SEARCH for more",
+                                    color = palette.accentSecondary, fontSize = 9.sp, fontFamily = titleFont, letterSpacing = 2.sp, fontWeight = FontWeight.Bold
+                                )
+                                suggestions.forEach { p ->
+                                    SuggestionRow(p, palette, contentFont) {
+                                        pickedProduct = p
+                                        servingGrams = if (type == "liquid") 250 else 30
+                                        impact = JunkImpactAnalyzer.analyse(p, servingGrams, profile)
+                                        step = 5
+                                    }
+                                }
+                            }
+                            queryText.trim().length >= 3 && !isSuggesting -> {
+                                Text(
+                                    "no live matches — hit SEARCH for full catalogue",
+                                    color = palette.faint, fontSize = 10.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic
+                                )
+                            }
+                        }
+
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -401,6 +473,44 @@ private fun CategoryRow(label: String, selected: Boolean, palette: ThemePalette,
     ) {
         Text(label, color = palette.onSurface, fontSize = 14.sp, fontFamily = font, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         Text("›", color = palette.subtle, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun SuggestionRow(p: OffProduct, palette: ThemePalette, font: FontFamily, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(palette.chipBg)
+            .border(1.dp, palette.fieldBorder, RoundedCornerShape(8.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Colored dot = quick severity read
+        val dotColor = when {
+            p.novaGroup == 4 -> Color(0xFFE41417)
+            p.novaGroup == 3 -> Color(0xFFFFC848)
+            p.nutriscore.equals("d", true) || p.nutriscore.equals("e", true) -> Color(0xFFFF8C1A)
+            else -> Color(0xFF8CD86A)
+        }
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(RoundedCornerShape(50))
+                .background(dotColor)
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            if (p.brand.isNotBlank()) {
+                Text(p.brand.uppercase(), color = palette.accentSecondary, fontSize = 8.sp, fontFamily = font, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(p.productName, color = palette.onSurface, fontSize = 12.sp, fontFamily = font, maxLines = 1)
+        }
+        if (p.quantity.isNotBlank()) {
+            Text(p.quantity, color = palette.faint, fontSize = 9.sp, fontFamily = font)
+        }
     }
 }
 
