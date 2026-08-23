@@ -171,6 +171,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
             AppThemeProvider(appPrefs.value.theme, appPrefs.value.languageCode) {
                 NixieClock(
                     fontFamily = jerseyFont,
+                    languageCode = appPrefs.value.languageCode,
                     onClick = {},
                     onTimerTap      = { advanceMode -> showTimerOverlay(jerseyFont, advanceMode) },
                     onStopwatchTap  = { advanceMode -> showStopwatchOverlay(jerseyFont, advanceMode) }

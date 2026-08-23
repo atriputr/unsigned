@@ -50,6 +50,7 @@ import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.random.Random
 
 // COLOR PALETTE
@@ -209,13 +210,25 @@ fun AshButton(
     }
 }
 
+private fun clockLocale(languageCode: String): Locale = when (languageCode.lowercase()) {
+    "hi" -> Locale("hi", "IN")
+    "ru" -> Locale("ru", "RU")
+    "zh" -> Locale("zh", "CN")
+    "ja" -> Locale("ja", "JP")
+    "fr" -> Locale("fr", "FR")
+    else -> Locale.ENGLISH
+}
+
 @Composable
 fun NixieClock(
     fontFamily: FontFamily,
+    languageCode: String = "en",
     onClick: () -> Unit,
     onTimerTap: (advanceMode: () -> Unit) -> Unit = {},
     onStopwatchTap: (advanceMode: () -> Unit) -> Unit = {}
 ) {
+    val locale = clockLocale(languageCode)
+    val strings = LocalStrings.current
     var mode           by remember { mutableStateOf(0) }
     var time           by remember { mutableStateOf(LocalDateTime.now()) }
     var showAlarmDialog by remember { mutableStateOf(false) }
@@ -247,17 +260,17 @@ fun NixieClock(
             onDismissRequest = { showAlarmDialog = false },
             containerColor = Color(0xFF1C1C1C),
             title = {
-                Text("Open Alarm Clock", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, fontFamily = BebasFont)
+                Text(strings.openAlarmClock, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, fontFamily = BebasFont)
             },
             text = {
-                Text("Take you to the phone's alarm clock?", color = Color.White.copy(alpha = 0.75f), fontSize = 14.sp, fontFamily = BebasFont)
+                Text(strings.alarmQuestion, color = Color.White.copy(alpha = 0.75f), fontSize = 14.sp, fontFamily = BebasFont)
             },
             confirmButton = {
                 TextButton(onClick = {
                     showAlarmDialog = false
                     try { context.startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS)) } catch (_: Exception) {}
                 }) {
-                    Text("YES", color = OrangeFire, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, fontFamily = BebasFont)
+                    Text(strings.yes, color = OrangeFire, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, fontFamily = BebasFont)
                 }
             },
             dismissButton = {
@@ -265,7 +278,7 @@ fun NixieClock(
                     showAlarmDialog = false
                     mode = (mode + 1) % 6   // SKIP → advance to next mode
                 }) {
-                    Text("SKIP", color = Color.White.copy(alpha = 0.5f), letterSpacing = 1.sp, fontFamily = BebasFont)
+                    Text(strings.skip, color = Color.White.copy(alpha = 0.5f), letterSpacing = 1.sp, fontFamily = BebasFont)
                 }
             }
         )
@@ -287,7 +300,7 @@ fun NixieClock(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    "CLOCK MODE",
+                    strings.clockMode,
                     color = Color.White.copy(alpha = 0.38f),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -297,12 +310,12 @@ fun NixieClock(
                 Spacer(Modifier.height(14.dp))
 
                 val entries = listOf(
-                    Triple(0, "24-HR",      "24-hour digital clock"),
-                    Triple(1, "12-HR",      "12-hour with AM / PM"),
-                    Triple(2, "TIMER",      "Set a countdown timer"),
-                    Triple(3, "STOPWATCH",  "Lap & split timer"),
-                    Triple(4, "ALARM",      "Open phone alarm clock"),
-                    Triple(5, "DAY & DATE", "Show today's day and date")
+                    Triple(0, strings.format24Hour,      "24-hour digital clock"),
+                    Triple(1, strings.format12Hour,      "12-hour with AM / PM"),
+                    Triple(2, strings.timer,              "Set a countdown timer"),
+                    Triple(3, strings.stopwatch,          "Lap & split timer"),
+                    Triple(4, strings.alarm,              "Open phone alarm clock"),
+                    Triple(5, strings.dayAndDate,         "Show today's day and date")
                 )
 
                 entries.forEach { (idx, label, sub) ->
@@ -401,16 +414,16 @@ fun NixieClock(
 
         when (mode) {
             0 -> {
-                val h = time.format(DateTimeFormatter.ofPattern("HH"))
-                val m = time.format(DateTimeFormatter.ofPattern("mm"))
-                val s = time.format(DateTimeFormatter.ofPattern("ss"))
+                val h = time.format(DateTimeFormatter.ofPattern("HH", locale))
+                val m = time.format(DateTimeFormatter.ofPattern("mm", locale))
+                val s = time.format(DateTimeFormatter.ofPattern("ss", locale))
                 ClockLayout(h, m, s, fontFamily)
             }
             1 -> {
-                val h    = time.format(DateTimeFormatter.ofPattern("hh"))
-                val m    = time.format(DateTimeFormatter.ofPattern("mm"))
-                val s    = time.format(DateTimeFormatter.ofPattern("ss"))
-                val amPm = time.format(DateTimeFormatter.ofPattern("a")).uppercase()
+                val h    = time.format(DateTimeFormatter.ofPattern("hh", locale))
+                val m    = time.format(DateTimeFormatter.ofPattern("mm", locale))
+                val s    = time.format(DateTimeFormatter.ofPattern("ss", locale))
+                val amPm = time.format(DateTimeFormatter.ofPattern("a", locale)).uppercase()
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     ClockLayout(h, m, s, fontFamily)
                     Spacer(Modifier.height(4.dp))
@@ -419,13 +432,13 @@ fun NixieClock(
                     }
                 }
             }
-            2 -> NixieActionLabel("BEGIN A TIMER")
-            3 -> NixieActionLabel("BEGIN STOPWATCH")
-            4 -> NixieActionLabel("SET AN ALARM")
+            2 -> NixieActionLabel(strings.beginTimer)
+            3 -> NixieActionLabel(strings.beginStopwatch)
+            4 -> NixieActionLabel(strings.setAlarm)
             5 -> {
-                val dayName  = time.format(DateTimeFormatter.ofPattern("EEE")).uppercase()
-                val dayNum   = time.format(DateTimeFormatter.ofPattern("dd"))
-                val monthAbb = time.format(DateTimeFormatter.ofPattern("MMM")).uppercase()
+                val dayName  = time.format(DateTimeFormatter.ofPattern("EEE", locale)).uppercase()
+                val dayNum   = time.format(DateTimeFormatter.ofPattern("dd", locale))
+                val monthAbb = time.format(DateTimeFormatter.ofPattern("MMM", locale)).uppercase()
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         dayName.forEach { NixieTubeDigit(it.toString(), fontFamily) }
