@@ -1,6 +1,6 @@
 {
-  "versionCode": 18,
-  "versionName": "2.7",
+  "versionCode": 19,
+  "versionName": "2.8",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v2.7: Final sync and deployment to device. Includes all recent Settings and UI fixes. 🚀🛸"
+  "releaseNotes": "v2.8: Improved search engine to better handle major brands like Red Bull and Monster. Optimized API queries for faster results. 🚀🛸🤝🏻🦾✨"
 }

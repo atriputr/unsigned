@@ -93,6 +93,11 @@ fun JunkLogOverlay(
         }
     }
 
+    // Fire haptic on every step change (except the initial value)
+    LaunchedEffect(step) {
+        if (step in 2..5) Haptics.tick(ctx)
+    }
+
     GlassCard(
         modifier = Modifier.heightIn(max = 720.dp),
         onClose = onClose
@@ -106,6 +111,31 @@ fun JunkLogOverlay(
             letterSpacing = 3.sp,
             style = TextStyle(shadow = Shadow(color = palette.danger.copy(alpha = 0.4f), blurRadius = 10f))
         )
+
+        // ── Step-indicator dots ─────────────────────────────────
+        Row(
+            modifier = Modifier.padding(top = 10.dp, bottom = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            (1..5).forEach { i ->
+                val active = i == step
+                val done   = i < step
+                Box(
+                    modifier = Modifier
+                        .width(if (active) 22.dp else 8.dp)
+                        .height(8.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(
+                            when {
+                                active -> palette.danger
+                                done   -> palette.danger.copy(alpha = 0.45f)
+                                else   -> palette.divider
+                            }
+                        )
+                )
+            }
+        }
+
         Text(
             text = when (step) {
                 1 -> "Step 1 · What kind?"
@@ -136,6 +166,38 @@ fun JunkLogOverlay(
                         }
                         TypeChip("🥤 LIQUID", selected = type == "liquid", palette, contentFont, Modifier.weight(1f)) {
                             type = "liquid"; step = 2
+                        }
+                    }
+
+                    // ── One-tap re-log from recent items ──────────
+                    val recentEntries = remember {
+                        FitDataRepository.loadJunkLogEntries()
+                            .sortedByDescending { it.timestamp }
+                            .distinctBy { it.productId.ifBlank { it.productName } }
+                            .take(4)
+                    }
+                    if (recentEntries.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "RECENT · TAP TO RE-LOG",
+                            color = palette.accentSecondary,
+                            fontSize = 10.sp,
+                            fontFamily = titleFont,
+                            letterSpacing = 3.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        recentEntries.forEach { entry ->
+                            RecentJunkRow(entry, palette, contentFont) {
+                                Haptics.click(ctx)
+                                // Re-save the same entry with a new timestamp + increment counter
+                                FitDataRepository.addJunkLogEntry(entry.copy(
+                                    id = java.util.UUID.randomUUID().toString(),
+                                    dateIso = LocalDate.now().toString(),
+                                    timestamp = System.currentTimeMillis()
+                                ))
+                                onSaved(entry)
+                                onClose()
+                            }
                         }
                     }
                 }
@@ -308,18 +370,69 @@ fun JunkLogOverlay(
                             }
                         }
 
-                        // Serving size adjuster
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(if (type == "liquid") "SERVING (ml)" else "SERVING (g)", color = palette.subtle, fontSize = 11.sp, fontFamily = titleFont, letterSpacing = 2.sp)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Serving size — big number + preset chips
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(if (type == "liquid") "SERVING" else "SERVING", color = palette.subtle, fontSize = 11.sp, fontFamily = titleFont, letterSpacing = 2.sp)
+                                Text(
+                                    "${servingGrams}${if (type == "liquid") "ml" else "g"}",
+                                    color = palette.accentPrimary,
+                                    fontSize = 22.sp,
+                                    fontFamily = NokiaFont,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Spacer(Modifier.height(6.dp))
+
+                            // Preset chips (differ for liquid vs food)
+                            val presets = if (type == "liquid") {
+                                listOf("SIP" to 150, "CAN" to 330, "BOTTLE" to 500, "1L" to 1000)
+                            } else {
+                                listOf("MINI" to 15, "PACK" to 30, "SHARE" to 60, "FAMILY" to 150)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                presets.forEach { (label, size) ->
+                                    val selected = servingGrams == size
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(38.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (selected) palette.accentPrimary.copy(alpha = 0.30f) else palette.chipBg)
+                                            .border(1.dp, if (selected) palette.accentPrimary else palette.fieldBorder, RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                Haptics.tick(ctx)
+                                                servingGrams = size
+                                                impact = JunkImpactAnalyzer.analyse(p, servingGrams, profile)
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(label, color = palette.onSurface, fontSize = 9.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                            Text("${size}${if (type == "liquid") "ml" else "g"}", color = palette.subtle, fontSize = 9.sp, fontFamily = contentFont)
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(6.dp))
+
+                            // Fine ± adjust
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
                                 listOf(-50, -10, +10, +50).forEach { delta ->
                                     Box(
                                         modifier = Modifier
-                                            .size(30.dp)
+                                            .weight(1f)
+                                            .height(28.dp)
                                             .clip(RoundedCornerShape(6.dp))
                                             .background(palette.chipBg)
                                             .border(1.dp, palette.fieldBorder, RoundedCornerShape(6.dp))
@@ -329,11 +442,9 @@ fun JunkLogOverlay(
                                             },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(if (delta > 0) "+$delta" else "$delta", color = palette.onSurface, fontSize = 10.sp, fontFamily = contentFont, fontWeight = FontWeight.Bold)
+                                        Text(if (delta > 0) "+$delta" else "$delta", color = palette.subtle, fontSize = 10.sp, fontFamily = contentFont, fontWeight = FontWeight.Bold)
                                     }
-                                    Spacer(Modifier.width(4.dp))
                                 }
-                                Text("${servingGrams}${if (type == "liquid") "ml" else "g"}", color = palette.onSurface, fontSize = 15.sp, fontFamily = NokiaFont, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp))
                             }
                         }
 
@@ -443,6 +554,47 @@ fun JunkLogOverlay(
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun RecentJunkRow(entry: JunkLogEntry, palette: ThemePalette, font: FontFamily, onClick: () -> Unit) {
+    val dotColor = when (entry.overallSeverity) {
+        "Critical" -> Color(0xFFE41417)
+        "Bad"      -> Color(0xFFFF8C1A)
+        "Watch"    -> Color(0xFFFFC848)
+        else       -> Color(0xFF8CD86A)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(palette.chipBg)
+            .border(1.dp, palette.fieldBorder, RoundedCornerShape(10.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(9.dp)
+                .clip(RoundedCornerShape(50))
+                .background(dotColor)
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            if (entry.brand.isNotBlank()) {
+                Text(entry.brand.uppercase(), color = palette.accentSecondary, fontSize = 8.sp, fontFamily = font, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(entry.productName, color = palette.onSurface, fontSize = 13.sp, fontFamily = font, maxLines = 1)
+        }
+        Text(
+            "↻",
+            color = palette.accentPrimary,
+            fontSize = 18.sp,
+            fontFamily = font,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 

@@ -58,7 +58,7 @@ object OpenFoodFactsService {
             // Optimal search: reduce restriction if brand-specific terms found
             // OpenFoodFacts sometimes tags Red Bull differently (e.g. "beverages" vs "energy-drinks")
             val isBrandQuery = query.lowercase().let { 
-                it.contains("red bull") || it.contains("monster") || it.contains("coca") || it.contains("pepsi") 
+                it.contains("red bull") || it.contains("monster") || it.contains("coca") || it.contains("pepsi") || it.contains("redbull")
             }
             val effectiveCategory = if (isBrandQuery) "" else categoryTag
             

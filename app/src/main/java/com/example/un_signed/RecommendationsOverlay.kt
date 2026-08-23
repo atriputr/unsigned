@@ -30,7 +30,10 @@ fun RecommendationsOverlay(
     onClose: () -> Unit
 ) {
     val palette = LocalPalette.current
-    val recs = remember { RecommendationEngine.analyse(profile) }
+    // Trigger for manual refresh
+    var refreshTick by remember { mutableStateOf(0) }
+    val recs = remember(refreshTick) { RecommendationEngine.analyse(profile) }
+    val highCount = recs.count { it.priority == Recommendation.Priority.High }
 
     Box(
         modifier = Modifier
@@ -50,17 +53,41 @@ fun RecommendationsOverlay(
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Header row: title + refresh icon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(Modifier.width(28.dp))
+                Text(
+                    "TIPS FOR YOU",
+                    color = palette.onSurface,
+                    fontSize = 22.sp,
+                    fontFamily = titleFont,
+                    fontStyle = FontStyle.Italic,
+                    letterSpacing = 3.sp,
+                    style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.4f), blurRadius = 12f))
+                )
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(palette.chipBg)
+                        .border(1.dp, palette.fieldBorder, RoundedCornerShape(50))
+                        .clickable { refreshTick += 1 },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("↻", color = palette.accentPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            // Summary line — reflects data freshness
             Text(
-                "TIPS FOR YOU",
-                color = palette.onSurface,
-                fontSize = 22.sp,
-                fontFamily = titleFont,
-                fontStyle = FontStyle.Italic,
-                letterSpacing = 3.sp,
-                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.4f), blurRadius = 12f))
-            )
-            Text(
-                "Personalised food + habit picks · based on your routine",
+                buildString {
+                    append("${recs.size} personalised picks · ")
+                    if (highCount > 0) append("$highCount high priority")
+                    else append("no urgent items today")
+                },
                 color = palette.subtle,
                 fontSize = 11.sp,
                 fontFamily = contentFont,
