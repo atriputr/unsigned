@@ -57,9 +57,12 @@ object OpenFoodFactsService {
             
             // Optimal search: reduce restriction if brand-specific terms found
             // OpenFoodFacts sometimes tags Red Bull differently (e.g. "beverages" vs "energy-drinks")
-            val isBrandQuery = query.lowercase().let { 
-                it.contains("red bull") || it.contains("monster") || it.contains("coca") || it.contains("pepsi") || it.contains("redbull")
-            }
+            val brandKeywords = listOf(
+                "red bull", "redbull", "monster", "coca", "pepsi", "mountain dew", "gatorade", 
+                "doritos", "lays", "pringles", "cheetos", "oreo", "kit kat", "snickers", "mars", 
+                "cadbury", "nestle", "fanta", "sprite", "7up", "redbull"
+            )
+            val isBrandQuery = brandKeywords.any { query.lowercase().contains(it) }
             val effectiveCategory = if (isBrandQuery) "" else categoryTag
             
             val countryParam = if (countryCode.isNotBlank()) {

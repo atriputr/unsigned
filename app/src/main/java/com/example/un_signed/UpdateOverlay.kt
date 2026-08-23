@@ -55,8 +55,9 @@ fun UpdateOverlay(
                 .clickable(enabled = false) {},
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val strings = LocalStrings.current
             Text(
-                text = "SYSTEM UPDATE",
+                text = strings.system + " " + strings.edit,
                 color = Color.White,
                 fontSize = 24.sp,
                 fontFamily = BebasFont,
@@ -66,7 +67,7 @@ fun UpdateOverlay(
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "Version ${info.versionName} available.",
+                text = "Version ${info.versionName}",
                 color = Color(0xFFEBC174),
                 fontSize = 18.sp,
                 fontFamily = BebasFont
@@ -96,7 +97,7 @@ fun UpdateOverlay(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text("UPDATE NOW", color = Color.Black, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = BebasFont)
+                Text(strings.checkUpdate, color = Color.Black, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = BebasFont)
                 
                 // NEW Badge
                 Box(
@@ -115,7 +116,7 @@ fun UpdateOverlay(
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "LATER",
+                text = strings.back,
                 color = Color.White.copy(alpha = 0.4f),
                 fontSize = 16.sp,
                 fontFamily = BebasFont,

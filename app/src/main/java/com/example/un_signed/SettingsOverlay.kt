@@ -180,31 +180,31 @@ fun SettingsOverlay(
 
                 Spacer(Modifier.height(4.dp))
 
-                SectionHeader("SYSTEM", palette)
+                SectionHeader(LocalStrings.current.system, palette)
                 ActionButton(
-                    label = "CHANGE LANGUAGE (${Localization.languages[current.languageCode] ?: "English"})",
+                    label = "${LocalStrings.current.preferredLanguage} (${Localization.languages[current.languageCode] ?: "English"})",
                     font = contentFont,
                     palette = palette
                 ) {
                     Haptics.click(ctx); onChangeLanguage()
                 }
-                ActionButton("CHECK FOR UPDATE", contentFont, palette) {
+                ActionButton(LocalStrings.current.checkUpdate, contentFont, palette) {
                     Haptics.click(ctx); onCheckUpdate()
                 }
-                ActionButton("SHOW UPDATE LOG", contentFont, palette) {
+                ActionButton(LocalStrings.current.updateLog, contentFont, palette) {
                     Haptics.click(ctx); onShowUpdateLog()
                 }
             }
 
             Spacer(Modifier.height(14.dp))
-            Text("DONE", color = palette.faint, fontSize = 14.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.clickable { onClose() })
+            Text(LocalStrings.current.done, color = palette.faint, fontSize = 14.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.clickable { onClose() })
         }
     }
 }
 
 @Composable
 private fun SectionHeader(text: String, palette: ThemePalette) {
-    Text(text, color = OrangeFire, fontSize = 10.sp, fontFamily = BebasFont, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+    Text(text, color = palette.accentPrimary, fontSize = 10.sp, fontFamily = BebasFont, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
 }
 
 @Composable

@@ -268,11 +268,20 @@ fun JunkLogOverlay(
                                     scope.launch {
                                         queryText = b // set name to original
                                         isSearching = true; errorMsg = ""
-                                        results = OpenFoodFactsService.productsByBrand(
-                                            brand = b,
-                                            countryCode = country
+                                        // Use general search but biased to brand; clears category restriction in search()
+                                        results = OpenFoodFactsService.search(
+                                            query = b,
+                                            countryCode = country,
+                                            categoryTag = categoryTag, // search() will clear this if brand match
+                                            limit = 30
                                         )
                                         isSearching = false
+                                        if (results.isEmpty()) {
+                                            // Fallback to strict brand search if general search fails
+                                            isSearching = true
+                                            results = OpenFoodFactsService.productsByBrand(brand = b, countryCode = country)
+                                            isSearching = false
+                                        }
                                         if (results.isEmpty()) errorMsg = "no products found for this brand in $country"
                                         else step = 4
                                     }
@@ -668,18 +677,47 @@ private fun ResultRow(p: OffProduct, palette: ThemePalette, font: FontFamily, on
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(palette.chipBg)
-            .border(1.dp, palette.fieldBorder, RoundedCornerShape(10.dp))
+            .border(1.dp, palette.fieldBorder.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(10.dp)
+            .padding(12.dp)
     ) {
-        if (p.brand.isNotBlank()) Text(p.brand.uppercase(), color = palette.accentSecondary, fontSize = 9.sp, fontFamily = font, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
-        Text(p.productName, color = palette.onSurface, fontSize = 13.sp, fontFamily = font, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+        if (p.brand.isNotBlank()) {
+            Box(
+                modifier = Modifier
+                    .padding(bottom = 4.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(palette.accentSecondary.copy(alpha = 0.15f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    p.brand.uppercase(),
+                    color = palette.accentSecondary,
+                    fontSize = 10.sp,
+                    fontFamily = font,
+                    letterSpacing = 2.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+        }
+        Text(p.productName, color = palette.onSurface, fontSize = 14.sp, fontFamily = font, fontWeight = FontWeight.Bold)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 6.dp)
+        ) {
             if (p.nutriscore.isNotBlank()) NutriChip("NUTRI-${p.nutriscore.uppercase()}", nutriscoreColor(p.nutriscore))
             if (p.novaGroup > 0) NutriChip("NOVA ${p.novaGroup}", novaColor(p.novaGroup))
-            if (p.quantity.isNotBlank()) Text(p.quantity, color = palette.faint, fontSize = 10.sp, fontFamily = font)
+            if (p.quantity.isNotBlank()) {
+                Text(
+                    p.quantity,
+                    color = palette.faint,
+                    fontSize = 10.sp,
+                    fontFamily = font,
+                    fontStyle = FontStyle.Italic
+                )
+            }
         }
     }
 }

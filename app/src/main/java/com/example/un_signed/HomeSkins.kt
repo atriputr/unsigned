@@ -1,12 +1,20 @@
 package com.example.un_signed
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -133,6 +141,10 @@ fun HomeSkin(
 
 // ══════════════════════════════════════════════════════════════════
 //  DARK INDUSTRIAL  ·  Standard theme
+//  Fully editable Compose recreation of the baked bg_select_profile.png
+//  ─ Text and icons are LIVE (no PNG text) — safe to edit + localise later.
+//  ─ Buttons positioned at the exact same y-fractions as the interactive Views
+//    so clicks continue to register on the underlying XML click targets.
 // ══════════════════════════════════════════════════════════════════
 @Composable
 private fun DarkIndustrialSkin(
@@ -141,8 +153,44 @@ private fun DarkIndustrialSkin(
     quickCallbacks: HomeQuickCallbacks
 ) {
     val scope = rememberCoroutineScope()
-    Box(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        val screenH = maxHeight
+        val btnHeight = screenH * BTN_HEIGHT_FRAC
+        val sideMargin = 24.dp
+
         StatusBarBox()
+
+        // ── "SELECT PROFILE" title — pure text, no PNG ────────
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = screenH * 0.04f),
+            contentAlignment = Alignment.Center
+        ) {
+            SelectProfileTitle(titleFont)
+        }
+
+        // ── Three editable menu buttons at exact same fractions ─
+        listOf(
+            Triple(BTN1_CENTER, "IDEAL PROFILE",         R.drawable.ic_person),
+            Triple(BTN2_CENTER, "CUSTOM PROFILE",        R.drawable.ic_gear),
+            Triple(BTN3_CENTER, "EXPORT YOUR PROGRESS",  R.drawable.ic_cloud)
+        ).forEach { (fraction, label, iconRes) ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = sideMargin)
+                    .height(btnHeight)
+                    .offset(y = screenH * fraction - btnHeight / 2f)
+            ) {
+                DarkMenuButton(label = label, iconRes = iconRes, titleFont = titleFont)
+            }
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -186,6 +234,154 @@ private fun DarkIndustrialSkin(
                     onReset = quickCallbacks.onWaterReset
                 ),
                 modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/**
+ * "SELECT PROFILE" title — pure text with red-neon glow.
+ * Text is a Kotlin string, editable in one place.
+ */
+@Composable
+private fun SelectProfileTitle(titleFont: FontFamily) {
+    val neon = Color(0xFFE41417)
+    Box(contentAlignment = Alignment.Center) {
+        // Outer glow layer
+        Text(
+            text = "SELECT PROFILE",
+            color = neon.copy(alpha = 0.45f),
+            fontSize = 44.sp,
+            fontFamily = titleFont,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 6.sp,
+            style = TextStyle(shadow = Shadow(color = neon, blurRadius = 32f))
+        )
+        // Crisp core layer
+        Text(
+            text = "SELECT PROFILE",
+            color = Color(0xFFFF5555),
+            fontSize = 44.sp,
+            fontFamily = titleFont,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 6.sp,
+            style = TextStyle(shadow = Shadow(color = Color.Black, offset = Offset(1f, 2f), blurRadius = 3f))
+        )
+    }
+}
+
+/**
+ * Grungy dark-industrial menu button:
+ *   ─ noisy top+bottom brush edges
+ *   ─ dark metal plate
+ *   ─ icon in orange sweep-ring on the left
+ *   ─ vertical orange divider
+ *   ─ bronze-gradient label
+ *   ─ pulsing orange chevron on the right
+ * All labels + icons come from parameters — nothing baked.
+ */
+@Composable
+private fun DarkMenuButton(label: String, iconRes: Int, titleFont: FontFamily) {
+    val infiniteTransition = rememberInfiniteTransition(label = "chev-glow")
+    val glowPulse by infiniteTransition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "chev"
+    )
+
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+
+        // ── Brush-stroke plate (Canvas: noisy top+bottom edges + dark metal centre) ──
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val rnd = kotlin.random.Random(label.hashCode())  // deterministic per button
+            val steps = 120
+            val stepSize = w / steps
+
+            val pathTop = androidx.compose.ui.graphics.Path().apply { moveTo(0f, h / 2f) }
+            val pathBot = androidx.compose.ui.graphics.Path().apply { moveTo(0f, h / 2f) }
+            for (i in 0..steps) {
+                val x = i * stepSize
+                val noiseTop = (rnd.nextFloat() - 0.5f) * 18f
+                val noiseBot = (rnd.nextFloat() - 0.5f) * 18f
+                val edgeFade = when {
+                    i < 15 -> i / 15f
+                    i > steps - 15 -> (steps - i) / 15f
+                    else -> 1f
+                }
+                pathTop.lineTo(x, (h * 0.15f) + (noiseTop * edgeFade))
+                pathBot.lineTo(x, (h * 0.85f) + (noiseBot * edgeFade))
+            }
+            pathTop.lineTo(w, h / 2f); pathTop.close()
+            pathBot.lineTo(w, h / 2f); pathBot.close()
+
+            drawPath(pathTop, color = GrungeEdgeColor.copy(alpha = 0.35f))
+            drawPath(pathBot, color = GrungeEdgeColor.copy(alpha = 0.35f))
+
+            val metalPath = androidx.compose.ui.graphics.Path().apply {
+                moveTo(5f, h * 0.22f)
+                lineTo(w - 5f, h * 0.22f)
+                lineTo(w - 5f, h * 0.78f)
+                lineTo(5f, h * 0.78f)
+                close()
+            }
+            drawPath(metalPath, brush = Brush.verticalGradient(listOf(Color(0xFF221A1A), ButtonMetalBg, Color(0xFF0A0808))))
+
+            // subtle horizontal scratches
+            repeat(20) {
+                val y = (h * 0.25f) + (rnd.nextFloat() * h * 0.5f)
+                drawLine(color = Color.White.copy(alpha = 0.05f), start = Offset(15f, y), end = Offset(w - 15f, y), strokeWidth = 1f)
+            }
+        }
+
+        // ── Foreground row: icon · divider · text · chevron ────
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon in orange sweep-ring
+            Box(contentAlignment = Alignment.Center) {
+                Canvas(modifier = Modifier.size(48.dp)) {
+                    drawCircle(brush = Brush.radialGradient(listOf(IconRingStart.copy(alpha = 0.3f), Color.Transparent)), radius = size.width / 1.2f)
+                    drawCircle(brush = Brush.sweepGradient(listOf(IconRingStart, IconRingEnd, IconRingStart)), style = Stroke(width = 1.5.dp.toPx()))
+                    drawCircle(color = Color.Black, radius = size.width / 2 - 1.5.dp.toPx())
+                }
+                Icon(
+                    painter = androidx.compose.ui.res.painterResource(id = iconRes),
+                    contentDescription = null,
+                    tint = IconRingStart,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(Modifier.width(10.dp))
+            // Thin vertical orange divider
+            Canvas(modifier = Modifier.width(1.dp).fillMaxHeight(0.35f)) { drawRect(color = DividerColor) }
+            Spacer(Modifier.width(14.dp))
+
+            // Editable label text
+            Text(
+                text = label,
+                color = BronzeTextStart,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                style = TextStyle(
+                    brush = Brush.linearGradient(listOf(BronzeTextStart, BronzeTextEnd)),
+                    fontFamily = titleFont
+                )
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            // Pulsing orange chevron
+            Icon(
+                painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_chevron_right),
+                contentDescription = null,
+                tint = ChevronStart.copy(alpha = glowPulse),
+                modifier = Modifier.size(22.dp)
             )
         }
     }
