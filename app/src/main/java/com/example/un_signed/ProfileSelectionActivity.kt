@@ -14,6 +14,7 @@ import android.os.Looper
 import android.view.View
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -606,6 +607,25 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 },
                 onEditProfile = { showProfileOverlay(titleFont, contentFont, isOnboarding = false) },
                 onWeightLog   = { showWeightLogOverlay(titleFont, contentFont) },
+                onCheckUpdate = {
+                    lifecycleScope.launch(Dispatchers.Main) {
+                        val info = updateManager.checkForUpdate()
+                        if (info != null) {
+                            pendingUpdate.value = info
+                            showUpdateOverlay(info, updateManager)
+                        } else {
+                            Toast.makeText(this@ProfileSelectionActivity, "App is up to date", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                onShowUpdateLog = {
+                    val info = pendingUpdate.value
+                    if (info != null) {
+                        showUpdateOverlay(info, updateManager)
+                    } else {
+                        Toast.makeText(this@ProfileSelectionActivity, "No update log available", Toast.LENGTH_SHORT).show()
+                    }
+                },
                 onClose = { composeOverlay.visibility = View.GONE }
             )
         }

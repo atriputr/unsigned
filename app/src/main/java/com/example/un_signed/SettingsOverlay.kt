@@ -31,6 +31,8 @@ fun SettingsOverlay(
     onPrefsChange: (AppPreferences) -> Unit,
     onEditProfile: () -> Unit,
     onWeightLog: () -> Unit,
+    onCheckUpdate: () -> Unit,
+    onShowUpdateLog: () -> Unit,
     onClose: () -> Unit
 ) {
     val palette = LocalPalette.current
@@ -173,6 +175,16 @@ fun SettingsOverlay(
                 }
                 ActionButton("WEIGHT LOG", contentFont, palette) {
                     Haptics.click(ctx); onWeightLog()
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                SectionHeader("SYSTEM", palette)
+                ActionButton("CHECK FOR UPDATE", contentFont, palette) {
+                    Haptics.click(ctx); onCheckUpdate()
+                }
+                ActionButton("SHOW UPDATE LOG", contentFont, palette) {
+                    Haptics.click(ctx); onShowUpdateLog()
                 }
             }
 
