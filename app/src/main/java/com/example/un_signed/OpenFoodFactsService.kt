@@ -54,13 +54,21 @@ object OpenFoodFactsService {
         if (query.isBlank()) return@withContext emptyList()
         try {
             val q = URLEncoder.encode(query.trim(), "UTF-8")
+            
+            // Optimal search: reduce restriction if brand-specific terms found
+            // OpenFoodFacts sometimes tags Red Bull differently (e.g. "beverages" vs "energy-drinks")
+            val isBrandQuery = query.lowercase().let { 
+                it.contains("red bull") || it.contains("monster") || it.contains("coca") || it.contains("pepsi") 
+            }
+            val effectiveCategory = if (isBrandQuery) "" else categoryTag
+            
             val countryParam = if (countryCode.isNotBlank()) {
-                // Country facet: search only products marketed in this country
                 "&tagtype_0=countries&tag_contains_0=contains&tag_0=" +
                     URLEncoder.encode(countryCodeToTag(countryCode), "UTF-8")
             } else ""
-            val categoryParam = if (categoryTag.isNotBlank()) {
-                "&tagtype_1=categories&tag_contains_1=contains&tag_1=" + URLEncoder.encode(categoryTag, "UTF-8")
+            
+            val categoryParam = if (effectiveCategory.isNotBlank()) {
+                "&tagtype_1=categories&tag_contains_1=contains&tag_1=" + URLEncoder.encode(effectiveCategory, "UTF-8")
             } else ""
 
             val url = URL(
