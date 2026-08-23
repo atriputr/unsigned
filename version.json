@@ -1,6 +1,6 @@
 {
-  "versionCode": 16,
-  "versionName": "2.5",
+  "versionCode": 17,
+  "versionName": "2.6",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v2.5: Final versioning fix. Everything is now in sync. 🚀"
+  "releaseNotes": "v2.6: Stable build. Update notification suppressed until v2.7. 🛸"
 }
