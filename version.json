@@ -1,6 +1,6 @@
 {
-  "versionCode": 17,
-  "versionName": "2.6",
+  "versionCode": 18,
+  "versionName": "2.7",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v2.6: Stable build. Update notification suppressed until v2.7. 🛸"
+  "releaseNotes": "v2.7: Full App Translation! Every text and number (including the Nixie clock) now supports localized scripts like Devanagari. 🌍🛸"
 }

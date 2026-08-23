@@ -310,12 +310,12 @@ fun NixieClock(
                 Spacer(Modifier.height(14.dp))
 
                 val entries = listOf(
-                    Triple(0, strings.format24Hour,      "24-hour digital clock"),
-                    Triple(1, strings.format12Hour,      "12-hour with AM / PM"),
-                    Triple(2, strings.timer,              "Set a countdown timer"),
-                    Triple(3, strings.stopwatch,          "Lap & split timer"),
-                    Triple(4, strings.alarm,              "Open phone alarm clock"),
-                    Triple(5, strings.dayAndDate,         "Show today's day and date")
+                    Triple(0, strings.format24Hour,      strings.format24Sub),
+                    Triple(1, strings.format12Hour,      strings.format12Sub),
+                    Triple(2, strings.timer,              strings.timerSub),
+                    Triple(3, strings.stopwatch,          strings.stopwatchSub),
+                    Triple(4, strings.alarm,              strings.alarmSub),
+                    Triple(5, strings.dayAndDate,         strings.dateSub)
                 )
 
                 entries.forEach { (idx, label, sub) ->
@@ -414,15 +414,15 @@ fun NixieClock(
 
         when (mode) {
             0 -> {
-                val h = time.format(DateTimeFormatter.ofPattern("HH", locale))
-                val m = time.format(DateTimeFormatter.ofPattern("mm", locale))
-                val s = time.format(DateTimeFormatter.ofPattern("ss", locale))
+                val h = strings.formatNumbers(time.format(DateTimeFormatter.ofPattern("HH", locale)))
+                val m = strings.formatNumbers(time.format(DateTimeFormatter.ofPattern("mm", locale)))
+                val s = strings.formatNumbers(time.format(DateTimeFormatter.ofPattern("ss", locale)))
                 ClockLayout(h, m, s, fontFamily)
             }
             1 -> {
-                val h    = time.format(DateTimeFormatter.ofPattern("hh", locale))
-                val m    = time.format(DateTimeFormatter.ofPattern("mm", locale))
-                val s    = time.format(DateTimeFormatter.ofPattern("ss", locale))
+                val h    = strings.formatNumbers(time.format(DateTimeFormatter.ofPattern("hh", locale)))
+                val m    = strings.formatNumbers(time.format(DateTimeFormatter.ofPattern("mm", locale)))
+                val s    = strings.formatNumbers(time.format(DateTimeFormatter.ofPattern("ss", locale)))
                 val amPm = time.format(DateTimeFormatter.ofPattern("a", locale)).uppercase()
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     ClockLayout(h, m, s, fontFamily)
@@ -437,7 +437,7 @@ fun NixieClock(
             4 -> NixieActionLabel(strings.setAlarm)
             5 -> {
                 val dayName  = time.format(DateTimeFormatter.ofPattern("EEE", locale)).uppercase()
-                val dayNum   = time.format(DateTimeFormatter.ofPattern("dd", locale))
+                val dayNum   = strings.formatNumbers(time.format(DateTimeFormatter.ofPattern("dd", locale)))
                 val monthAbb = time.format(DateTimeFormatter.ofPattern("MMM", locale)).uppercase()
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -530,6 +530,8 @@ private fun nixieAccent(): Triple<Color, Color, Color> {
 @Composable
 fun NixieTubeDigit(digit: String, fontFamily: FontFamily) {
     val (tubeBg, glow, digitColor) = nixieAccent()
+    val strings = LocalStrings.current
+    val translatedDigit = strings.formatNumbers(digit)
     Box(
         modifier = Modifier
             .width(38.dp)
@@ -540,14 +542,14 @@ fun NixieTubeDigit(digit: String, fontFamily: FontFamily) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = digit,
+            text = translatedDigit,
             color = glow.copy(alpha = 0.4f),
             fontSize = 46.sp,
             fontFamily = fontFamily,
             style = TextStyle(shadow = Shadow(color = glow, blurRadius = 30f))
         )
         Text(
-            text = digit,
+            text = translatedDigit,
             color = digitColor,
             fontSize = 46.sp,
             fontFamily = fontFamily,
@@ -632,8 +634,9 @@ fun GlassDialogContent(
 ) {
     GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
+        val strings = LocalStrings.current
         Text(
-            text = "IDEAL OPTIONS",
+            text = strings.idealOptions,
             color = palette.onSurface,
             fontSize = 26.sp,
             fontFamily = titleFont,
@@ -641,19 +644,19 @@ fun GlassDialogContent(
             modifier = Modifier.padding(bottom = 32.dp),
             style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
         )
-        GlassButton("1. EDUCATION", buttonFont, onClick = onEducationClick)
+        GlassButton("${strings.formatNumbers(1)}. ${strings.education}", buttonFont, onClick = onEducationClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("2. HEALTH", buttonFont, onClick = onHealthClick)
+        GlassButton("${strings.formatNumbers(2)}. ${strings.health}", buttonFont, onClick = onHealthClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("3. SKILL", buttonFont, onClick = onSkillClick)
+        GlassButton("${strings.formatNumbers(3)}. ${strings.skill}", buttonFont, onClick = onSkillClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("4. PEACE", buttonFont, onClick = onPeaceClick)
+        GlassButton("${strings.formatNumbers(4)}. ${strings.peace}", buttonFont, onClick = onPeaceClick)
 
         Spacer(modifier = Modifier.height(20.dp))
         // Row 1: BRIEF · FOCUS · COMPARE
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             Text(
-                "◐ BRIEF",
+                "◐ ${strings.briefing}",
                 color = palette.accentPrimary.copy(alpha = 0.90f),
                 fontSize = 12.sp,
                 fontFamily = buttonFont,
@@ -662,7 +665,7 @@ fun GlassDialogContent(
                 modifier = Modifier.clickable { onBriefingClick() }
             )
             Text(
-                "◇ FOCUS",
+                "◇ ${strings.focus}",
                 color = palette.danger.copy(alpha = if (palette.isLight) 0.85f else 0.85f),
                 fontSize = 12.sp,
                 fontFamily = buttonFont,
@@ -671,7 +674,7 @@ fun GlassDialogContent(
                 modifier = Modifier.clickable { onFocusClick() }
             )
             Text(
-                "◉ COMPARE",
+                "◉ ${strings.compare}",
                 color = palette.accentSecondary,
                 fontSize = 12.sp,
                 fontFamily = buttonFont,
@@ -683,7 +686,7 @@ fun GlassDialogContent(
         Spacer(modifier = Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             Text(
-                "★ TIPS",
+                "★ ${strings.tips}",
                 color = Color(0xFF8CD86A),
                 fontSize = 12.sp,
                 fontFamily = buttonFont,
@@ -692,7 +695,7 @@ fun GlassDialogContent(
                 modifier = Modifier.clickable { onTipsClick() }
             )
             Text(
-                "◆ PROFILE",
+                "◆ ${strings.yourProfile}",
                 color = palette.accentSecondary,
                 fontSize = 12.sp,
                 fontFamily = buttonFont,
@@ -701,7 +704,7 @@ fun GlassDialogContent(
                 modifier = Modifier.clickable { onProfileClick() }
             )
             Text(
-                "◈ SETTINGS",
+                "◈ ${strings.settings}",
                 color = palette.subtle,
                 fontSize = 12.sp,
                 fontFamily = buttonFont,
@@ -724,10 +727,11 @@ fun EducationOptionsOverlay(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
+    val strings = LocalStrings.current
     GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
         Text(
-            text = "EDUCATION",
+            text = strings.education,
             color = palette.onSurface,
             fontSize = 26.sp,
             fontFamily = titleFont,
@@ -735,17 +739,17 @@ fun EducationOptionsOverlay(
             modifier = Modifier.padding(bottom = 32.dp),
             style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
         )
-        GlassButton("LECTURE", buttonFont, onClick = onLectureClick)
+        GlassButton(strings.lecture, buttonFont, onClick = onLectureClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("SUBJECT", buttonFont, onClick = onSubjectClick)
+        GlassButton(strings.subjectManagement.substringBefore(" MANAGEMENT"), buttonFont, onClick = onSubjectClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("COURSE", buttonFont, onClick = onCourseClick)
+        GlassButton(strings.courseManagement.substringBefore(" MANAGEMENT"), buttonFont, onClick = onCourseClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("PRACTICE", buttonFont, onClick = onPracticeClick)
+        GlassButton(strings.practiceManagement.substringBefore(" MANAGEMENT"), buttonFont, onClick = onPracticeClick)
 
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "BACK",
+            text = strings.back,
             color = palette.faint,
             fontSize = 18.sp,
             fontFamily = buttonFont,
@@ -770,10 +774,11 @@ fun HealthOptionsOverlay(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
+    val strings = LocalStrings.current
     GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
         Text(
-            text = "HEALTH",
+            text = strings.health,
             color = palette.onSurface,
             fontSize = 26.sp,
             fontFamily = titleFont,
@@ -781,9 +786,9 @@ fun HealthOptionsOverlay(
             modifier = Modifier.padding(bottom = 32.dp),
             style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
         )
-        GlassButton("WATER", buttonFont, onClick = onWaterClick)
+        GlassButton(strings.water, buttonFont, onClick = onWaterClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("EXERCISE", buttonFont, onClick = onExerciseClick)
+        GlassButton(strings.exercise, buttonFont, onClick = onExerciseClick)
         Spacer(modifier = Modifier.height(16.dp))
 
         Box(
@@ -806,9 +811,9 @@ fun HealthOptionsOverlay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("JUNK COUNT", color = palette.onSurface, fontSize = 22.sp, fontFamily = buttonFont, letterSpacing = 1.sp)
+                Text(strings.junkCount, color = palette.onSurface, fontSize = 22.sp, fontFamily = buttonFont, letterSpacing = 1.sp)
                 Text(
-                    "$junkCount",
+                    strings.formatNumbers(junkCount),
                     color = palette.accentPrimary,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
@@ -830,7 +835,7 @@ fun HealthOptionsOverlay(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                "SAVE",
+                strings.save,
                 color = Color.White,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -839,11 +844,11 @@ fun HealthOptionsOverlay(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("MEDS", buttonFont, onClick = onMedsClick)
+        GlassButton(strings.meds, buttonFont, onClick = onMedsClick)
 
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "BACK",
+            text = strings.back,
             color = palette.faint,
             fontSize = 18.sp,
             fontFamily = buttonFont,
@@ -867,10 +872,11 @@ fun MedsOptionsOverlay(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
+    val strings = LocalStrings.current
     GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
         Text(
-            text = "MEDS",
+            text = strings.meds,
             color = palette.onSurface,
             fontSize = 26.sp,
             fontFamily = titleFont,
@@ -878,17 +884,17 @@ fun MedsOptionsOverlay(
             modifier = Modifier.padding(bottom = 32.dp),
             style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
         )
-        GlassButton("MEDS LOG", buttonFont, onClick = onMedsLogClick)
+        GlassButton(strings.medsLog, buttonFont, onClick = onMedsLogClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("SUPPLIMENTS", buttonFont, onClick = onSupplimentsClick)
+        GlassButton(strings.suppliments, buttonFont, onClick = onSupplimentsClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("SEVERE", buttonFont, onClick = onSevereClick)
+        GlassButton(strings.severe, buttonFont, onClick = onSevereClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("DIET", buttonFont, onClick = onDietClick)
+        GlassButton(strings.diet, buttonFont, onClick = onDietClick)
 
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "BACK",
+            text = strings.back,
             color = palette.faint,
             fontSize = 18.sp,
             fontFamily = buttonFont,
@@ -911,10 +917,11 @@ fun SkillOptionsOverlay(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
+    val strings = LocalStrings.current
     GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
         Text(
-            text = "SKILL",
+            text = strings.skill,
             color = palette.onSurface,
             fontSize = 26.sp,
             fontFamily = titleFont,
@@ -922,15 +929,15 @@ fun SkillOptionsOverlay(
             modifier = Modifier.padding(bottom = 32.dp),
             style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
         )
-        GlassButton("HOBBY", buttonFont, onClick = onHobbyClick)
+        GlassButton(strings.hobby, buttonFont, onClick = onHobbyClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("MINOR SKILL TO GROW", buttonFont, onClick = onMinorClick)
+        GlassButton(strings.minorSkill, buttonFont, onClick = onMinorClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("MAJOR SKILL FOR LIFE", buttonFont, onClick = onMajorClick)
+        GlassButton(strings.majorSkill, buttonFont, onClick = onMajorClick)
 
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "BACK",
+            text = strings.back,
             color = palette.faint,
             fontSize = 18.sp,
             fontFamily = buttonFont,
@@ -955,10 +962,11 @@ fun PeaceOptionsOverlay(
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
+    val strings = LocalStrings.current
     GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
         Text(
-            text = "PEACE",
+            text = strings.peace,
             color = palette.onSurface,
             fontSize = 26.sp,
             fontFamily = titleFont,
@@ -966,19 +974,19 @@ fun PeaceOptionsOverlay(
             modifier = Modifier.padding(bottom = 32.dp),
             style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
         )
-        GlassButton("CYCLING", buttonFont, onClick = onCyclingClick)
+        GlassButton(strings.cycling, buttonFont, onClick = onCyclingClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("YOGA", buttonFont, onClick = onYogaClick)
+        GlassButton(strings.yoga, buttonFont, onClick = onYogaClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("WALKING", buttonFont, onClick = onWalkingClick)
+        GlassButton(strings.walking, buttonFont, onClick = onWalkingClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("SLEEP", buttonFont, onClick = onSleepClick)
+        GlassButton(strings.sleep, buttonFont, onClick = onSleepClick)
         Spacer(modifier = Modifier.height(16.dp))
-        GlassButton("HABITS", buttonFont, onClick = onHabitsClick)
+        GlassButton(strings.habits, buttonFont, onClick = onHabitsClick)
 
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "BACK",
+            text = strings.back,
             color = palette.faint,
             fontSize = 18.sp,
             fontFamily = buttonFont,
@@ -1033,6 +1041,7 @@ fun UpcomingEventsList(
     activeLectureProgress: Float = 0f,
     onLectureClick: () -> Unit = {}
 ) {
+    val strings = LocalStrings.current
     val today = LocalDate.now()
     val upcomingTasks = allTasks.filterKeys { !it.isBefore(today) }
         .flatMap { (date, tasks) -> tasks.map { date to it } }
@@ -1049,7 +1058,7 @@ fun UpcomingEventsList(
                     .padding(start = 8.dp, end = 8.dp, top = 14.dp, bottom = 10.dp)
             ) {
                 Text(
-                    text = "YOU HAVE A LECTURE  ›",
+                    text = "${strings.haveLecture}  ›",
                     color = Color(0xFFEBC174),
                     fontSize = 15.sp,
                     fontFamily = fontFamily,
@@ -1092,7 +1101,7 @@ fun UpcomingEventsList(
 
         // ── Events list or empty placeholder ─────────────────────────
         if (upcomingTasks.isEmpty() && (activeLectureName == null || activeLectureProgress >= 1f)) {
-            EmptyState(text = "no events on record", fontFamily = fontFamily)
+            EmptyState(text = strings.noEvents, fontFamily = fontFamily)
         } else if (upcomingTasks.isNotEmpty()) {
             LazyColumn(
                 modifier = Modifier.weight(1f).fadingEdge(),

@@ -98,12 +98,13 @@ fun JunkLogOverlay(
         if (step in 2..5) Haptics.tick(ctx)
     }
 
+    val strings = LocalStrings.current
     GlassCard(
         modifier = Modifier.heightIn(max = 720.dp),
         onClose = onClose
     ) {
         Text(
-            text = "LOG JUNK",
+            text = strings.logJunk,
             color = palette.onSurface,
             fontSize = 22.sp,
             fontFamily = titleFont,
@@ -138,11 +139,11 @@ fun JunkLogOverlay(
 
         Text(
             text = when (step) {
-                1 -> "Step 1 · What kind?"
-                2 -> "Step 2 · Which category?"
-                3 -> "Step 3 · Brand + name"
-                4 -> "Step 4 · Pick the exact product"
-                else -> "Step 5 · Health impact"
+                1 -> "${strings.step} ${strings.formatNumbers(1)} · ${strings.whatKind}"
+                2 -> "${strings.step} ${strings.formatNumbers(2)} · ${strings.whichCategory}"
+                3 -> "${strings.step} ${strings.formatNumbers(3)} · ${strings.brandAndName}"
+                4 -> "${strings.step} ${strings.formatNumbers(4)} · ${strings.pickExactProduct}"
+                else -> "${strings.step} ${strings.formatNumbers(5)} · ${strings.healthImpact}"
             },
             color = palette.subtle,
             fontSize = 11.sp,
@@ -161,10 +162,10 @@ fun JunkLogOverlay(
                 // ────────────────────────────  STEP 1  ────────────
                 1 -> {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        TypeChip("🍽 FOOD", selected = type == "food", palette, contentFont, Modifier.weight(1f)) {
+                        TypeChip("🍽 ${strings.food}", selected = type == "food", palette, contentFont, Modifier.weight(1f)) {
                             type = "food"; step = 2
                         }
-                        TypeChip("🥤 LIQUID", selected = type == "liquid", palette, contentFont, Modifier.weight(1f)) {
+                        TypeChip("🥤 ${strings.liquid}", selected = type == "liquid", palette, contentFont, Modifier.weight(1f)) {
                             type = "liquid"; step = 2
                         }
                     }
@@ -179,7 +180,7 @@ fun JunkLogOverlay(
                     if (recentEntries.isNotEmpty()) {
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "RECENT · TAP TO RE-LOG",
+                            strings.recentTapToRelog,
                             color = palette.accentSecondary,
                             fontSize = 10.sp,
                             fontFamily = titleFont,
@@ -212,7 +213,7 @@ fun JunkLogOverlay(
                 }
                 // ────────────────────────────  STEP 3  ────────────
                 3 -> {
-                    Text("Category: $categoryLabel", color = palette.subtle, fontSize = 12.sp, fontFamily = contentFont)
+                    Text("${strings.category}: $categoryLabel", color = palette.subtle, fontSize = 12.sp, fontFamily = contentFont)
                     BasicTextField(
                         value = queryText,
                         onValueChange = { queryText = it },
@@ -229,7 +230,7 @@ fun JunkLogOverlay(
                             .padding(horizontal = 12.dp),
                         decorationBox = { inner ->
                             Box(contentAlignment = Alignment.CenterStart) {
-                                if (queryText.isEmpty()) Text("brand + product…  e.g. Lays classic", color = palette.faint, fontSize = 14.sp, fontFamily = contentFont)
+                                if (queryText.isEmpty()) Text(strings.brandPlaceholder, color = palette.faint, fontSize = 14.sp, fontFamily = contentFont)
                                 inner()
                             }
                         }
@@ -253,14 +254,14 @@ fun JunkLogOverlay(
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    "finding brands…",
+                                    strings.findingBrands,
                                     color = palette.subtle, fontSize = 10.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic
                                 )
                             }
                         }
                         brandSuggestions.isNotEmpty() -> {
                             Text(
-                                "TAP A BRAND  ·  to see all local products",
+                                strings.tapBrandToSeeProducts,
                                 color = palette.accentSecondary, fontSize = 9.sp, fontFamily = titleFont, letterSpacing = 2.sp, fontWeight = FontWeight.Bold
                             )
                             brandSuggestions.forEach { b ->
@@ -282,7 +283,7 @@ fun JunkLogOverlay(
                                             results = OpenFoodFactsService.productsByBrand(brand = b, countryCode = country)
                                             isSearching = false
                                         }
-                                        if (results.isEmpty()) errorMsg = "no products found for this brand in $country"
+                                        if (results.isEmpty()) errorMsg = "${strings.noProductsFound} for this brand in $country"
                                         else step = 4
                                     }
                                 }
@@ -313,7 +314,7 @@ fun JunkLogOverlay(
                                             limit = 20
                                         )
                                         isSearching = false
-                                        if (results.isEmpty()) errorMsg = "no products found — try broader terms"
+                                        if (results.isEmpty()) errorMsg = "${strings.noProductsFound} — try broader terms"
                                         else step = 4
                                     }
                             },
@@ -327,7 +328,7 @@ fun JunkLogOverlay(
                             )
                         } else {
                             Text(
-                                "SEARCH  ›",
+                                "${strings.search}  ›",
                                 color = Color.White,
                                 fontSize = 14.sp,
                                 fontFamily = titleFont,
@@ -337,7 +338,7 @@ fun JunkLogOverlay(
                         }
                     }
                     if (country.isNotBlank()) {
-                        Text("filtered to your country: $country", color = palette.faint, fontSize = 10.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic)
+                        Text("${strings.filteredToCountry} $country", color = palette.faint, fontSize = 10.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic)
                     }
                     if (errorMsg.isNotBlank()) {
                         Text(errorMsg, color = palette.danger, fontSize = 11.sp, fontFamily = contentFont)
@@ -345,7 +346,7 @@ fun JunkLogOverlay(
                 }
                 // ────────────────────────────  STEP 4  ────────────
                 4 -> {
-                    Text("${results.size} matches — tap to pick", color = palette.subtle, fontSize = 11.sp, fontFamily = contentFont)
+                    Text("${strings.formatNumbers(results.size)} ${strings.searchResults} — tap to pick", color = palette.subtle, fontSize = 11.sp, fontFamily = contentFont)
                     LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(results, key = { it.id }) { p ->
                             ResultRow(p, palette, contentFont) {
@@ -386,9 +387,9 @@ fun JunkLogOverlay(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(if (type == "liquid") "SERVING" else "SERVING", color = palette.subtle, fontSize = 11.sp, fontFamily = titleFont, letterSpacing = 2.sp)
+                                Text(strings.serving, color = palette.subtle, fontSize = 11.sp, fontFamily = titleFont, letterSpacing = 2.sp)
                                 Text(
-                                    "${servingGrams}${if (type == "liquid") "ml" else "g"}",
+                                    "${strings.formatNumbers(servingGrams)}${if (type == "liquid") "ml" else "g"}",
                                     color = palette.accentPrimary,
                                     fontSize = 22.sp,
                                     fontFamily = NokiaFont,
@@ -425,7 +426,7 @@ fun JunkLogOverlay(
                                     ) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             Text(label, color = palette.onSurface, fontSize = 9.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                                            Text("${size}${if (type == "liquid") "ml" else "g"}", color = palette.subtle, fontSize = 9.sp, fontFamily = contentFont)
+                                            Text("${strings.formatNumbers(size)}${if (type == "liquid") "ml" else "g"}", color = palette.subtle, fontSize = 9.sp, fontFamily = contentFont)
                                         }
                                     }
                                 }
@@ -451,7 +452,7 @@ fun JunkLogOverlay(
                                             },
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(if (delta > 0) "+$delta" else "$delta", color = palette.subtle, fontSize = 10.sp, fontFamily = contentFont, fontWeight = FontWeight.Bold)
+                                        Text(if (delta > 0) "+${strings.formatNumbers(delta)}" else strings.formatNumbers(delta), color = palette.subtle, fontSize = 10.sp, fontFamily = contentFont, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -468,7 +469,7 @@ fun JunkLogOverlay(
                         ) {
                             Text(im.headline, color = palette.onSurface, fontSize = 13.sp, fontFamily = contentFont, fontWeight = FontWeight.Bold)
                             if (im.burnoffMinutes > 0) {
-                                Text("~${im.burnoffMinutes} min brisk walk to burn this off", color = palette.subtle, fontSize = 11.sp, fontFamily = contentFont)
+                                Text("~${strings.formatNumbers(im.burnoffMinutes)} ${strings.brisWalkToBurn}", color = palette.subtle, fontSize = 11.sp, fontFamily = contentFont)
                             }
                         }
 
@@ -493,7 +494,7 @@ fun JunkLogOverlay(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(line.system.uppercase(), color = severityColor(line.severity), fontSize = 9.sp, fontFamily = titleFont, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
                                     Text(line.message, color = palette.onSurface, fontSize = 12.sp, fontFamily = contentFont, lineHeight = 16.sp)
-                                    Text("src · ${line.evidence}", color = palette.faint, fontSize = 9.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic)
+                                    Text("${strings.evidenceSource} ${line.evidence}", color = palette.faint, fontSize = 9.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic)
                                 }
                             }
                         }
@@ -530,7 +531,7 @@ fun JunkLogOverlay(
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("SAVE + COUNT", color = Color.White, fontSize = 14.sp, fontFamily = titleFont, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
+                            Text(strings.saveAndCount, color = Color.White, fontSize = 14.sp, fontFamily = titleFont, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
                         }
                     }
                 }
@@ -541,7 +542,7 @@ fun JunkLogOverlay(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             if (step > 1) {
                 Text(
-                    "‹ BACK",
+                    "‹ ${strings.back}",
                     color = palette.subtle, fontSize = 13.sp, fontFamily = titleFont, letterSpacing = 2.sp,
                     modifier = Modifier.clickable { 
                         Haptics.click(ctx)
@@ -552,7 +553,7 @@ fun JunkLogOverlay(
                 Spacer(Modifier.width(1.dp))
             }
             Text(
-                "CLOSE",
+                strings.close,
                 color = palette.faint,
                 fontSize = 13.sp,
                 fontFamily = titleFont,

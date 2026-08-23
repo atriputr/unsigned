@@ -37,7 +37,13 @@ fun ActivityTrackerOverlay(
     prefs: AppPreferences = AppPreferences(),
     onClose: () -> Unit
 ) {
-    val title = activity.uppercase()
+    val strings = LocalStrings.current
+    val title = when(activity) {
+        "cycling" -> strings.cycling
+        "yoga" -> strings.yoga
+        "walking" -> strings.walking
+        else -> activity.uppercase()
+    }
     val supportsDistance = activity == "cycling" || activity == "walking"
     val accent = when (activity) {
         "cycling" -> Color(0xFF6ACBEA)
@@ -46,9 +52,9 @@ fun ActivityTrackerOverlay(
         else -> OrangeFire
     }
     val subtitle = when (activity) {
-        "cycling" -> "Kilometres & minutes ridden"
-        "yoga" -> "Practice sessions"
-        "walking" -> "Kilometres walked · steps counted"
+        "cycling" -> strings.bikingSubtitle
+        "yoga" -> strings.yogaSubtitle
+        "walking" -> strings.walkingSubtitle
         else -> ""
     }
 
@@ -126,15 +132,15 @@ fun ActivityTrackerOverlay(
 
             // Weekly stats
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatTile("THIS WEEK", "$weekMinutes min", contentFont, accent, Modifier.weight(1f))
-                if (supportsDistance) StatTile("DISTANCE", Units.displayDistance(weekKm, prefs.distanceUnit), contentFont, accent, Modifier.weight(1f))
-                StatTile("SESSIONS", "${weekSessions.size}", contentFont, accent, Modifier.weight(1f))
+                StatTile(strings.thisWeek, "${strings.formatNumbers(weekMinutes)} min", contentFont, accent, Modifier.weight(1f))
+                if (supportsDistance) StatTile(strings.distanceLabel, strings.formatNumbers(Units.displayDistance(weekKm, prefs.distanceUnit)), contentFont, accent, Modifier.weight(1f))
+                StatTile(strings.sessions, strings.formatNumbers(weekSessions.size), contentFont, accent, Modifier.weight(1f))
             }
 
             Spacer(Modifier.height(14.dp))
 
             // Entry form
-            Text("ADD SESSION", color = accent, fontSize = 10.sp, fontFamily = titleFont, letterSpacing = 3.sp, modifier = Modifier.align(Alignment.Start))
+            Text(strings.addSession, color = accent, fontSize = 10.sp, fontFamily = titleFont, letterSpacing = 3.sp, modifier = Modifier.align(Alignment.Start))
             Spacer(Modifier.height(6.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FieldBox(minutesInput, "min", contentFont, accent, KeyboardType.Number, Modifier.weight(1f)) {
@@ -161,7 +167,7 @@ fun ActivityTrackerOverlay(
                     .padding(horizontal = 12.dp),
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterStart) {
-                        if (notes.isEmpty()) Text("Notes (optional)", color = Color.White.copy(alpha = 0.3f), fontSize = 13.sp, fontFamily = contentFont)
+                        if (notes.isEmpty()) Text(strings.notesOptional, color = Color.White.copy(alpha = 0.3f), fontSize = 13.sp, fontFamily = contentFont)
                         inner()
                     }
                 }
@@ -176,15 +182,15 @@ fun ActivityTrackerOverlay(
                     .clickable { addSession() },
                 contentAlignment = Alignment.Center
             ) {
-                Text("+ LOG SESSION", color = Color.Black, fontSize = 13.sp, fontFamily = titleFont, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
+                Text("+ ${strings.session}", color = Color.Black, fontSize = 13.sp, fontFamily = titleFont, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp)
             }
 
             Spacer(Modifier.height(14.dp))
 
-            Text("RECENT", color = accent, fontSize = 10.sp, fontFamily = titleFont, letterSpacing = 3.sp, modifier = Modifier.align(Alignment.Start))
+            Text(strings.recent, color = accent, fontSize = 10.sp, fontFamily = titleFont, letterSpacing = 3.sp, modifier = Modifier.align(Alignment.Start))
             Spacer(Modifier.height(6.dp))
             if (mySessions.isEmpty()) {
-                Text("no sessions logged", color = Color.White.copy(alpha = 0.35f), fontSize = 13.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic)
+                Text(strings.noSessionsLogged, color = Color.White.copy(alpha = 0.35f), fontSize = 13.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic)
             } else {
                 LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 180.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     items(mySessions.take(20)) { s ->
@@ -196,10 +202,10 @@ fun ActivityTrackerOverlay(
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("${s.durationMinutes}m", color = accent, fontSize = 14.sp, fontFamily = NokiaFont, fontWeight = FontWeight.Bold)
+                            Text("${strings.formatNumbers(s.durationMinutes)}m", color = accent, fontSize = 14.sp, fontFamily = NokiaFont, fontWeight = FontWeight.Bold)
                             if (s.distanceKm != null) {
                                 Spacer(Modifier.width(6.dp))
-                                Text("· " + Units.displayDistance(s.distanceKm, prefs.distanceUnit), color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, fontFamily = contentFont)
+                                Text("· " + strings.formatNumbers(Units.displayDistance(s.distanceKm, prefs.distanceUnit)), color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, fontFamily = contentFont)
                             }
                             Spacer(Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
@@ -213,7 +219,7 @@ fun ActivityTrackerOverlay(
             }
 
             Spacer(Modifier.height(14.dp))
-            Text("CLOSE", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.clickable { onClose() })
+            Text(strings.close, color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.clickable { onClose() })
         }
     }
 }

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlin.math.abs
 
 @Composable
 fun WaterOverlay(
@@ -41,6 +42,7 @@ fun WaterOverlay(
     val today = remember { LocalDate.now() }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
+    val strings = LocalStrings.current
 
     var weather      by remember { mutableStateOf(FitDataRepository.loadWeatherCache()) }
     var isRefreshing by remember { mutableStateOf(false) }
@@ -102,8 +104,10 @@ fun WaterOverlay(
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val formattedGoal = strings.formatNumbers(Units.displayVolume(goalMl, prefs.volumeUnit))
+            val formattedConsumed = strings.formatNumbers(Units.displayVolume(glasses * glassMl, prefs.volumeUnit))
             Text(
-                "WATER",
+                strings.water,
                 color = Color(0xFFBFE1FF),
                 fontSize = 26.sp,
                 fontFamily = titleFont,
@@ -124,19 +128,19 @@ fun WaterOverlay(
             Spacer(Modifier.height(14.dp))
 
             // Big central glass visualisation
-            WaterBottle(glasses = glasses, target = targetGlasses)
+            WaterBottle(glasses = glasses, target = targetGlasses, strings = strings)
 
             Spacer(Modifier.height(10.dp))
 
             Text(
-                text = "${Units.displayVolume(glasses * glassMl, prefs.volumeUnit)}  /  ${Units.displayVolume(goalMl, prefs.volumeUnit)}",
+                text = "$formattedConsumed  /  $formattedGoal",
                 color = Color.White,
                 fontSize = 22.sp,
                 fontFamily = NokiaFont,
                 letterSpacing = 2.sp
             )
             Text(
-                text = "$glasses / $targetGlasses glasses",
+                text = "${strings.formatNumbers(glasses)} / ${strings.formatNumbers(targetGlasses)} ${strings.glasses}",
                 color = Color(0xFFBFE1FF).copy(alpha = 0.7f),
                 fontSize = 12.sp,
                 fontFamily = contentFont,
@@ -153,7 +157,7 @@ fun WaterOverlay(
                 WaterBtn("−", Modifier.weight(1f), enabled = glasses > 0) {
                     if (glasses > 0) glasses -= 1
                 }
-                WaterBtn("+ GLASS", Modifier.weight(2f), primary = true) {
+                WaterBtn("+ ${strings.glass}", Modifier.weight(2f), primary = true) {
                     glasses += 1
                 }
                 WaterBtn("+", Modifier.weight(1f)) {
@@ -173,7 +177,7 @@ fun WaterOverlay(
 
             Spacer(Modifier.height(14.dp))
             Text(
-                "CLOSE",
+                strings.close,
                 color = Color.White.copy(alpha = 0.5f),
                 fontSize = 14.sp,
                 fontFamily = titleFont,
@@ -191,11 +195,12 @@ private fun WeatherChip(weather: WeatherData, refreshing: Boolean, font: FontFam
 
 @Composable
 private fun WeatherChipInternal(weather: WeatherData, refreshing: Boolean, font: FontFamily, tempUnit: String, onRefresh: () -> Unit) {
+    val strings = LocalStrings.current
     val label = when {
-        refreshing -> "fetching weather…"
-        !weather.isValid -> "weather unavailable — tap to retry"
+        refreshing -> strings.fetchingWeather
+        !weather.isValid -> strings.weatherUnavailable
         else -> {
-            val temp = Units.displayTemp(weather.temperatureC, tempUnit)
+            val temp = strings.formatNumbers(Units.displayTemp(weather.temperatureC, tempUnit))
             val loc = if (weather.locationName.isNotBlank()) " · ${weather.locationName}" else ""
             "$temp · ${weather.condition}$loc"
         }
@@ -220,7 +225,7 @@ private fun WeatherChipInternal(weather: WeatherData, refreshing: Boolean, font:
 }
 
 @Composable
-private fun WaterBottle(glasses: Int, target: Int) {
+private fun WaterBottle(glasses: Int, target: Int, strings: AppStrings) {
     val ratio = if (target > 0) (glasses.toFloat() / target).coerceIn(0f, 1.2f) else 0f
     Box(
         modifier = Modifier
@@ -281,7 +286,7 @@ private fun WaterBottle(glasses: Int, target: Int) {
             )
         }
         Text(
-            text = "%d%%".format((ratio.coerceAtMost(1f) * 100).toInt()),
+            text = strings.formatNumbers("%d%%".format((ratio.coerceAtMost(1f) * 100).toInt())),
             color = Color.White,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
@@ -323,12 +328,13 @@ private fun WaterBtn(
 
 @Composable
 private fun GoalBreakdown(profile: UserProfile, weather: WeatherData, goalMl: Int, prefs: AppPreferences, font: FontFamily) {
+    val strings = LocalStrings.current
     val base = profile.baseWaterMl
     val activityBonus = when (profile.activityLevel) {
         "Active" -> 500; "VeryActive" -> 800; "Moderate" -> 250; "Light" -> 100; else -> 0
     }
     val tempBonus = goalMl - base - activityBonus
-    fun formatVol(ml: Int) = Units.displayVolume(ml, prefs.volumeUnit)
+    fun formatVol(ml: Int) = strings.formatNumbers(Units.displayVolume(ml, prefs.volumeUnit))
 
     Column(
         modifier = Modifier
@@ -339,14 +345,23 @@ private fun GoalBreakdown(profile: UserProfile, weather: WeatherData, goalMl: In
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Text("HOW WE COMPUTED THIS", color = Color(0xFF4EA8DE), fontSize = 10.sp, fontFamily = font, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+        Text(strings.howWeComputedThis, color = Color(0xFF4EA8DE), fontSize = 10.sp, fontFamily = font, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(2.dp))
-        BreakRow("Body baseline (35 ml × kg)", formatVol(base), font)
-        if (activityBonus != 0) BreakRow("Activity (${profile.activityLevel.lowercase()})", "+" + formatVol(activityBonus), font)
+        BreakRow(strings.bodyBaseline + " (35 ml × kg)", formatVol(base), font)
+        if (activityBonus != 0) {
+            val label = when(profile.activityLevel) {
+                "Active" -> strings.active
+                "VeryActive" -> strings.veryActive
+                "Moderate" -> strings.moderate
+                "Light" -> strings.light
+                else -> profile.activityLevel
+            }
+            BreakRow("${strings.activityLevel} ($label)", "+" + formatVol(activityBonus), font)
+        }
         if (tempBonus != 0 && weather.isValid) {
-            val temp = Units.displayTemp(weather.temperatureC, prefs.tempUnit)
+            val temp = strings.formatNumbers(Units.displayTemp(weather.temperatureC, prefs.tempUnit))
             val sign = if (tempBonus > 0) "+" else "−"
-            BreakRow("Temperature ($temp)", sign + formatVol(kotlin.math.abs(tempBonus)), font)
+            BreakRow("${strings.temperature} ($temp)", sign + formatVol(abs(tempBonus)), font)
         }
     }
 }
@@ -361,11 +376,12 @@ private fun BreakRow(label: String, value: String, font: FontFamily) {
 
 @Composable
 private fun SevenDayHistory(today: LocalDate, targetGlasses: Int, font: FontFamily) {
+    val strings = LocalStrings.current
     val history = remember { FitDataRepository.loadWaterHistory() }
     val days = (0..6).map { today.minusDays(it.toLong()) }.reversed()
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text("LAST 7 DAYS", color = Color(0xFF4EA8DE), fontSize = 10.sp, fontFamily = font, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+        Text(strings.last7Days, color = Color(0xFF4EA8DE), fontSize = 10.sp, fontFamily = font, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
         Row(
             modifier = Modifier.fillMaxWidth().height(56.dp),

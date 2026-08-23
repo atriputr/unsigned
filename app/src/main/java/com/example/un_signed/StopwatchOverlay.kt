@@ -55,6 +55,7 @@ fun StopwatchOverlay(
     val startedAt   = remember { LongArray(1) { 0L } }
     val baseElapsed = remember { LongArray(1) { 0L } }
 
+    val strings = LocalStrings.current
     fun persist() {
         FitDataRepository.saveStopwatchState(
             StopwatchPersistedState(
@@ -99,7 +100,7 @@ fun StopwatchOverlay(
         val min   = ms / 60000L
         val sec   = (ms % 60000L) / 1000L
         val centi = (ms % 1000L) / 10L
-        return String.format("%02d:%02d.%02d", min, sec, centi)
+        return strings.formatNumbers(String.format("%02d:%02d.%02d", min, sec, centi))
     }
 
     // Values derived from elapsed time for the watch face
@@ -135,7 +136,7 @@ fun StopwatchOverlay(
 
             // ── Title ─────────────────────────────────────────
             Text(
-                "STOPWATCH",
+                strings.stopwatch,
                 color = Color.White.copy(alpha = 0.38f),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -196,7 +197,7 @@ fun StopwatchOverlay(
 
             // ── LAP | RESET | SKIP ────────────────────────────
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SwBtn("LAP",   Color(0xFF23232F), Modifier.weight(1f), onClick = {
+                SwBtn(strings.lap,   Color(0xFF23232F), Modifier.weight(1f), onClick = {
                     if (elapsedMs > 0L) {
                         val snap  = snapMs()
                         laps      = laps + LapEntry(laps.size + 1, snap - lastLapMs, snap)
@@ -205,7 +206,7 @@ fun StopwatchOverlay(
                     }
                 }, fontFamily = BebasFont)
                 SwBtn(
-                    "RESET",
+                    strings.reset,
                     if (pendingReset) Color(0xFF6B1010) else Color(0xFF2A1212),
                     Modifier.weight(1f),
                     onClick = {
@@ -223,7 +224,7 @@ fun StopwatchOverlay(
                     },
                     fontFamily = BebasFont
                 )
-                SwBtn("SKIP",  Color(0xFF122A12), Modifier.weight(1f), onClick = { persist(); onSkip() }, fontFamily = BebasFont)
+                SwBtn(strings.skip,  Color(0xFF122A12), Modifier.weight(1f), onClick = { persist(); onSkip() }, fontFamily = BebasFont)
             }
 
             // ── Laps (last 4, newest first) ───────────────────
@@ -237,7 +238,7 @@ fun StopwatchOverlay(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "Lap ${lap.number}",
+                                "${strings.lapNumber} ${strings.formatNumbers(lap.number)}",
                                 color = Color.White.copy(alpha = 0.5f),
                                 fontSize = 13.sp,
                                 fontFamily = fontFamily

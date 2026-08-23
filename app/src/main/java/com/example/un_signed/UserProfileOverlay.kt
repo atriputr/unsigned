@@ -41,6 +41,7 @@ fun UserProfileOverlay(
     onClose: () -> Unit
 ) {
     val palette = LocalPalette.current
+    val strings = LocalStrings.current
 
     // Track units locally so the UI can react instantly to toggles
     var weightUnit by remember { mutableStateOf(prefs.weightUnit) }
@@ -49,8 +50,8 @@ fun UserProfileOverlay(
     // Initial displayed values honour the user's chosen units
     val initWeight = when {
         existing.weightKg <= 0 -> ""
-        weightUnit == "lb" -> "%.1f".format(Units.kgToLb(existing.weightKg))
-        else -> "%.1f".format(existing.weightKg)
+        weightUnit == "lb" -> strings.formatNumbers("%.1f".format(Units.kgToLb(existing.weightKg)))
+        else -> strings.formatNumbers("%.1f".format(existing.weightKg))
     }
 
     // For height, we keep either a single cm/in string OR split ft & in
@@ -59,15 +60,15 @@ fun UserProfileOverlay(
             existing.heightCm <= 0 -> Triple("", "", "")
             heightUnit == "in" -> {
                 val (ft, inches) = Units.cmToFeetInches(existing.heightCm)
-                Triple("", ft.toString(), inches.toString())
+                Triple("", strings.formatNumbers(ft), strings.formatNumbers(inches))
             }
-            else -> Triple("%.0f".format(existing.heightCm), "", "")
+            else -> Triple(strings.formatNumbers("%.0f".format(existing.heightCm)), "", "")
         }
     }
 
     var name           by remember { mutableStateOf(existing.name) }
-    var age            by remember { mutableStateOf(if (existing.ageYears > 0) existing.ageYears.toString() else "") }
-    var gender         by remember { mutableStateOf(existing.gender.ifBlank { "Male" }) }
+    var age            by remember { mutableStateOf(if (existing.ageYears > 0) strings.formatNumbers(existing.ageYears) else "") }
+    var gender         by remember { mutableStateOf(existing.gender.ifBlank { strings.male }) }
     var weight         by remember { mutableStateOf(initWeight) }
     var heightCm       by remember { mutableStateOf(initHeight) }
     var heightFt       by remember { mutableStateOf(initHeightFt) }
@@ -84,8 +85,8 @@ fun UserProfileOverlay(
         if (to == weightUnit) return
         val v = weight.toDoubleOrNull()
         if (v != null && v > 0) {
-            weight = if (to == "lb") "%.1f".format(Units.kgToLb(v))
-                     else "%.1f".format(Units.lbToKg(v))
+            weight = strings.formatNumbers(if (to == "lb") "%.1f".format(Units.kgToLb(v))
+                     else "%.1f".format(Units.lbToKg(v)))
         }
         weightUnit = to
         onPrefsChange(prefs.copy(weightUnit = to))
@@ -98,13 +99,13 @@ fun UserProfileOverlay(
             val cm = heightCm.toDoubleOrNull()
             if (cm != null && cm > 0) {
                 val (ft, inches) = Units.cmToFeetInches(cm)
-                heightFt = ft.toString(); heightIn = inches.toString()
+                heightFt = strings.formatNumbers(ft); heightIn = strings.formatNumbers(inches)
             }
             heightCm = ""
         } else {
             val ft = heightFt.toIntOrNull() ?: 0
             val i  = heightIn.toIntOrNull() ?: 0
-            if (ft > 0 || i > 0) heightCm = "%.0f".format(Units.feetInchesToCm(ft, i))
+            if (ft > 0 || i > 0) heightCm = strings.formatNumbers("%.0f".format(Units.feetInchesToCm(ft, i)))
             heightFt = ""; heightIn = ""
         }
         heightUnit = to
@@ -247,10 +248,10 @@ fun UserProfileOverlay(
 
                 // HEIGHT — label + inline unit toggle; two fields if "in"
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("HEIGHT", color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.weight(1f))
+                    Text(strings.height, color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.weight(1f))
                     UnitSwitch(
-                        left = "CM", leftSelected = heightUnit == "cm",
-                        right = "FT / IN", rightSelected = heightUnit == "in",
+                        left = strings.cm, leftSelected = heightUnit == "cm",
+                        right = "${strings.ft} / ${strings.inchesShort}", rightSelected = heightUnit == "in",
                         font = contentFont, palette = palette,
                         onLeft = { switchHeightUnit("cm") },
                         onRight = { switchHeightUnit("in") }
@@ -260,12 +261,12 @@ fun UserProfileOverlay(
                 if (heightUnit == "in") {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Box(modifier = Modifier.weight(1f)) {
-                            LabeledField(label = "FT", value = heightFt, palette = palette, font = contentFont, keyboard = KeyboardType.Number) {
+                            LabeledField(label = strings.ft, value = heightFt, palette = palette, font = contentFont, keyboard = KeyboardType.Number) {
                                 if (it.length <= 1 && it.all { c -> c.isDigit() }) heightFt = it
                             }
                         }
                         Box(modifier = Modifier.weight(1f)) {
-                            LabeledField(label = "IN", value = heightIn, palette = palette, font = contentFont, keyboard = KeyboardType.Number) {
+                            LabeledField(label = strings.inchesShort, value = heightIn, palette = palette, font = contentFont, keyboard = KeyboardType.Number) {
                                 val v = it.toIntOrNull()
                                 if (it.isEmpty() || (v != null && v in 0..11)) heightIn = it
                             }
@@ -277,19 +278,26 @@ fun UserProfileOverlay(
                     }
                 }
 
-                Text(LocalStrings.current.activityLevel, color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp)
+                Text(strings.activityLevel, color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp)
                 val levels = listOf(
-                    "Sedentary" to "Little/no exercise",
-                    "Light" to "1–3 days/week",
-                    "Moderate" to "3–5 days/week",
-                    "Active" to "6–7 days/week",
-                    "VeryActive" to "Physical job / 2x/day"
+                    "Sedentary" to strings.sedentary,
+                    "Light" to strings.light,
+                    "Moderate" to strings.moderate,
+                    "Active" to strings.active,
+                    "VeryActive" to strings.veryActive
                 )
-                levels.forEach { (key, desc) ->
+                val levelDescs = mapOf(
+                    "Sedentary" to strings.littleNoExercise,
+                    "Light" to "1–3 ${strings.daysWeek}",
+                    "Moderate" to "3–5 ${strings.daysWeek}",
+                    "Active" to "6–7 ${strings.daysWeek}",
+                    "VeryActive" to strings.physicalJob
+                )
+                levels.forEach { (key, label) ->
                     ActivityRow(
                         selected = activityLevel == key,
-                        title = if (key == "VeryActive") "VERY ACTIVE" else key.uppercase(),
-                        subtitle = desc,
+                        title = label.uppercase(),
+                        subtitle = levelDescs[key] ?: "",
                         font = contentFont,
                         palette = palette,
                         onSelect = { activityLevel = key }
@@ -630,6 +638,7 @@ private fun ActivityRow(
 
 @Composable
 private fun MetricPreview(p: UserProfile, prefs: AppPreferences, font: FontFamily, palette: ThemePalette) {
+    val strings = LocalStrings.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -639,12 +648,12 @@ private fun MetricPreview(p: UserProfile, prefs: AppPreferences, font: FontFamil
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text("PREVIEW", color = OrangeFire, fontSize = 10.sp, fontFamily = font, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
-        MetricRow("BMI", "%.1f (%s)".format(p.bmi, p.bmiCategory), font, palette)
-        if (p.bmr > 0) MetricRow("BMR", "%.0f kcal/day".format(p.bmr), font, palette)
-        if (p.tdee > 0) MetricRow("TDEE", "%.0f kcal/day".format(p.tdee), font, palette)
-        MetricRow("Water baseline", Units.displayVolume(p.baseWaterMl, prefs.volumeUnit) + "/day", font, palette)
-        MetricRow("Sleep target", "%.1f hr".format(p.recommendedSleepHours), font, palette)
+        Text(strings.preview, color = OrangeFire, fontSize = 10.sp, fontFamily = font, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+        MetricRow(strings.bmi, "%s (%s)".format(strings.formatNumbers("%.1f".format(p.bmi)), p.bmiCategory), font, palette)
+        if (p.bmr > 0) MetricRow(strings.bmr, "%s kcal/day".format(strings.formatNumbers("%.0f".format(p.bmr))), font, palette)
+        if (p.tdee > 0) MetricRow(strings.tdee, "%s kcal/day".format(strings.formatNumbers("%.0f".format(p.tdee))), font, palette)
+        MetricRow(strings.waterBaseline, strings.formatNumbers(Units.displayVolume(p.baseWaterMl, prefs.volumeUnit)) + "/day", font, palette)
+        MetricRow(strings.sleepTarget, "%s hr".format(strings.formatNumbers("%.1f".format(p.recommendedSleepHours))), font, palette)
     }
 }
 

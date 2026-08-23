@@ -67,7 +67,7 @@ fun UpdateOverlay(
             Spacer(modifier = Modifier.height(16.dp))
             
             Text(
-                text = "Version ${info.versionName}",
+                text = "${strings.version} ${info.versionName}",
                 color = Color(0xFFEBC174),
                 fontSize = 18.sp,
                 fontFamily = BebasFont
@@ -109,7 +109,7 @@ fun UpdateOverlay(
                         .background(Color.Red)
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
-                    Text("NEW", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black, fontFamily = BebasFont)
+                    Text(strings.newLabel, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black, fontFamily = BebasFont)
                 }
             }
             

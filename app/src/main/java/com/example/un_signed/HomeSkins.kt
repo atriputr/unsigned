@@ -113,11 +113,11 @@ private fun Modifier.counterQuickGestures(
 // Subtitle helpers so each themed button reads consistently
 private fun sleepLabel(state: HomeQuickState, strings: AppStrings) = strings.sleep
 private fun sleepSubtitle(state: HomeQuickState, strings: AppStrings) =
-    if (state.sleepActive) "${strings.sleepEnd} · ${state.sleepDisturbances} ${strings.disturbances}"
+    if (state.sleepActive) "${strings.sleepEnd} · ${strings.formatNumbers(state.sleepDisturbances)} ${strings.disturbances}"
     else strings.sleepStartHint
 private fun sleepEmoji(state: HomeQuickState)    = if (state.sleepActive) "☾" else "☽"
-private fun junkSubtitle(count: Int)     = "$count · 2× ADD · HOLD LOG"
-private fun waterSubtitle(g: Int, tgt: Int) = "$g/$tgt · 2× ADD"
+private fun junkSubtitle(count: Int, strings: AppStrings)     = "${strings.formatNumbers(count)} · ${strings.formatNumbers(2)}× ${strings.addTopics.substringAfter("+ ").take(3)} · HOLD LOG"
+private fun waterSubtitle(g: Int, tgt: Int, strings: AppStrings) = "${strings.formatNumbers(g)}/${strings.formatNumbers(tgt)} · ${strings.formatNumbers(2)}× ${strings.addTopics.substringAfter("+ ").take(3)}"
 
 /**
  * Full-bleed home skin rendered above the baked background image.
@@ -210,7 +210,7 @@ private fun DarkIndustrialSkin(
             )
             DarkQuickButton(
                 label = strings.junk,
-                subtitle = junkSubtitle(quickState.junkCountToday),
+                subtitle = junkSubtitle(quickState.junkCountToday, strings),
                 emoji = "☗",
                 highlighted = false,
                 titleFont = titleFont,
@@ -224,7 +224,7 @@ private fun DarkIndustrialSkin(
             )
             DarkQuickButton(
                 label = strings.water,
-                subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses),
+                subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses, strings),
                 emoji = "◊",
                 highlighted = false,
                 titleFont = titleFont,
@@ -548,7 +548,7 @@ private fun HelloKittySkin(
             )
             KittyQuickButton(
                 label = strings.junk,
-                subtitle = junkSubtitle(quickState.junkCountToday),
+                subtitle = junkSubtitle(quickState.junkCountToday, strings),
                 emoji = "🍭",
                 highlighted = false,
                 ink = ink, bow = bow, titleFont = titleFont,
@@ -562,7 +562,7 @@ private fun HelloKittySkin(
             )
             KittyQuickButton(
                 label = strings.water,
-                subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses),
+                subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses, strings),
                 emoji = "💧",
                 highlighted = false,
                 ink = ink, bow = bow, titleFont = titleFont,
@@ -841,7 +841,7 @@ private fun LokiAmberSkin(
             )
             LokiQuickButton(
                 label = strings.junk,
-                subtitle = junkSubtitle(quickState.junkCountToday),
+                subtitle = junkSubtitle(quickState.junkCountToday, strings),
                 glyph = "☗",
                 highlighted = false,
                 gold = gold, goldDeep = goldDeep, onGold = onGold, emerald = emerald,
@@ -856,7 +856,7 @@ private fun LokiAmberSkin(
             )
             LokiQuickButton(
                 label = strings.water,
-                subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses),
+                subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses, strings),
                 glyph = "◊",
                 highlighted = false,
                 gold = gold, goldDeep = goldDeep, onGold = onGold, emerald = emerald,
