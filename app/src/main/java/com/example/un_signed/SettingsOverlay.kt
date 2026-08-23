@@ -65,7 +65,7 @@ fun SettingsOverlay(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "SETTINGS",
+                LocalStrings.current.settings,
                 color = palette.onSurface,
                 fontSize = 26.sp,
                 fontFamily = titleFont,
@@ -73,7 +73,7 @@ fun SettingsOverlay(
                 style = TextStyle(shadow = Shadow(color = OrangeFire.copy(alpha = 0.5f), blurRadius = 10f))
             )
             Text(
-                "Preferences · units · theme · profile",
+                LocalStrings.current.preferencesSummary,
                 color = palette.subtle,
                 fontSize = 11.sp,
                 fontFamily = contentFont,
@@ -88,9 +88,9 @@ fun SettingsOverlay(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 // ── Theme ────────────────────────────────
-                SectionHeader("THEME", palette)
+                SectionHeader(LocalStrings.current.theme, palette)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("DARK", "CREAM", "AMBER").forEach { t ->
+                    listOf(LocalStrings.current.dark, LocalStrings.current.cream, LocalStrings.current.amber).forEach { t ->
                         Toggle(t.take(5), current.theme == t, contentFont, palette, Modifier.weight(1f)) {
                             update(current.copy(theme = t))
                         }
@@ -98,72 +98,72 @@ fun SettingsOverlay(
                 }
 
                 // ── Units ────────────────────────────────
-                SectionHeader("WEIGHT", palette)
+                SectionHeader(LocalStrings.current.weightLabel, palette)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Toggle("KG", current.weightUnit == "kg", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.kg, current.weightUnit == "kg", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(weightUnit = "kg"))
                     }
-                    Toggle("LB", current.weightUnit == "lb", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.lb, current.weightUnit == "lb", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(weightUnit = "lb"))
                     }
                 }
 
-                SectionHeader("HEIGHT", palette)
+                SectionHeader(LocalStrings.current.heightLabel, palette)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Toggle("CM", current.heightUnit == "cm", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.cm, current.heightUnit == "cm", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(heightUnit = "cm"))
                     }
-                    Toggle("INCHES", current.heightUnit == "in", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.inches, current.heightUnit == "in", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(heightUnit = "in"))
                     }
                 }
 
-                SectionHeader("TEMPERATURE", palette)
+                SectionHeader(LocalStrings.current.temperature, palette)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Toggle("°C", current.tempUnit == "C", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.celsius, current.tempUnit == "C", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(tempUnit = "C"))
                     }
-                    Toggle("°F", current.tempUnit == "F", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.fahrenheit, current.tempUnit == "F", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(tempUnit = "F"))
                     }
                 }
 
-                SectionHeader("DISTANCE", palette)
+                SectionHeader(LocalStrings.current.distance, palette)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Toggle("KM", current.distanceUnit == "km", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.km, current.distanceUnit == "km", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(distanceUnit = "km"))
                     }
-                    Toggle("MILES", current.distanceUnit == "mi", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.miles, current.distanceUnit == "mi", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(distanceUnit = "mi"))
                     }
                 }
 
-                SectionHeader("VOLUME", palette)
+                SectionHeader(LocalStrings.current.volume, palette)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Toggle("LITRES", current.volumeUnit == "L", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.litres, current.volumeUnit == "L", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(volumeUnit = "L"))
                     }
-                    Toggle("OUNCES", current.volumeUnit == "oz", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.ounces, current.volumeUnit == "oz", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(volumeUnit = "oz"))
                     }
                 }
 
-                SectionHeader("WEEK STARTS", palette)
+                SectionHeader(LocalStrings.current.weekStarts, palette)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Toggle("MON", current.startOfWeek == "MONDAY", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.mon, current.startOfWeek == "MONDAY", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(startOfWeek = "MONDAY"))
                     }
-                    Toggle("SUN", current.startOfWeek == "SUNDAY", contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.sun, current.startOfWeek == "SUNDAY", contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(startOfWeek = "SUNDAY"))
                     }
                 }
 
-                SectionHeader("HAPTICS", palette)
+                SectionHeader(LocalStrings.current.haptics, palette)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Toggle("ON", current.hapticsEnabled, contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.on, current.hapticsEnabled, contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(hapticsEnabled = true))
                     }
-                    Toggle("OFF", !current.hapticsEnabled, contentFont, palette, Modifier.weight(1f)) {
+                    Toggle(LocalStrings.current.off, !current.hapticsEnabled, contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(hapticsEnabled = false))
                     }
                 }
@@ -171,10 +171,10 @@ fun SettingsOverlay(
                 Spacer(Modifier.height(4.dp))
 
                 SectionHeader("PROFILE", palette)
-                ActionButton("EDIT PROFILE", contentFont, palette) {
+                ActionButton(LocalStrings.current.editProfile, contentFont, palette) {
                     Haptics.click(ctx); onEditProfile()
                 }
-                ActionButton("WEIGHT LOG", contentFont, palette) {
+                ActionButton(LocalStrings.current.weightLog, contentFont, palette) {
                     Haptics.click(ctx); onWeightLog()
                 }
 

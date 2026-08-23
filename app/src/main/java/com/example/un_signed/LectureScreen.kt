@@ -84,7 +84,7 @@ fun LectureScreen(
             ) {
                 // Title
                 Text(
-                    text = "LECTURE",
+                    text = LocalStrings.current.lecture,
                     color = Color.White,
                     fontSize = 26.sp,
                     fontFamily = titleFont,
@@ -95,10 +95,10 @@ fun LectureScreen(
 
                 // 1. Name
                 LectureField(
-                    label = "LECTURE NAME",
+                    label = LocalStrings.current.lectureName,
                     value = lectureName,
                     onValueChange = { lectureName = it },
-                    placeholder = "Enter lecture name...",
+                    placeholder = LocalStrings.current.lectureName,
                     titleFont = titleFont,
                     contentFont = contentFont
                 )
@@ -108,7 +108,7 @@ fun LectureScreen(
                 // 1. Duration (tap opens clock picker)
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        "TOTAL DURATION (MIN)",
+                        LocalStrings.current.totalDurationMin,
                         color = Color.White.copy(alpha = 0.55f),
                         fontSize = 12.sp,
                         fontFamily = titleFont
@@ -128,7 +128,7 @@ fun LectureScreen(
                         val m = totalMin % 60
                         Text(
                             text = when {
-                                lectureDuration.isEmpty() -> "E.G. 90"
+                                lectureDuration.isEmpty() -> LocalStrings.current.exampleDuration
                                 h > 0 -> "${h}h ${String.format("%02d", m)}m"
                                 else  -> "${m}m"
                             },
@@ -153,7 +153,7 @@ fun LectureScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "TOPICS",
+                        LocalStrings.current.topics,
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 17.sp,
                         fontFamily = titleFont
@@ -167,7 +167,7 @@ fun LectureScreen(
                             .padding(horizontal = 14.dp, vertical = 6.dp)
                     ) {
                         Text(
-                            text = if (topics.isEmpty()) "+ ADD TOPICS" else "✎ EDIT TOPICS",
+                            text = if (topics.isEmpty()) LocalStrings.current.addTopics else LocalStrings.current.editTopics,
                             color = Color(0xFF09e8ad),
                             fontSize = 13.sp,
                             fontFamily = titleFont,
@@ -222,7 +222,7 @@ fun LectureScreen(
                 // 4. Pie chart (visible only when topics exist)
                 if (topics.isNotEmpty()) {
                     Text(
-                        text = "PROGRESS",
+                        text = LocalStrings.current.progress,
                         color = Color.White.copy(alpha = 0.55f),
                         fontSize = 14.sp,
                         fontFamily = titleFont,
@@ -250,7 +250,7 @@ fun LectureScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "SAVE & BEGIN",
+                        text = LocalStrings.current.saveAndBegin,
                         color = Color.Black,
                         fontSize = 20.sp,
                         fontFamily = titleFont,

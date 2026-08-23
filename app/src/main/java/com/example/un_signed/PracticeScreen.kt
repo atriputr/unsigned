@@ -66,7 +66,7 @@ fun PracticeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "PRACTICE MANAGEMENT",
+                    text = LocalStrings.current.practiceManagement,
                     color = Color.White,
                     fontSize = 26.sp,
                     fontFamily = titleFont,
@@ -86,7 +86,7 @@ fun PracticeScreen(
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
-                        text = "PRACTICE CALENDAR",
+                        text = LocalStrings.current.practiceCalendar,
                         color = Color.White,
                         fontSize = 22.sp,
                         fontFamily = titleFont,
@@ -107,7 +107,7 @@ fun PracticeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "PAST",
+                        text = LocalStrings.current.past,
                         color = Color.White,
                         fontSize = 22.sp,
                         fontFamily = titleFont,
@@ -120,7 +120,7 @@ fun PracticeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "ACTIVE SAVED PRACTICES",
+                    text = LocalStrings.current.activeSavedPractices,
                     color = Color.White.copy(alpha = 0.6f),
                     fontSize = 18.sp,
                     fontFamily = titleFont,
@@ -144,7 +144,7 @@ fun PracticeScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "BACK",
+                    text = LocalStrings.current.back,
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 18.sp,
                     fontFamily = titleFont,
@@ -159,7 +159,7 @@ fun PracticeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "PAST PRACTICES",
+                    text = LocalStrings.current.past,
                     color = Color(0xFF09e8ad),
                     fontSize = 26.sp,
                     fontFamily = titleFont,
@@ -170,7 +170,7 @@ fun PracticeScreen(
 
                 if (completedPractices.isEmpty()) {
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Text("NO COMPLETED PRACTICES YET", color = Color.White.copy(alpha = 0.3f), fontFamily = contentFont)
+                        Text(LocalStrings.current.noCompletedPracticesYet, color = Color.White.copy(alpha = 0.3f), fontFamily = contentFont)
                     }
                 } else {
                     LazyColumn(
@@ -195,7 +195,7 @@ fun PracticeScreen(
                         .clickable { showPastPage = false },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("BACK TO MANAGEMENT", color = Color.White, fontSize = 16.sp, fontFamily = titleFont)
+                    Text(LocalStrings.current.backToManagement, color = Color.White, fontSize = 16.sp, fontFamily = titleFont)
                 }
             }
         }

@@ -55,7 +55,7 @@ fun CustomProfileOverlay(
         onClose = onClose
     ) {
         Text(
-            text = "CUSTOM PROFILE",
+            text = LocalStrings.current.customProfile,
             color = palette.onSurface,
             fontSize = 24.sp,
             fontFamily = titleFont,
@@ -76,7 +76,7 @@ fun CustomProfileOverlay(
             contentAlignment = Alignment.CenterStart
         ) {
             Text(
-                text = "CREATE PROFILE",
+                text = LocalStrings.current.createProfile,
                 color = palette.onSurface,
                 fontSize = 22.sp,
                 fontFamily = titleFont,
@@ -89,7 +89,7 @@ fun CustomProfileOverlay(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            "PREVIOUS/ONGOING PROFILES:",
+            LocalStrings.current.previousOngoingProfiles,
             color = palette.subtle,
             fontSize = 22.sp,
             fontFamily = contentFont,
@@ -109,7 +109,7 @@ fun CustomProfileOverlay(
 
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "BACK",
+            text = LocalStrings.current.back,
             color = Color.White.copy(alpha = 0.5f),
             fontSize = 18.sp,
             fontFamily = titleFont,
@@ -119,11 +119,11 @@ fun CustomProfileOverlay(
             AlertDialog(
                 onDismissRequest = { profileToDelete = null },
                 containerColor = Color(0xFF1A1A1A),
-                title = { Text("DELETE PROFILE", color = Color.White, fontFamily = titleFont) },
-                text = { Text("Are you sure you want to delete this profile?", color = Color.White.copy(alpha = 0.7f), fontFamily = contentFont) },
+                title = { Text(LocalStrings.current.deleteProfile, color = Color.White, fontFamily = titleFont) }, 
+                text = { Text(LocalStrings.current.deleteProfileConfirm, color = Color.White.copy(alpha = 0.7f), fontFamily = contentFont) },
                 confirmButton = {
                     Text(
-                        "YES", 
+                        LocalStrings.current.yes, 
                         color = Color(0xFFE41417), 
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(16.dp).clickable { 
@@ -134,7 +134,7 @@ fun CustomProfileOverlay(
                 },
                 dismissButton = {
                     Text(
-                        "NO", 
+                        LocalStrings.current.no, 
                         color = Color.White.copy(alpha = 0.5f),
                         modifier = Modifier.padding(16.dp).clickable { profileToDelete = null }
                     )
@@ -178,7 +178,7 @@ fun CreateProfileOverlay(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "NEW PROFILE",
+                text = LocalStrings.current.newProfile,
                 color = Color.White,
                 fontSize = 24.sp,
                 fontFamily = titleFont,
@@ -186,13 +186,13 @@ fun CreateProfileOverlay(
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
-            CustomInputField(label = "NAME", value = name, onValueChange = { name = it }, labelFont = titleFont, contentFont = contentFont)
+            CustomInputField(label = LocalStrings.current.name, value = name, onValueChange = { name = it }, labelFont = titleFont, contentFont = contentFont)
             Spacer(modifier = Modifier.height(12.dp))
             
             // DURATION FIELD (Clickable)
             Box(modifier = Modifier.clickable { showFromPicker = true }) {
                 CustomInputField(
-                    label = "DURATION", 
+                    label = LocalStrings.current.duration, 
                     value = duration, 
                     onValueChange = { duration = it }, 
                     labelFont = titleFont, 
@@ -206,7 +206,7 @@ fun CreateProfileOverlay(
             // TYPE FIELD (Clickable)
             Box(modifier = Modifier.clickable { showTypeOptions = true }) {
                 CustomInputField(
-                    label = "TYPE", 
+                    label = LocalStrings.current.type, 
                     value = type, 
                     onValueChange = { type = it }, 
                     labelFont = titleFont, 
@@ -231,12 +231,12 @@ fun CreateProfileOverlay(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text("SAVE PROFILE", color = Color.White, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                Text(LocalStrings.current.saveProfile, color = Color.White, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                text = "BACK",
+                text = LocalStrings.current.back,
                 color = Color.White.copy(alpha = 0.5f),
                 fontSize = 16.sp,
                 fontFamily = titleFont,
@@ -247,7 +247,7 @@ fun CreateProfileOverlay(
         // --- PICKER OVERLAYS ---
         if (showFromPicker) {
             GlassDateTimePicker(
-                title = "FROM",
+                title = LocalStrings.current.from,
                 titleFont = titleFont,
                 contentFont = contentFont,
                 onNext = {

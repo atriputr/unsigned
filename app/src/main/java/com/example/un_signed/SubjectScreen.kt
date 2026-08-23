@@ -78,7 +78,7 @@ fun SubjectScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "SUBJECT MANAGEMENT",
+                    text = LocalStrings.current.subjectManagement,
                     color = Color.White,
                     fontSize = 26.sp,
                     fontFamily = titleFont,
@@ -99,7 +99,7 @@ fun SubjectScreen(
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
-                        text = "ENTER SUB",
+                        text = LocalStrings.current.enterSub,
                         color = Color.White,
                         fontSize = 22.sp,
                         fontFamily = titleFont,
@@ -121,7 +121,7 @@ fun SubjectScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "PAST",
+                        text = LocalStrings.current.past,
                         color = Color.White,
                         fontSize = 22.sp,
                         fontFamily = titleFont,
@@ -134,7 +134,7 @@ fun SubjectScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "ACTIVE SAVED SUBJECTS",
+                    text = LocalStrings.current.activeSavedSubjects,
                     color = Color.White.copy(alpha = 0.6f),
                     fontSize = 18.sp,
                     fontFamily = titleFont,
@@ -157,7 +157,7 @@ fun SubjectScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "BACK",
+                    text = LocalStrings.current.back,
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 18.sp,
                     fontFamily = titleFont,
@@ -173,7 +173,7 @@ fun SubjectScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "PAST SUBJECTS",
+                    text = LocalStrings.current.past,
                     color = Color(0xFF09e8ad),
                     fontSize = 26.sp,
                     fontFamily = titleFont,
@@ -184,7 +184,7 @@ fun SubjectScreen(
 
                 if (completedSubjects.isEmpty()) {
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Text("NO COMPLETED SUBJECTS YET", color = Color.White.copy(alpha = 0.3f), fontFamily = contentFont)
+                        Text(LocalStrings.current.noCompletedSubjectsYet, color = Color.White.copy(alpha = 0.3f), fontFamily = contentFont)
                     }
                 } else {
                     LazyColumn(
@@ -209,7 +209,7 @@ fun SubjectScreen(
                         .clickable { showPastPage = false },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("BACK TO MANAGEMENT", color = Color.White, fontSize = 16.sp, fontFamily = titleFont)
+                    Text(LocalStrings.current.backToManagement, color = Color.White, fontSize = 16.sp, fontFamily = titleFont)
                 }
             }
         }

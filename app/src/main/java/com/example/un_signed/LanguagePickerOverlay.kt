@@ -35,7 +35,7 @@ fun LanguagePickerOverlay(
         onClose = onClose
     ) {
         Text(
-            text = "SELECT LANGUAGE",
+            text = LocalStrings.current.language,
             color = palette.onSurface,
             fontSize = 22.sp,
             fontFamily = titleFont,
@@ -77,7 +77,7 @@ fun LanguagePickerOverlay(
 
         Spacer(modifier = Modifier.height(20.dp))
         Text(
-            text = "BACK",
+            text = LocalStrings.current.back,
             color = palette.faint,
             fontSize = 14.sp,
             fontFamily = titleFont,

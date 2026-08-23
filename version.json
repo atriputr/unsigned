@@ -1,6 +1,6 @@
 {
-  "versionCode": 13,
-  "versionName": "2.2",
+  "versionCode": 14,
+  "versionName": "2.3",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v2.2: Brand-optimized search for major junk brands like Red Bull. Enhanced brand visibility in results. 🚀🛸🤝🏻🦾✨"
+  "releaseNotes": "v2.3: Sophisticated Stopwatch with persistence, enhanced Junk Log with health impact analysis, and comprehensive activity tracking for Cycling, Yoga, and Walking. 🚀✨📊"
 }

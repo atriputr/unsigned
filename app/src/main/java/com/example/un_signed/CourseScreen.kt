@@ -59,7 +59,7 @@ fun CourseScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "COURSE MANAGEMENT",
+                    text = LocalStrings.current.courseManagement,
                     color = Color.White,
                     fontSize = 26.sp,
                     fontFamily = titleFont,
@@ -80,7 +80,7 @@ fun CourseScreen(
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
-                        text = "ENTER COURSE",
+                        text = LocalStrings.current.enterCourse,
                         color = Color.White,
                         fontSize = 22.sp,
                         fontFamily = titleFont,
@@ -102,7 +102,7 @@ fun CourseScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "PAST",
+                        text = LocalStrings.current.past,
                         color = Color.White,
                         fontSize = 22.sp,
                         fontFamily = titleFont,
@@ -115,7 +115,7 @@ fun CourseScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "ACTIVE SAVED COURSES",
+                    text = LocalStrings.current.activeSavedCourses,
                     color = Color.White.copy(alpha = 0.6f),
                     fontSize = 18.sp,
                     fontFamily = titleFont,
@@ -137,7 +137,7 @@ fun CourseScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "BACK",
+                    text = LocalStrings.current.back,
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 18.sp,
                     fontFamily = titleFont,
@@ -153,7 +153,7 @@ fun CourseScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "PAST COURSES",
+                    text = LocalStrings.current.past,
                     color = Color(0xFF09e8ad),
                     fontSize = 26.sp,
                     fontFamily = titleFont,
@@ -164,7 +164,7 @@ fun CourseScreen(
 
                 if (completedCourses.isEmpty()) {
                     Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        Text("NO COMPLETED COURSES YET", color = Color.White.copy(alpha = 0.3f), fontFamily = contentFont)
+                        Text(LocalStrings.current.noCompletedCoursesYet, color = Color.White.copy(alpha = 0.3f), fontFamily = contentFont)
                     }
                 } else {
                     LazyColumn(
@@ -189,7 +189,7 @@ fun CourseScreen(
                         .clickable { showPastPage = false },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("BACK TO MANAGEMENT", color = Color.White, fontSize = 16.sp, fontFamily = titleFont)
+                    Text(LocalStrings.current.backToManagement, color = Color.White, fontSize = 16.sp, fontFamily = titleFont)
                 }
             }
         }

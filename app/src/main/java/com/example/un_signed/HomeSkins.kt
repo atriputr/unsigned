@@ -40,7 +40,7 @@ import kotlinx.coroutines.CoroutineScope
 private const val BTN1_CENTER = 0.1863f    // (0.1567 + 0.2159) / 2
 private const val BTN2_CENTER = 0.2571f    // (0.2279 + 0.2864) / 2
 private const val BTN3_CENTER = 0.3286f    // (0.2996 + 0.3576) / 2
-private const val BTN_HEIGHT_FRAC = 0.06f  // ~6% of screen height per button
+private const val BTN_HEIGHT_FRAC = 0.075f  // visual button ~7.5% of screen (click zone stays at 5.92%)
 
 /** Live counters passed in from the activity so quick-action buttons can display + increment. */
 data class HomeQuickState(
@@ -111,10 +111,10 @@ private fun Modifier.counterQuickGestures(
 )
 
 // Subtitle helpers so each themed button reads consistently
-private fun sleepLabel(state: HomeQuickState)    = if (state.sleepActive) "SLEEP END" else "SLEEP BEGIN"
-private fun sleepSubtitle(state: HomeQuickState) =
-    if (state.sleepActive) "2× END · ${state.sleepDisturbances} DISTRB."
-    else "HOLD 3s TO START"
+private fun sleepLabel(state: HomeQuickState, strings: AppStrings) = strings.sleep
+private fun sleepSubtitle(state: HomeQuickState, strings: AppStrings) =
+    if (state.sleepActive) "${strings.sleepEnd} · ${state.sleepDisturbances} ${strings.disturbances}"
+    else strings.sleepStartHint
 private fun sleepEmoji(state: HomeQuickState)    = if (state.sleepActive) "☾" else "☽"
 private fun junkSubtitle(count: Int)     = "$count · 2× ADD · HOLD LOG"
 private fun waterSubtitle(g: Int, tgt: Int) = "$g/$tgt · 2× ADD"
@@ -153,6 +153,7 @@ private fun DarkIndustrialSkin(
     quickCallbacks: HomeQuickCallbacks
 ) {
     val scope = rememberCoroutineScope()
+    val strings = LocalStrings.current
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -171,14 +172,14 @@ private fun DarkIndustrialSkin(
                 .padding(top = screenH * 0.04f),
             contentAlignment = Alignment.Center
         ) {
-            SelectProfileTitle(titleFont)
+            SelectProfileTitle(titleFont, strings.selectProfile)
         }
 
         // ── Three editable menu buttons at exact same fractions ─
         listOf(
-            Triple(BTN1_CENTER, "IDEAL PROFILE",         R.drawable.ic_person),
-            Triple(BTN2_CENTER, "CUSTOM PROFILE",        R.drawable.ic_gear),
-            Triple(BTN3_CENTER, "EXPORT YOUR PROGRESS",  R.drawable.ic_cloud)
+            Triple(BTN1_CENTER, strings.idealProfile, R.drawable.ic_person),
+            Triple(BTN2_CENTER, strings.customProfile, R.drawable.ic_gear),
+            Triple(BTN3_CENTER, strings.exportProgress, R.drawable.ic_cloud)
         ).forEach { (fraction, label, iconRes) ->
             Box(
                 modifier = Modifier
@@ -199,8 +200,8 @@ private fun DarkIndustrialSkin(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             DarkQuickButton(
-                label = sleepLabel(quickState),
-                subtitle = sleepSubtitle(quickState),
+                label = sleepLabel(quickState, strings),
+                subtitle = sleepSubtitle(quickState, strings),
                 emoji = sleepEmoji(quickState),
                 highlighted = quickState.sleepActive,
                 titleFont = titleFont,
@@ -208,7 +209,7 @@ private fun DarkIndustrialSkin(
                 modifier = Modifier.weight(1f)
             )
             DarkQuickButton(
-                label = "JUNK",
+                label = strings.junk,
                 subtitle = junkSubtitle(quickState.junkCountToday),
                 emoji = "☗",
                 highlighted = false,
@@ -222,7 +223,7 @@ private fun DarkIndustrialSkin(
                 modifier = Modifier.weight(1f)
             )
             DarkQuickButton(
-                label = "WATER",
+                label = strings.water,
                 subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses),
                 emoji = "◊",
                 highlighted = false,
@@ -244,12 +245,12 @@ private fun DarkIndustrialSkin(
  * Text is a Kotlin string, editable in one place.
  */
 @Composable
-private fun SelectProfileTitle(titleFont: FontFamily) {
+private fun SelectProfileTitle(titleFont: FontFamily, label: String) {
     val neon = Color(0xFFE41417)
     Box(contentAlignment = Alignment.Center) {
         // Outer glow layer
         Text(
-            text = "SELECT PROFILE",
+            text = label,
             color = neon.copy(alpha = 0.45f),
             fontSize = 44.sp,
             fontFamily = titleFont,
@@ -259,7 +260,7 @@ private fun SelectProfileTitle(titleFont: FontFamily) {
         )
         // Crisp core layer
         Text(
-            text = "SELECT PROFILE",
+            text = label,
             color = Color(0xFFFF5555),
             fontSize = 44.sp,
             fontFamily = titleFont,
@@ -296,43 +297,60 @@ private fun DarkMenuButton(label: String, iconRes: Int, titleFont: FontFamily) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            val rnd = kotlin.random.Random(label.hashCode())  // deterministic per button
-            val steps = 120
+            val rnd = kotlin.random.Random(label.hashCode())
+
+            // ── 1. Big metal plate first (fills ~92% of button height, slight rounded corners) ──
+            val plateTop = h * 0.05f
+            val plateBot = h * 0.95f
+            drawRoundRect(
+                brush = Brush.verticalGradient(
+                    listOf(Color(0xFF2A2020), ButtonMetalBg, Color(0xFF0A0808))
+                ),
+                topLeft = Offset(2f, plateTop),
+                size = Size(w - 4f, plateBot - plateTop),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f)
+            )
+
+            // ── 2. Brush-texture torn edges — thin bands at very top and very bottom ──
+            val steps = 200
             val stepSize = w / steps
 
-            val pathTop = androidx.compose.ui.graphics.Path().apply { moveTo(0f, h / 2f) }
-            val pathBot = androidx.compose.ui.graphics.Path().apply { moveTo(0f, h / 2f) }
+            val topPath = androidx.compose.ui.graphics.Path().apply { moveTo(0f, 0f) }
+            val botPath = androidx.compose.ui.graphics.Path().apply { moveTo(0f, h) }
             for (i in 0..steps) {
                 val x = i * stepSize
-                val noiseTop = (rnd.nextFloat() - 0.5f) * 18f
-                val noiseBot = (rnd.nextFloat() - 0.5f) * 18f
                 val edgeFade = when {
-                    i < 15 -> i / 15f
-                    i > steps - 15 -> (steps - i) / 15f
+                    i < 12 -> i / 12f
+                    i > steps - 12 -> (steps - i) / 12f
                     else -> 1f
                 }
-                pathTop.lineTo(x, (h * 0.15f) + (noiseTop * edgeFade))
-                pathBot.lineTo(x, (h * 0.85f) + (noiseBot * edgeFade))
+                val noiseTop = (rnd.nextFloat() - 0.5f) * 6f
+                val noiseBot = (rnd.nextFloat() - 0.5f) * 6f
+                topPath.lineTo(x, (plateTop + 2f + noiseTop) * edgeFade)
+                botPath.lineTo(x, h - (h - plateBot + 2f + noiseBot) * edgeFade)
             }
-            pathTop.lineTo(w, h / 2f); pathTop.close()
-            pathBot.lineTo(w, h / 2f); pathBot.close()
+            topPath.lineTo(w, 0f); topPath.close()
+            botPath.lineTo(w, h); botPath.close()
+            drawPath(topPath, color = GrungeEdgeColor.copy(alpha = 0.28f))
+            drawPath(botPath, color = GrungeEdgeColor.copy(alpha = 0.28f))
 
-            drawPath(pathTop, color = GrungeEdgeColor.copy(alpha = 0.35f))
-            drawPath(pathBot, color = GrungeEdgeColor.copy(alpha = 0.35f))
+            // ── 3. Subtle inner highlight along the top of the plate (soft sheen) ──
+            drawLine(
+                color = Color.White.copy(alpha = 0.06f),
+                start = Offset(20f, plateTop + 2f),
+                end = Offset(w - 20f, plateTop + 2f),
+                strokeWidth = 1f
+            )
 
-            val metalPath = androidx.compose.ui.graphics.Path().apply {
-                moveTo(5f, h * 0.22f)
-                lineTo(w - 5f, h * 0.22f)
-                lineTo(w - 5f, h * 0.78f)
-                lineTo(5f, h * 0.78f)
-                close()
-            }
-            drawPath(metalPath, brush = Brush.verticalGradient(listOf(Color(0xFF221A1A), ButtonMetalBg, Color(0xFF0A0808))))
-
-            // subtle horizontal scratches
-            repeat(20) {
-                val y = (h * 0.25f) + (rnd.nextFloat() * h * 0.5f)
-                drawLine(color = Color.White.copy(alpha = 0.05f), start = Offset(15f, y), end = Offset(w - 15f, y), strokeWidth = 1f)
+            // ── 4. Very faint horizontal brushed-metal scratches inside the plate ──
+            repeat(12) {
+                val y = plateTop + rnd.nextFloat() * (plateBot - plateTop)
+                drawLine(
+                    color = Color.White.copy(alpha = 0.04f),
+                    start = Offset(15f, y),
+                    end = Offset(w - 15f, y),
+                    strokeWidth = 1f
+                )
             }
         }
 
@@ -440,6 +458,7 @@ private fun HelloKittySkin(
     quickState: HomeQuickState,
     quickCallbacks: HomeQuickCallbacks
 ) {
+    val strings = LocalStrings.current
     val bgTop = Color(0xFFFFEEF6)
     val bgBot = Color(0xFFFFC8DE)
     val ink   = Color(0xFF3A1A2A)
@@ -480,7 +499,7 @@ private fun HelloKittySkin(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "SELECT PROFILE",
+                    text = strings.selectProfile,
                     color = ink,
                     fontSize = 32.sp,
                     fontFamily = titleFont,
@@ -494,9 +513,9 @@ private fun HelloKittySkin(
 
         // Three buttons at fixed y-fractions matching the interactive Views
         listOf(
-            Triple(BTN1_CENTER, "IDEAL PROFILE", "★"),
-            Triple(BTN2_CENTER, "CUSTOM PROFILE", "♥"),
-            Triple(BTN3_CENTER, "EXPORT YOUR PROGRESS", "☁")
+            Triple(BTN1_CENTER, strings.idealProfile, "★"),
+            Triple(BTN2_CENTER, strings.customProfile, "♥"),
+            Triple(BTN3_CENTER, strings.exportProgress, "☁")
         ).forEach { (fraction, label, icon) ->
             Box(
                 modifier = Modifier
@@ -519,8 +538,8 @@ private fun HelloKittySkin(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             KittyQuickButton(
-                label = sleepLabel(quickState),
-                subtitle = sleepSubtitle(quickState),
+                label = sleepLabel(quickState, strings),
+                subtitle = sleepSubtitle(quickState, strings),
                 emoji = sleepEmoji(quickState),
                 highlighted = quickState.sleepActive,
                 ink = ink, bow = bow, titleFont = titleFont,
@@ -528,7 +547,7 @@ private fun HelloKittySkin(
                 modifier = Modifier.weight(1f)
             )
             KittyQuickButton(
-                label = "JUNK",
+                label = strings.junk,
                 subtitle = junkSubtitle(quickState.junkCountToday),
                 emoji = "🍭",
                 highlighted = false,
@@ -542,7 +561,7 @@ private fun HelloKittySkin(
                 modifier = Modifier.weight(1f)
             )
             KittyQuickButton(
-                label = "WATER",
+                label = strings.water,
                 subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses),
                 emoji = "💧",
                 highlighted = false,
@@ -721,6 +740,7 @@ private fun LokiAmberSkin(
     quickState: HomeQuickState,
     quickCallbacks: HomeQuickCallbacks
 ) {
+    val strings = LocalStrings.current
     val bgTop = Color(0xFF0B2418)
     val bgBot = Color(0xFF06110B)
     val gold  = Color(0xFFFFB454)
@@ -765,7 +785,7 @@ private fun LokiAmberSkin(
             LokiHorns(gold = gold, goldDeep = goldDeep)
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "SELECT PROFILE",
+                text = strings.selectProfile,
                 color = gold,
                 fontSize = 24.sp,
                 fontFamily = titleFont,
@@ -785,9 +805,9 @@ private fun LokiAmberSkin(
         }
 
         listOf(
-            Triple(BTN1_CENTER, "IDEAL PROFILE", "◇"),
-            Triple(BTN2_CENTER, "CUSTOM PROFILE", "◆"),
-            Triple(BTN3_CENTER, "EXPORT YOUR PROGRESS", "☓")
+            Triple(BTN1_CENTER, strings.idealProfile, "◇"),
+            Triple(BTN2_CENTER, strings.customProfile, "◆"),
+            Triple(BTN3_CENTER, strings.exportProgress, "☓")
         ).forEach { (fraction, label, glyph) ->
             Box(
                 modifier = Modifier
@@ -810,8 +830,8 @@ private fun LokiAmberSkin(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             LokiQuickButton(
-                label = sleepLabel(quickState),
-                subtitle = sleepSubtitle(quickState),
+                label = sleepLabel(quickState, strings),
+                subtitle = sleepSubtitle(quickState, strings),
                 glyph = sleepEmoji(quickState),
                 highlighted = quickState.sleepActive,
                 gold = gold, goldDeep = goldDeep, onGold = onGold, emerald = emerald,
@@ -820,7 +840,7 @@ private fun LokiAmberSkin(
                 modifier = Modifier.weight(1f)
             )
             LokiQuickButton(
-                label = "JUNK",
+                label = strings.junk,
                 subtitle = junkSubtitle(quickState.junkCountToday),
                 glyph = "☗",
                 highlighted = false,
@@ -835,7 +855,7 @@ private fun LokiAmberSkin(
                 modifier = Modifier.weight(1f)
             )
             LokiQuickButton(
-                label = "WATER",
+                label = strings.water,
                 subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses),
                 glyph = "◊",
                 highlighted = false,

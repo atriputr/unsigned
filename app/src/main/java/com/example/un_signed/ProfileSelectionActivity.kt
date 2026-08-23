@@ -974,7 +974,8 @@ class ProfileSelectionActivity : AppCompatActivity() {
 
         val progress = (elapsedMs.toDouble() / totalMs.toDouble() * 100)
         pbYearProgress.progress = progress.toInt()
-        tvYearPercent.text = String.format(Locale.getDefault(), "YEAR PROGRESS: %.6f%%", progress)
+        val yearLabel = Localization.getStrings(appPrefs.value.languageCode).yearProgress
+        tvYearPercent.text = String.format(Locale.getDefault(), "%s: %.6f%%", yearLabel, progress)
     }
 
     override fun onDestroy() {

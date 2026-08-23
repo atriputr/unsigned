@@ -133,7 +133,7 @@ fun UserProfileOverlay(
         ) {
             if (onboardingStep == 0) {
                 Text(
-                    text = "LANGUAGE",
+                    text = LocalStrings.current.language,
                     color = palette.onSurface,
                     fontSize = 26.sp,
                     fontFamily = titleFont,
@@ -141,7 +141,7 @@ fun UserProfileOverlay(
                 )
                 if (isOnboarding) {
                     Text(
-                        "Please select your preferred language.",
+                        LocalStrings.current.selectPreferredLanguage,
                         color = palette.subtle,
                         fontSize = 12.sp,
                         fontFamily = contentFont,
@@ -188,11 +188,11 @@ fun UserProfileOverlay(
                         .clickable { onboardingStep = 1 },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("NEXT", color = Color.Black, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                    Text(LocalStrings.current.next, color = Color.Black, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
                 }
             } else {
                 Text(
-                    text = if (isOnboarding) "WELCOME" else "YOUR PROFILE",
+                    text = if (isOnboarding) LocalStrings.current.welcome else LocalStrings.current.yourProfile,
                     color = palette.onSurface,
                     fontSize = 26.sp,
                     fontFamily = titleFont,
@@ -201,7 +201,7 @@ fun UserProfileOverlay(
                 )
             if (isOnboarding) {
                 Text(
-                    "Tell us about yourself to personalise your health targets.",
+                    LocalStrings.current.tellUsAboutYourself,
                     color = palette.subtle,
                     fontSize = 12.sp,
                     fontFamily = contentFont,
@@ -217,24 +217,24 @@ fun UserProfileOverlay(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                LabeledField("NAME", name, palette, contentFont, keyboard = KeyboardType.Text) { name = it }
-                LabeledField("AGE (years)", age, palette, contentFont, keyboard = KeyboardType.Number) {
+                LabeledField(LocalStrings.current.name, name, palette, contentFont, keyboard = KeyboardType.Text) { name = it }
+                LabeledField(LocalStrings.current.ageYears, age, palette, contentFont, keyboard = KeyboardType.Number) {
                     if (it.length <= 3 && it.all { c -> c.isDigit() }) age = it
                 }
 
-                Text("GENDER", color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp)
+                Text(LocalStrings.current.gender, color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    listOf("Male", "Female", "Other").forEach { g ->
+                    listOf(LocalStrings.current.male, LocalStrings.current.female, LocalStrings.current.other).forEach { g ->
                         ChoicePill(g, gender == g, contentFont, palette, Modifier.weight(1f)) { gender = g }
                     }
                 }
 
                 // WEIGHT — label + inline unit toggle
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("WEIGHT", color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.weight(1f))
+                    Text(LocalStrings.current.weight, color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.weight(1f))
                     UnitSwitch(
-                        left = "KG", leftSelected = weightUnit == "kg",
-                        right = "LB", rightSelected = weightUnit == "lb",
+                        left = LocalStrings.current.kg, leftSelected = weightUnit == "kg",
+                        right = LocalStrings.current.lb, rightSelected = weightUnit == "lb",
                         font = contentFont, palette = palette,
                         onLeft = { switchWeightUnit("kg") },
                         onRight = { switchWeightUnit("lb") }
@@ -277,7 +277,7 @@ fun UserProfileOverlay(
                     }
                 }
 
-                Text("ACTIVITY LEVEL", color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp)
+                Text(LocalStrings.current.activityLevel, color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp)
                 val levels = listOf(
                     "Sedentary" to "Little/no exercise",
                     "Light" to "1–3 days/week",
@@ -298,8 +298,8 @@ fun UserProfileOverlay(
 
                 // ── IDENTITY (email accounts) ─────────────
                 Spacer(Modifier.height(2.dp))
-                Text("IDENTITY", color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp)
-                Text("Link your email accounts (gmail / tutamail / apple id / meta id). Stored locally.", color = palette.faint, fontSize = 10.sp, fontFamily = contentFont)
+                Text(LocalStrings.current.identity, color = palette.subtle, fontSize = 12.sp, fontFamily = titleFont, letterSpacing = 2.sp)
+                Text(LocalStrings.current.linkAccounts, color = palette.faint, fontSize = 10.sp, fontFamily = contentFont)
 
                 // Quick provider chips → prefill the input
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -343,7 +343,7 @@ fun UserProfileOverlay(
                             .padding(horizontal = 10.dp),
                         decorationBox = { inner ->
                             Box(contentAlignment = Alignment.CenterStart) {
-                                if (newEmail.isEmpty()) Text("email@…", color = palette.faint, fontSize = 13.sp, fontFamily = contentFont)
+                                if (newEmail.isEmpty()) Text(LocalStrings.current.emailPlaceholder, color = palette.faint, fontSize = 13.sp, fontFamily = contentFont)
                                 inner()
                             }
                         }
@@ -466,7 +466,7 @@ fun UserProfileOverlay(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    if (isOnboarding) "BEGIN" else "SAVE",
+                    if (isOnboarding) LocalStrings.current.begin else LocalStrings.current.save,
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -478,7 +478,7 @@ fun UserProfileOverlay(
             if (!isOnboarding) {
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    "CANCEL",
+                    LocalStrings.current.cancel,
                     color = palette.faint,
                     fontSize = 14.sp,
                     fontFamily = titleFont,
