@@ -148,7 +148,7 @@ fun SubjectScreen(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(activeSubjects) { subject ->
+                    items(activeSubjects, key = { it.id }) { subject ->
                         SubjectListItem(subject, contentFont) {
                             selectedSubjectForDetail = subject
                         }
@@ -191,7 +191,7 @@ fun SubjectScreen(
                         modifier = Modifier.fillMaxWidth().weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(completedSubjects) { subject ->
+                        items(completedSubjects, key = { it.id }) { subject ->
                             SubjectListItem(subject, contentFont) {
                                 selectedSubjectForDetail = subject
                             }
@@ -333,343 +333,328 @@ fun SubjectEntryOverlay(
     var isEnteringChapters by remember { mutableStateOf(false) }
     var chapterIdx by remember { mutableStateOf(0) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.9f))
-            .clickable { onClose() },
-        contentAlignment = Alignment.Center
+    GlassCard(
+        modifier = Modifier.heightIn(max = 650.dp),
+        onClose = onClose
     ) {
-        Column(
-            modifier = Modifier
-                .width(340.dp)
-                .heightIn(max = 650.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Brush.verticalGradient(listOf(Color(0xFF1E1E2E), Color(0xFF0D0D1A))))
-                .border(1.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
-                .clickable(enabled = false) {}
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (!isEnteringChapters) {
-                Text(
-                    text = mainTitle,
-                    color = Color.White,
-                    fontSize = 24.sp,
-                    fontFamily = titleFont,
-                    modifier = Modifier.padding(bottom = 20.dp)
-                )
+        if (!isEnteringChapters) {
+            Text(
+                text = mainTitle,
+                color = Color.White,
+                fontSize = 24.sp,
+                fontFamily = titleFont,
+                modifier = Modifier.padding(bottom = 20.dp)
+            )
 
-                // i. Enter subject name
-                Text(labelName, color = Color.White.copy(alpha = 0.5f), fontSize = 18.sp, fontFamily = titleFont, modifier = Modifier.align(Alignment.Start))
-                BasicTextField(
-                    value = subjectName,
-                    onValueChange = { subjectName = it },
-                    textStyle = TextStyle(color = Color.White, fontSize = 22.sp, fontFamily = contentFont),
+            // i. Enter subject name
+            Text(labelName, color = Color.White.copy(alpha = 0.5f), fontSize = 18.sp, fontFamily = titleFont, modifier = Modifier.align(Alignment.Start))
+            BasicTextField(
+                value = subjectName,
+                onValueChange = { subjectName = it },
+                textStyle = TextStyle(color = Color.White, fontSize = 22.sp, fontFamily = contentFont),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White.copy(alpha = 0.07f))
+                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                    .padding(14.dp),
+                decorationBox = { inner ->
+                    if (subjectName.isEmpty()) Text("Enter name...", color = Color.White.copy(alpha = 0.2f), fontSize = 22.sp, fontFamily = contentFont)
+                    inner()
+                }
+            )
+
+            if (!nameStepDone) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color.White.copy(alpha = 0.07f))
-                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(10.dp))
-                        .padding(14.dp),
-                    decorationBox = { inner ->
-                        if (subjectName.isEmpty()) Text("Enter name...", color = Color.White.copy(alpha = 0.2f), fontSize = 22.sp, fontFamily = contentFont)
-                        inner()
-                    }
-                )
+                        .height(55.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFEBC174).copy(alpha = 0.8f))
+                        .clickable(enabled = subjectName.isNotBlank()) {
+                            nameStepDone = true
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "MOVE FURTHER",
+                        color = Color.Black,
+                        fontSize = 18.sp,
+                        fontFamily = titleFont,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.alpha(if (subjectName.isNotBlank()) 1f else 0.4f)
+                    )
+                }
+            }
 
-                if (!nameStepDone) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(55.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFFEBC174).copy(alpha = 0.8f))
-                            .clickable(enabled = subjectName.isNotBlank()) {
-                                nameStepDone = true
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
+            if (nameStepDone) {
+                Spacer(modifier = Modifier.height(20.dp))
+
+                if (showDurationField) {
+                    // --- DISPLAY BOX FOR REPEAT INFO ---
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "MOVE FURTHER",
-                            color = Color.Black,
-                            fontSize = 18.sp,
-                            fontFamily = titleFont,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.alpha(if (subjectName.isNotBlank()) 1f else 0.4f)
+                            "REPEAT SUMMARY",
+                            color = Color.White.copy(alpha = 0.55f),
+                            fontSize = 12.sp,
+                            fontFamily = titleFont
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White.copy(alpha = 0.07f))
+                                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(10.dp))
+                                .clickable(enabled = repeatInfo.isNotBlank() && onRepeatSummaryClick != null) {
+                                    onRepeatSummaryClick?.invoke()
+                                }
+                                .padding(horizontal = 14.dp, vertical = 13.dp)
+                        ) {
+                            Text(
+                                text = if (repeatInfo.isNotBlank()) repeatInfo else "E.G. 10:30 AM",
+                                color = if (repeatInfo.isBlank()) Color.White.copy(alpha = 0.22f) else Color.White,
+                                fontSize = 16.sp,
+                                fontFamily = contentFont
+                            )
+                        }
                     }
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
 
-                if (nameStepDone) {
-                    Spacer(modifier = Modifier.height(20.dp))
+                // ii. Enter chapters button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                        .clickable {
+                            if (onButtonClick != null) {
+                                onButtonClick()
+                            } else {
+                                if (chapters.isEmpty()) chapters.add(Chapter(name = ""))
+                                isEnteringChapters = true
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "$buttonLabel [${taskCount ?: chapters.count { it.name.isNotBlank() }}]",
+                        color = Color(0xFFEBC174),
+                        fontSize = 16.sp,
+                        fontFamily = titleFont
+                    )
+                }
 
-                    if (showDurationField) {
-                        // --- DISPLAY BOX FOR REPEAT INFO ---
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                "REPEAT SUMMARY",
-                                color = Color.White.copy(alpha = 0.55f),
-                                fontSize = 12.sp,
-                                fontFamily = titleFont
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Box(
+                // --- CHAPTERS LIST (Mid View) ---
+                val filledChapters = chapters.filter { it.name.isNotBlank() }
+                if (filledChapters.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(filledChapters.size, key = { idx -> filledChapters[idx].id }) { idx ->
+                            val chapter = filledChapters[idx]
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Color.White.copy(alpha = 0.07f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(10.dp))
-                                    .clickable(enabled = repeatInfo.isNotBlank() && onRepeatSummaryClick != null) {
-                                        onRepeatSummaryClick?.invoke()
-                                    }
-                                    .padding(horizontal = 14.dp, vertical = 13.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White.copy(alpha = 0.05f))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Checkbox(
+                                    checked = chapter.isCompleted,
+                                    onCheckedChange = { checked ->
+                                        val originalIdx = chapters.indexOf(chapter)
+                                        if (originalIdx != -1) {
+                                            chapters[originalIdx] = chapter.copy(isCompleted = checked)
+                                        }
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = Color(0xFF09e8ad),
+                                        uncheckedColor = Color.White.copy(alpha = 0.3f),
+                                        checkmarkColor = Color.Black
+                                    ),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (repeatInfo.isNotBlank()) repeatInfo else "E.G. 10:30 AM",
-                                    color = if (repeatInfo.isBlank()) Color.White.copy(alpha = 0.22f) else Color.White,
+                                    text = chapter.name,
+                                    color = if (chapter.isCompleted) Color(0xFF09e8ad) else Color.White,
                                     fontSize = 16.sp,
                                     fontFamily = contentFont
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(20.dp))
-                    }
-
-                    // ii. Enter chapters button
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.White.copy(alpha = 0.1f))
-                            .border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                            .clickable {
-                                if (onButtonClick != null) {
-                                    onButtonClick()
-                                } else {
-                                    if (chapters.isEmpty()) chapters.add(Chapter(name = ""))
-                                    isEnteringChapters = true
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "$buttonLabel [${taskCount ?: chapters.count { it.name.isNotBlank() }}]",
-                            color = Color(0xFFEBC174),
-                            fontSize = 16.sp,
-                            fontFamily = titleFont
-                        )
-                    }
-
-                    // --- CHAPTERS LIST (Mid View) ---
-                    val filledChapters = chapters.filter { it.name.isNotBlank() }
-                    if (filledChapters.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 200.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(filledChapters.size) { idx ->
-                                val chapter = filledChapters[idx]
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color.White.copy(alpha = 0.05f))
-                                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Checkbox(
-                                        checked = chapter.isCompleted,
-                                        onCheckedChange = { checked ->
-                                            val originalIdx = chapters.indexOf(chapter)
-                                            if (originalIdx != -1) {
-                                                chapters[originalIdx] = chapter.copy(isCompleted = checked)
-                                            }
-                                        },
-                                        colors = CheckboxDefaults.colors(
-                                            checkedColor = Color(0xFF09e8ad),
-                                            uncheckedColor = Color.White.copy(alpha = 0.3f),
-                                            checkmarkColor = Color.Black
-                                        ),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = chapter.name,
-                                        color = if (chapter.isCompleted) Color(0xFF09e8ad) else Color.White,
-                                        fontSize = 16.sp,
-                                        fontFamily = contentFont
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // iii. Save & Exit
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(55.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF09e8ad).copy(alpha = 0.8f))
-                            .clickable {
-                                if (subjectName.isNotBlank()) {
-                                    onSaveAndExit(subjectName, chapters.filter { it.name.isNotBlank() }.toList(), durationMin)
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("SAVE & EXIT", color = Color.Black, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
                     }
                 }
-            } else {
-                if (!hideTwigsEntry) {
-                    Text(
-                        text = "TWIGS ${chapterIdx + 1}",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontFamily = titleFont
-                    )
-                    Text(
-                        text = "${chapterIdx + 1} of ${chapters.size}",
-                        color = Color.White.copy(alpha = 0.4f),
-                        fontSize = 12.sp,
-                        fontFamily = contentFont
-                    )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                    BasicTextField(
-                        value = chapters.getOrElse(chapterIdx) { Chapter(name = "") }.name,
-                        onValueChange = { v ->
-                            while (chapters.size <= chapterIdx) chapters.add(Chapter(name = ""))
-                            chapters[chapterIdx] = chapters[chapterIdx].copy(name = v)
+                // iii. Save & Exit
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(55.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF09e8ad).copy(alpha = 0.8f))
+                        .clickable {
+                            if (subjectName.isNotBlank()) {
+                                onSaveAndExit(subjectName, chapters.filter { it.name.isNotBlank() }.toList(), durationMin)
+                            }
                         },
-                        textStyle = TextStyle(color = Color.White, fontSize = 18.sp, fontFamily = contentFont),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White.copy(alpha = 0.07f))
-                            .border(1.dp, Color(0xFF09e8ad).copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-                            .padding(14.dp),
-                        decorationBox = { inner ->
-                            if (chapters.getOrElse(chapterIdx) { Chapter(name = "") }.name.isEmpty()) {
-                                Text("Twig Name...", color = Color.White.copy(alpha = 0.2f), fontSize = 18.sp, fontFamily = contentFont)
-                            }
-                            inner()
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(30.dp))
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    contentAlignment = Alignment.Center
                 ) {
-                    if (!hideTwigsEntry) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(45.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (chapterIdx > 0) Color.White.copy(alpha = 0.1f) else Color.Transparent)
-                                .border(1.dp, Color.White.copy(alpha = if (chapterIdx > 0) 0.2f else 0.05f), RoundedCornerShape(10.dp))
-                                .clickable(enabled = chapterIdx > 0) { chapterIdx-- },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("← PREV", color = Color.White.copy(alpha = if (chapterIdx > 0) 1f else 0.2f), fontSize = 12.sp, fontFamily = titleFont)
-                        }
-                    }
+                    Text("SAVE & EXIT", color = Color.Black, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                }
+            }
+        } else {
+            if (!hideTwigsEntry) {
+                Text(
+                    text = "TWIGS ${chapterIdx + 1}",
+                    color = Color.White,
+                    fontSize = 24.sp,
+                    fontFamily = titleFont
+                )
+                Text(
+                    text = "${chapterIdx + 1} of ${chapters.size}",
+                    color = Color.White.copy(alpha = 0.4f),
+                    fontSize = 12.sp,
+                    fontFamily = contentFont
+                )
 
+                Spacer(modifier = Modifier.height(20.dp))
+
+                BasicTextField(
+                    value = chapters.getOrElse(chapterIdx) { Chapter(name = "") }.name,
+                    onValueChange = { v ->
+                        while (chapters.size <= chapterIdx) chapters.add(Chapter(name = ""))
+                        chapters[chapterIdx] = chapters[chapterIdx].copy(name = v)
+                    },
+                    textStyle = TextStyle(color = Color.White, fontSize = 18.sp, fontFamily = contentFont),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.White.copy(alpha = 0.07f))
+                        .border(1.dp, Color(0xFF09e8ad).copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                        .padding(14.dp),
+                    decorationBox = { inner ->
+                        if (chapters.getOrElse(chapterIdx) { Chapter(name = "") }.name.isEmpty()) {
+                            Text("Twig Name...", color = Color.White.copy(alpha = 0.2f), fontSize = 18.sp, fontFamily = contentFont)
+                        }
+                        inner()
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(30.dp))
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (!hideTwigsEntry) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(45.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFFEBC174).copy(alpha = 0.2f))
-                            .border(1.dp, Color(0xFFEBC174), RoundedCornerShape(10.dp))
-                            .clickable { isEnteringChapters = false },
+                            .background(if (chapterIdx > 0) Color.White.copy(alpha = 0.1f) else Color.Transparent)
+                            .border(1.dp, Color.White.copy(alpha = if (chapterIdx > 0) 0.2f else 0.05f), RoundedCornerShape(10.dp))
+                            .clickable(enabled = chapterIdx > 0) { chapterIdx-- },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("SAVE", color = Color(0xFFEBC174), fontSize = 14.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                        Text("← PREV", color = Color.White.copy(alpha = if (chapterIdx > 0) 1f else 0.2f), fontSize = 12.sp, fontFamily = titleFont)
                     }
+                }
 
-                    if (!hideTwigsEntry) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(45.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFF09e8ad).copy(alpha = 0.15f))
-                                .border(1.dp, Color(0xFF09e8ad), RoundedCornerShape(10.dp))
-                                .clickable {
-                                    if (chapterIdx == chapters.size - 1) chapters.add(Chapter(name = ""))
-                                    chapterIdx++
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("NEXT →", color = Color(0xFF09e8ad), fontSize = 12.sp, fontFamily = titleFont)
-                        }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(45.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFEBC174).copy(alpha = 0.2f))
+                        .border(1.dp, Color(0xFFEBC174), RoundedCornerShape(10.dp))
+                        .clickable { isEnteringChapters = false },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("SAVE", color = Color(0xFFEBC174), fontSize = 14.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                }
+
+                if (!hideTwigsEntry) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(45.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF09e8ad).copy(alpha = 0.15f))
+                            .border(1.dp, Color(0xFF09e8ad), RoundedCornerShape(10.dp))
+                            .clickable {
+                                if (chapterIdx == chapters.size - 1) chapters.add(Chapter(name = ""))
+                                chapterIdx++
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("NEXT →", color = Color(0xFF09e8ad), fontSize = 12.sp, fontFamily = titleFont)
                     }
                 }
             }
         }
+    }
 
-        if (showCalendarPicker) {
-            GlassCalendarOverlay(
-                allTasks = emptyMap(),
-                onUpdateTasks = { _, _ -> },
-                fontFamily = titleFont,
-                initialDate = selectedDate,
-                onClose = { 
-                    showCalendarPicker = false 
-                    showDurationPicker = true // Show time wheel after date
-                }
-            )
-        }
+    if (showCalendarPicker) {
+        GlassCalendarOverlay(
+            allTasks = emptyMap(),
+            onUpdateTasks = { _, _ -> },
+            fontFamily = titleFont,
+            initialDate = selectedDate,
+            onClose = { 
+                showCalendarPicker = false 
+                showDurationPicker = true // Show time wheel after date
+            }
+        )
+    }
 
-        if (showDurationPicker) {
-            DurationClockPicker(
-                initialMinutes = durationMin,
-                titleFont = titleFont,
-                contentFont = contentFont,
-                onConfirm = { totalMin ->
-                    durationMin = totalMin
-                    showDurationPicker = false
-                },
-                onDismiss = { showDurationPicker = false }
-            )
-        }
+    if (showDurationPicker) {
+        DurationClockPicker(
+            initialMinutes = durationMin,
+            titleFont = titleFont,
+            contentFont = contentFont,
+            onConfirm = { totalMin ->
+                durationMin = totalMin
+                showDurationPicker = false
+            },
+            onDismiss = { showDurationPicker = false }
+        )
+    }
 
-        if (showEventsSummary) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.95f))
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("PRACTICE CALENDAR", color = Color.White, fontSize = 24.sp, fontFamily = titleFont)
-                    Spacer(Modifier.height(20.dp))
-                    
-                    // Show a calendar view
-                    GlassCalendarOverlay(
-                        allTasks = emptyMap(), // This would show highlighted events
-                        onUpdateTasks = { _, _ -> },
-                        fontFamily = titleFont,
-                        onClose = { showEventsSummary = false }
-                    )
-                }
+    if (showEventsSummary) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.95f))
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("PRACTICE CALENDAR", color = Color.White, fontSize = 24.sp, fontFamily = titleFont)
+                Spacer(Modifier.height(20.dp))
+                
+                // Show a calendar view
+                GlassCalendarOverlay(
+                    allTasks = emptyMap(), // This would show highlighted events
+                    onUpdateTasks = { _, _ -> },
+                    fontFamily = titleFont,
+                    onClose = { showEventsSummary = false }
+                )
             }
         }
     }
@@ -691,242 +676,227 @@ fun SubjectDetailOverlay(
     var editedName by remember(subject.id) { mutableStateOf(subject.name) }
     var newTwigText by remember { mutableStateOf("") }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.9f))
-            .clickable { onClose() },
-        contentAlignment = Alignment.Center
+    GlassCard(
+        modifier = Modifier.heightIn(max = 640.dp),
+        onClose = onClose
     ) {
-        Column(
-            modifier = Modifier
-                .width(350.dp)
-                .heightIn(max = 640.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Brush.verticalGradient(listOf(Color(0xFF1A1A2A), Color(0xFF0D0D14))))
-                .border(1.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
-                .clickable(enabled = false) {}
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // ── Name: editable or static ─────────────────────────
-            if (editable) {
-                BasicTextField(
-                    value = editedName,
-                    onValueChange = { editedName = it },
-                    textStyle = TextStyle(
-                        color = Color(0xFFEBC174),
+        // ── Name: editable or static ─────────────────────────
+        if (editable) {
+            BasicTextField(
+                value = editedName,
+                onValueChange = { editedName = it },
+                textStyle = TextStyle(
+                    color = Color(0xFFEBC174),
+                    fontSize = 22.sp,
+                    fontFamily = titleFont,
+                    shadow = Shadow(color = Color(0xFFEBC174).copy(alpha = 0.4f), blurRadius = 8f)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFEBC174).copy(alpha = 0.06f))
+                    .border(1.dp, Color(0xFFEBC174).copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                decorationBox = { inner ->
+                    if (editedName.isEmpty()) Text(
+                        "Practice name…",
+                        color = Color(0xFFEBC174).copy(0.3f),
                         fontSize = 22.sp,
-                        fontFamily = titleFont,
-                        shadow = Shadow(color = Color(0xFFEBC174).copy(alpha = 0.4f), blurRadius = 8f)
-                    ),
+                        fontFamily = titleFont
+                    )
+                    inner()
+                }
+            )
+            Text(
+                "TAP NAME TO EDIT",
+                color = Color(0xFFEBC174).copy(0.35f),
+                fontSize = 10.sp,
+                fontFamily = contentFont,
+                modifier = Modifier.padding(top = 3.dp)
+            )
+        } else {
+            Text(
+                text = subject.name.uppercase(),
+                color = Color(0xFFEBC174),
+                fontSize = 24.sp,
+                fontFamily = titleFont,
+                style = TextStyle(shadow = Shadow(color = Color(0xFFEBC174).copy(alpha = 0.4f), blurRadius = 8f))
+            )
+            Text(
+                text = "TWIG PROGRESS",
+                color = Color.White.copy(alpha = 0.4f),
+                fontSize = 11.sp,
+                fontFamily = contentFont,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // ── Repeat summary (if saved) ────────────────────────
+        if (subject.repeatInfo.isNotBlank()) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "REPEAT SUMMARY",
+                    color = Color.White.copy(0.45f),
+                    fontSize = 11.sp,
+                    fontFamily = titleFont
+                )
+                Spacer(modifier = Modifier.height(5.dp))
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFEBC174).copy(alpha = 0.06f))
-                        .border(1.dp, Color(0xFFEBC174).copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    decorationBox = { inner ->
-                        if (editedName.isEmpty()) Text(
-                            "Practice name…",
-                            color = Color(0xFFEBC174).copy(0.3f),
-                            fontSize = 22.sp,
-                            fontFamily = titleFont
+                        .background(Color.White.copy(0.05f))
+                        .border(
+                            1.dp,
+                            if (onEditRepeat != null) Color(0xFFEBC174).copy(0.4f)
+                            else Color.White.copy(0.12f),
+                            RoundedCornerShape(10.dp)
                         )
-                        inner()
-                    }
-                )
-                Text(
-                    "TAP NAME TO EDIT",
-                    color = Color(0xFFEBC174).copy(0.35f),
-                    fontSize = 10.sp,
-                    fontFamily = contentFont,
-                    modifier = Modifier.padding(top = 3.dp)
-                )
-            } else {
-                Text(
-                    text = subject.name.uppercase(),
-                    color = Color(0xFFEBC174),
-                    fontSize = 24.sp,
-                    fontFamily = titleFont,
-                    style = TextStyle(shadow = Shadow(color = Color(0xFFEBC174).copy(alpha = 0.4f), blurRadius = 8f))
-                )
-                Text(
-                    text = "TWIG PROGRESS",
-                    color = Color.White.copy(alpha = 0.4f),
-                    fontSize = 11.sp,
-                    fontFamily = contentFont,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // ── Repeat summary (if saved) ────────────────────────
-            if (subject.repeatInfo.isNotBlank()) {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                        .then(if (onEditRepeat != null) Modifier.clickable { onEditRepeat() } else Modifier)
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
                     Text(
-                        "REPEAT SUMMARY",
-                        color = Color.White.copy(0.45f),
-                        fontSize = 11.sp,
-                        fontFamily = titleFont
+                        text = subject.repeatInfo,
+                        color = Color.White.copy(0.8f),
+                        fontSize = 13.sp,
+                        fontFamily = contentFont
                     )
-                    Spacer(modifier = Modifier.height(5.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White.copy(0.05f))
-                            .border(
-                                1.dp,
-                                if (onEditRepeat != null) Color(0xFFEBC174).copy(0.4f)
-                                else Color.White.copy(0.12f),
-                                RoundedCornerShape(10.dp)
-                            )
-                            .then(if (onEditRepeat != null) Modifier.clickable { onEditRepeat() } else Modifier)
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
-                    ) {
+                }
+                if (onEditRepeat != null) {
+                    Text(
+                        "TAP TO EDIT SCHEDULE",
+                        color = Color(0xFFEBC174).copy(0.35f),
+                        fontSize = 10.sp,
+                        fontFamily = contentFont,
+                        modifier = Modifier.padding(top = 3.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = Color.White.copy(alpha = 0.10f))
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        // ── Twig list ─────────────────────────────────────────
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(subject.chapters, key = { it.id }) { chapter ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.White.copy(alpha = 0.05f))
+                        .clickable { onUpdateChapter(chapter.id, !chapter.isCompleted) }
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = chapter.isCompleted,
+                        onCheckedChange = { onUpdateChapter(chapter.id, it) },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Color(0xFF09e8ad),
+                            uncheckedColor = Color.White.copy(alpha = 0.3f),
+                            checkmarkColor = Color.Black
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = chapter.name,
+                        color = if (chapter.isCompleted) Color(0xFF09e8ad) else Color.White,
+                        fontSize = 15.sp,
+                        fontFamily = contentFont,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (editable && onRemoveChapter != null) {
                         Text(
-                            text = subject.repeatInfo,
-                            color = Color.White.copy(0.8f),
-                            fontSize = 13.sp,
+                            text = "✕",
+                            color = Color(0xFFE41417).copy(0.7f),
+                            fontSize = 14.sp,
+                            fontFamily = titleFont,
+                            modifier = Modifier
+                                .clickable { onRemoveChapter(chapter.id) }
+                                .padding(horizontal = 6.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── Add twig row (edit mode only) ────────────────────
+        if (editable && onAddChapter != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                BasicTextField(
+                    value = newTwigText,
+                    onValueChange = { newTwigText = it },
+                    textStyle = TextStyle(color = Color.White, fontSize = 14.sp, fontFamily = contentFont),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White.copy(0.06f))
+                        .border(1.dp, Color(0xFF09e8ad).copy(0.35f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    decorationBox = { inner ->
+                        if (newTwigText.isEmpty()) Text(
+                            "New twig name…",
+                            color = Color.White.copy(0.22f),
+                            fontSize = 14.sp,
                             fontFamily = contentFont
                         )
-                    }
-                    if (onEditRepeat != null) {
-                        Text(
-                            "TAP TO EDIT SCHEDULE",
-                            color = Color(0xFFEBC174).copy(0.35f),
-                            fontSize = 10.sp,
-                            fontFamily = contentFont,
-                            modifier = Modifier.padding(top = 3.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider(color = Color.White.copy(alpha = 0.10f))
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-
-            // ── Twig list ─────────────────────────────────────────
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(subject.chapters) { chapter ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White.copy(alpha = 0.05f))
-                            .clickable { onUpdateChapter(chapter.id, !chapter.isCompleted) }
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = chapter.isCompleted,
-                            onCheckedChange = { onUpdateChapter(chapter.id, it) },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = Color(0xFF09e8ad),
-                                uncheckedColor = Color.White.copy(alpha = 0.3f),
-                                checkmarkColor = Color.Black
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = chapter.name,
-                            color = if (chapter.isCompleted) Color(0xFF09e8ad) else Color.White,
-                            fontSize = 15.sp,
-                            fontFamily = contentFont,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (editable && onRemoveChapter != null) {
-                            Text(
-                                text = "✕",
-                                color = Color(0xFFE41417).copy(0.7f),
-                                fontSize = 14.sp,
-                                fontFamily = titleFont,
-                                modifier = Modifier
-                                    .clickable { onRemoveChapter(chapter.id) }
-                                    .padding(horizontal = 6.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ── Add twig row (edit mode only) ────────────────────
-            if (editable && onAddChapter != null) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    BasicTextField(
-                        value = newTwigText,
-                        onValueChange = { newTwigText = it },
-                        textStyle = TextStyle(color = Color.White, fontSize = 14.sp, fontFamily = contentFont),
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.White.copy(0.06f))
-                            .border(1.dp, Color(0xFF09e8ad).copy(0.35f), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                        decorationBox = { inner ->
-                            if (newTwigText.isEmpty()) Text(
-                                "New twig name…",
-                                color = Color.White.copy(0.22f),
-                                fontSize = 14.sp,
-                                fontFamily = contentFont
-                            )
-                            inner()
-                        },
-                        singleLine = true
-                    )
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF09e8ad).copy(0.8f))
-                            .clickable {
-                                if (newTwigText.isNotBlank()) {
-                                    onAddChapter(newTwigText.trim())
-                                    newTwigText = ""
-                                }
-                            }
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("ADD", color = Color.Black, fontSize = 13.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ── Action button ─────────────────────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (editable) Color(0xFF09e8ad).copy(0.85f) else Color.White.copy(alpha = 0.1f))
-                    .clickable {
-                        if (editable) onUpdateName?.invoke(editedName.trim().ifBlank { subject.name })
-                        onClose()
+                        inner()
                     },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    if (editable) "SAVE & CLOSE" else "DONE",
-                    color = if (editable) Color.Black else Color.White,
-                    fontSize = 16.sp,
-                    fontFamily = titleFont,
-                    fontWeight = FontWeight.Bold
+                    singleLine = true
                 )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF09e8ad).copy(0.8f))
+                        .clickable {
+                            if (newTwigText.isNotBlank()) {
+                                onAddChapter(newTwigText.trim())
+                                newTwigText = ""
+                            }
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("ADD", color = Color.Black, fontSize = 13.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                }
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // ── Action button ─────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (editable) Color(0xFF09e8ad).copy(0.85f) else Color.White.copy(alpha = 0.1f))
+                .clickable {
+                    if (editable) onUpdateName?.invoke(editedName.trim().ifBlank { subject.name })
+                    onClose()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                if (editable) "SAVE & CLOSE" else "DONE",
+                color = if (editable) Color.Black else Color.White,
+                fontSize = 16.sp,
+                fontFamily = titleFont,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

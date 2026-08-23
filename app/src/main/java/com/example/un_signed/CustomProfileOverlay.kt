@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -49,99 +50,71 @@ fun CustomProfileOverlay(
     var showCreatePage by remember { mutableStateOf(false) }
     var profileToDelete by remember { mutableStateOf<CustomProfile?>(null) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(palette.scrim)
-            .clickable { onClose() },
-        contentAlignment = Alignment.Center
+    GlassCard(
+        modifier = Modifier.heightIn(max = 600.dp),
+        onClose = onClose
     ) {
-        Column(
+        Text(
+            text = "CUSTOM PROFILE",
+            color = palette.onSurface,
+            fontSize = 24.sp,
+            fontFamily = titleFont,
+            fontStyle = FontStyle.Italic,
+            modifier = Modifier.padding(bottom = 20.dp),
+            style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
+        )
+
+        // CREATE PROFILE Button
+        Box(
             modifier = Modifier
-                .width(360.dp)
-                .heightIn(max = 600.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(palette.surfaceBrush())
-                .border(1.5.dp, palette.borderBrush(), RoundedCornerShape(24.dp))
-                .clickable(enabled = false) { }
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxWidth()
+                .height(60.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(palette.chipBg)
+                .border(width = 1.dp, color = palette.fieldBorder, shape = RoundedCornerShape(14.dp))
+                .clickable { showCreatePage = true },
+            contentAlignment = Alignment.CenterStart
         ) {
             Text(
-                text = "CUSTOM PROFILE",
+                text = "CREATE PROFILE",
                 color = palette.onSurface,
-                fontSize = 24.sp,
-                fontFamily = titleFont,
-                fontStyle = FontStyle.Italic,
-                modifier = Modifier.padding(bottom = 20.dp),
-                style = TextStyle(shadow = androidx.compose.ui.graphics.Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
-            )
-
-            // CREATE PROFILE Button
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(palette.chipBg)
-                    .border(width = 1.dp, color = palette.fieldBorder, shape = RoundedCornerShape(14.dp))
-                    .clickable { showCreatePage = true },
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Text(
-                    text = "CREATE PROFILE",
-                    color = palette.onSurface,
-                    fontSize = 22.sp,
-                    fontFamily = titleFont,
-                    modifier = Modifier.padding(start = 24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            HorizontalDivider(color = palette.divider, thickness = 1.dp)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                "PREVIOUS/ONGOING PROFILES:",
-                color = palette.subtle,
                 fontSize = 22.sp,
-                fontFamily = contentFont,
-                modifier = Modifier.align(Alignment.Start)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(savedProfiles) { profile ->
-                    ProfileListItem(profile, contentFont, onLongPress = { profileToDelete = profile })
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "BACK",
-                color = Color.White.copy(alpha = 0.5f),
-                fontSize = 18.sp,
                 fontFamily = titleFont,
-                modifier = Modifier.clickable { onClose() }
+                modifier = Modifier.padding(start = 24.dp)
             )
         }
 
-        if (showCreatePage) {
-            CreateProfileOverlay(
-                titleFont = titleFont,
-                contentFont = contentFont,
-                onSave = { n, d, t ->
-                    onSave(n, d, t)
-                    showCreatePage = false
-                },
-                onClose = { showCreatePage = false }
-            )
+        Spacer(modifier = Modifier.height(24.dp))
+        HorizontalDivider(color = palette.divider, thickness = 1.dp)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            "PREVIOUS/ONGOING PROFILES:",
+            color = palette.subtle,
+            fontSize = 22.sp,
+            fontFamily = contentFont,
+            modifier = Modifier.align(Alignment.Start)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(savedProfiles, key = { it.id }) { profile ->
+                ProfileListItem(profile, contentFont, onLongPress = { profileToDelete = profile })
+            }
         }
 
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "BACK",
+            color = Color.White.copy(alpha = 0.5f),
+            fontSize = 18.sp,
+            fontFamily = titleFont,
+            modifier = Modifier.clickable { onClose() }
+        )
         if (profileToDelete != null) {
             AlertDialog(
                 onDismissRequest = { profileToDelete = null },

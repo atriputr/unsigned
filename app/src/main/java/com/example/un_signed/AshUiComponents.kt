@@ -2,6 +2,7 @@ package com.example.un_signed
 
 import android.content.Intent
 import android.provider.AlarmClock
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -21,10 +22,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -38,6 +43,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -58,6 +64,46 @@ val BronzeTextEnd = Color(0xFFC8935F)
 val ChevronStart = Color(0xFFF68F2D)
 val OrangeFire = Color(0xFFFF8A00)
 
+fun Modifier.shimmerEffect(): Modifier = composed {
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val startOffsetX by transition.animateFloat(
+        initialValue = -2 * size.width.toFloat(),
+        targetValue = 2 * size.width.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer"
+    )
+
+    background(
+        brush = Brush.linearGradient(
+            colors = listOf(
+                Color.Transparent,
+                Color.White.copy(alpha = 0.25f),
+                Color.Transparent,
+            ),
+            start = Offset(startOffsetX, 0f),
+            end = Offset(startOffsetX + size.width.toFloat(), size.height.toFloat())
+        )
+    ).onGloballyPositioned {
+        size = it.size
+    }
+}
+
+fun Modifier.fadingEdge(): Modifier = this.graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+    .drawWithContent {
+        drawContent()
+        drawRect(
+            brush = Brush.verticalGradient(
+                0.85f to Color.White,
+                1.0f to Color.Transparent
+            ),
+            blendMode = BlendMode.DstIn
+        )
+    }
+
 @Composable
 fun AshButton(
     text: String,
@@ -65,6 +111,7 @@ fun AshButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(if (isPressed) 0.97f else 1.0f, label = "scale")
@@ -82,7 +129,10 @@ fun AshButton(
             .width(320.dp)
             .height(98.dp)
             .scale(scale)
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
+            .clickable(interactionSource = interactionSource, indication = null) {
+                Haptics.click(context)
+                onClick()
+            },
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -171,6 +221,19 @@ fun NixieClock(
     var showAlarmDialog by remember { mutableStateOf(false) }
     var showModeMenu   by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    // Glow transition state
+    var modeSwitchTrigger by remember { mutableStateOf(0) }
+    val glowAlpha by animateFloatAsState(
+        targetValue = if (modeSwitchTrigger % 2 == 1) 0.8f else 0f,
+        animationSpec = tween(durationMillis = 300, easing = LinearEasing),
+        finishedListener = { if (it > 0f) modeSwitchTrigger++ },
+        label = "modeGlow"
+    )
+
+    LaunchedEffect(mode) {
+        modeSwitchTrigger = 1
+    }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -311,6 +374,7 @@ fun NixieClock(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = {
+                        Haptics.tick(context)
                         when (mode) {
                             2 -> onTimerTap { mode = 3 }
                             3 -> onStopwatchTap { mode = 4 }
@@ -318,11 +382,23 @@ fun NixieClock(
                             else -> mode = (mode + 1) % 6
                         }
                     },
-                    onLongPress = { showModeMenu = true }
+                    onLongPress = { 
+                        Haptics.click(context)
+                        showModeMenu = true 
+                    }
                 )
             },
         contentAlignment = Alignment.Center
     ) {
+        // Mode transition glow
+        val (_, glowColor, _) = nixieAccent()
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .height(80.dp)
+                .background(Brush.radialGradient(listOf(glowColor.copy(alpha = glowAlpha * 0.4f), Color.Transparent)))
+        )
+
         when (mode) {
             0 -> {
                 val h = time.format(DateTimeFormatter.ofPattern("HH"))
@@ -480,6 +556,52 @@ fun NixieColon() {
 }
 
 @Composable
+fun GlassCard(
+    modifier: Modifier = Modifier,
+    onClose: () -> Unit = {},
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val palette = LocalPalette.current
+    val context = LocalContext.current
+
+    // Subtle haptic on entry
+    LaunchedEffect(Unit) {
+        Haptics.tick(context)
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(palette.scrim)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { 
+                Haptics.click(context)
+                onClose() 
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = modifier
+                .width(340.dp)
+                .padding(24.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(palette.surfaceBrush())
+                .border(
+                    width = 1.5.dp,
+                    brush = palette.borderBrush(),
+                    shape = RoundedCornerShape(24.dp)
+                )
+                .padding(24.dp)
+                .clickable(enabled = false) { },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = content
+        )
+    }
+}
+
+@Composable
 fun GlassDialogContent(
     titleFont: FontFamily,
     buttonFont: FontFamily,
@@ -495,99 +617,84 @@ fun GlassDialogContent(
     onTipsClick: () -> Unit = {},
     onClose: () -> Unit
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
-        contentAlignment = Alignment.Center
-    ) {
+    GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
-        Column(
-            modifier = Modifier
-                .width(340.dp)
-                .padding(24.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(palette.surfaceBrush())
-                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
-                .padding(24.dp)
-                .clickable(enabled = false) { },
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "IDEAL OPTIONS",
-                color = palette.onSurface,
-                fontSize = 26.sp,
-                fontFamily = titleFont,
-                fontStyle = FontStyle.Italic,
-                modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
-            )
-            GlassButton("1. EDUCATION", buttonFont, onClick = onEducationClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("2. HEALTH", buttonFont, onClick = onHealthClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("3. SKILL", buttonFont, onClick = onSkillClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("4. PEACE", buttonFont, onClick = onPeaceClick)
+        Text(
+            text = "IDEAL OPTIONS",
+            color = palette.onSurface,
+            fontSize = 26.sp,
+            fontFamily = titleFont,
+            fontStyle = FontStyle.Italic,
+            modifier = Modifier.padding(bottom = 32.dp),
+            style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
+        )
+        GlassButton("1. EDUCATION", buttonFont, onClick = onEducationClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("2. HEALTH", buttonFont, onClick = onHealthClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("3. SKILL", buttonFont, onClick = onSkillClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("4. PEACE", buttonFont, onClick = onPeaceClick)
 
-            Spacer(modifier = Modifier.height(20.dp))
-            // Row 1: BRIEF · FOCUS · COMPARE
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Text(
-                    "◐ BRIEF",
-                    color = palette.accentPrimary.copy(alpha = 0.90f),
-                    fontSize = 12.sp,
-                    fontFamily = buttonFont,
-                    letterSpacing = 2.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { onBriefingClick() }
-                )
-                Text(
-                    "◇ FOCUS",
-                    color = palette.danger.copy(alpha = if (palette.isLight) 0.85f else 0.85f),
-                    fontSize = 12.sp,
-                    fontFamily = buttonFont,
-                    letterSpacing = 2.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { onFocusClick() }
-                )
-                Text(
-                    "◉ COMPARE",
-                    color = palette.accentSecondary,
-                    fontSize = 12.sp,
-                    fontFamily = buttonFont,
-                    letterSpacing = 2.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { onCompareClick() }
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Text(
-                    "★ TIPS",
-                    color = Color(0xFF8CD86A),
-                    fontSize = 12.sp,
-                    fontFamily = buttonFont,
-                    letterSpacing = 2.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { onTipsClick() }
-                )
-                Text(
-                    "◆ PROFILE",
-                    color = palette.accentSecondary,
-                    fontSize = 12.sp,
-                    fontFamily = buttonFont,
-                    letterSpacing = 2.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { onProfileClick() }
-                )
-                Text(
-                    "◈ SETTINGS",
-                    color = palette.subtle,
-                    fontSize = 12.sp,
-                    fontFamily = buttonFont,
-                    letterSpacing = 2.sp,
-                    modifier = Modifier.clickable { onSettingsClick() }
-                )
-            }
+        Spacer(modifier = Modifier.height(20.dp))
+        // Row 1: BRIEF · FOCUS · COMPARE
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            Text(
+                "◐ BRIEF",
+                color = palette.accentPrimary.copy(alpha = 0.90f),
+                fontSize = 12.sp,
+                fontFamily = buttonFont,
+                letterSpacing = 2.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { onBriefingClick() }
+            )
+            Text(
+                "◇ FOCUS",
+                color = palette.danger.copy(alpha = if (palette.isLight) 0.85f else 0.85f),
+                fontSize = 12.sp,
+                fontFamily = buttonFont,
+                letterSpacing = 2.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { onFocusClick() }
+            )
+            Text(
+                "◉ COMPARE",
+                color = palette.accentSecondary,
+                fontSize = 12.sp,
+                fontFamily = buttonFont,
+                letterSpacing = 2.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { onCompareClick() }
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            Text(
+                "★ TIPS",
+                color = Color(0xFF8CD86A),
+                fontSize = 12.sp,
+                fontFamily = buttonFont,
+                letterSpacing = 2.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { onTipsClick() }
+            )
+            Text(
+                "◆ PROFILE",
+                color = palette.accentSecondary,
+                fontSize = 12.sp,
+                fontFamily = buttonFont,
+                letterSpacing = 2.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { onProfileClick() }
+            )
+            Text(
+                "◈ SETTINGS",
+                color = palette.subtle,
+                fontSize = 12.sp,
+                fontFamily = buttonFont,
+                letterSpacing = 2.sp,
+                modifier = Modifier.clickable { onSettingsClick() }
+            )
         }
     }
 }
@@ -603,48 +710,37 @@ fun EducationOptionsOverlay(
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
-        contentAlignment = Alignment.Center
-    ) {
+    val context = LocalContext.current
+    GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
-        Column(
-            modifier = Modifier
-                .width(340.dp)
-                .padding(24.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(palette.surfaceBrush())
-                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
-                .padding(24.dp)
-                .clickable(enabled = false) { },
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "EDUCATION",
-                color = palette.onSurface,
-                fontSize = 26.sp,
-                fontFamily = titleFont,
-                fontStyle = FontStyle.Italic,
-                modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
-            )
-            GlassButton("LECTURE", buttonFont, onClick = onLectureClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("SUBJECT", buttonFont, onClick = onSubjectClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("COURSE", buttonFont, onClick = onCourseClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("PRACTICE", buttonFont, onClick = onPracticeClick)
+        Text(
+            text = "EDUCATION",
+            color = palette.onSurface,
+            fontSize = 26.sp,
+            fontFamily = titleFont,
+            fontStyle = FontStyle.Italic,
+            modifier = Modifier.padding(bottom = 32.dp),
+            style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
+        )
+        GlassButton("LECTURE", buttonFont, onClick = onLectureClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("SUBJECT", buttonFont, onClick = onSubjectClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("COURSE", buttonFont, onClick = onCourseClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("PRACTICE", buttonFont, onClick = onPracticeClick)
 
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "BACK",
-                color = palette.faint,
-                fontSize = 18.sp,
-                fontFamily = buttonFont,
-                modifier = Modifier.clickable { onBack() }
-            )
-        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "BACK",
+            color = palette.faint,
+            fontSize = 18.sp,
+            fontFamily = buttonFont,
+            modifier = Modifier.clickable { 
+                Haptics.click(context)
+                onBack() 
+            }
+        )
     }
 }
 
@@ -660,100 +756,89 @@ fun HealthOptionsOverlay(
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
-        contentAlignment = Alignment.Center
-    ) {
+    val context = LocalContext.current
+    GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
-        Column(
+        Text(
+            text = "HEALTH",
+            color = palette.onSurface,
+            fontSize = 26.sp,
+            fontFamily = titleFont,
+            fontStyle = FontStyle.Italic,
+            modifier = Modifier.padding(bottom = 32.dp),
+            style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
+        )
+        GlassButton("WATER", buttonFont, onClick = onWaterClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("EXERCISE", buttonFont, onClick = onExerciseClick)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Box(
             modifier = Modifier
-                .width(340.dp)
-                .padding(24.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(palette.surfaceBrush())
-                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
-                .padding(24.dp)
-                .clickable(enabled = false) { },
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "HEALTH",
-                color = palette.onSurface,
-                fontSize = 26.sp,
-                fontFamily = titleFont,
-                fontStyle = FontStyle.Italic,
-                modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
-            )
-            GlassButton("WATER", buttonFont, onClick = onWaterClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("EXERCISE", buttonFont, onClick = onExerciseClick)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(palette.chipBg)
-                    .border(1.dp, palette.fieldBorder, RoundedCornerShape(14.dp))
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap       = { onJunkCountChange((junkCount - 1).coerceAtLeast(0)) },
-                            onDoubleTap = { onJunkCountChange(junkCount + 1) }
-                        )
-                    },
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("JUNK COUNT", color = palette.onSurface, fontSize = 22.sp, fontFamily = buttonFont, letterSpacing = 1.sp)
-                    Text(
-                        "$junkCount",
-                        color = palette.accentPrimary,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        style = TextStyle(shadow = Shadow(color = palette.accentPrimary, blurRadius = 16f))
+                .fillMaxWidth()
+                .height(60.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(palette.chipBg)
+                .border(1.dp, palette.fieldBorder, RoundedCornerShape(14.dp))
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap       = { onJunkCountChange((junkCount - 1).coerceAtLeast(0)) },
+                        onDoubleTap = { onJunkCountChange(junkCount + 1) }
                     )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(palette.danger)
-                    .border(1.5.dp, palette.onSurface.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
-                    .clickable { onClose() },
-                contentAlignment = Alignment.Center
+                },
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                Text("JUNK COUNT", color = palette.onSurface, fontSize = 22.sp, fontFamily = buttonFont, letterSpacing = 1.sp)
                 Text(
-                    "SAVE",
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 3.sp
+                    "$junkCount",
+                    color = palette.accentPrimary,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold,
+                    style = TextStyle(shadow = Shadow(color = palette.accentPrimary, blurRadius = 16f))
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("MEDS", buttonFont, onClick = onMedsClick)
+        Spacer(modifier = Modifier.height(10.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(46.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(palette.danger)
+                .border(1.5.dp, palette.onSurface.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+                .clickable { onClose() },
+            contentAlignment = Alignment.Center
+        ) {
             Text(
-                text = "BACK",
-                color = palette.faint,
-                fontSize = 18.sp,
-                fontFamily = buttonFont,
-                modifier = Modifier.clickable { onBack() }
+                "SAVE",
+                color = Color.White,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 3.sp
             )
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("MEDS", buttonFont, onClick = onMedsClick)
+
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "BACK",
+            color = palette.faint,
+            fontSize = 18.sp,
+            fontFamily = buttonFont,
+            modifier = Modifier.clickable { 
+                Haptics.click(context)
+                onBack() 
+            }
+        )
     }
 }
 
@@ -768,48 +853,37 @@ fun MedsOptionsOverlay(
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
-        contentAlignment = Alignment.Center
-    ) {
+    val context = LocalContext.current
+    GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
-        Column(
-            modifier = Modifier
-                .width(340.dp)
-                .padding(24.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(palette.surfaceBrush())
-                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
-                .padding(24.dp)
-                .clickable(enabled = false) { },
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "MEDS",
-                color = palette.onSurface,
-                fontSize = 26.sp,
-                fontFamily = titleFont,
-                fontStyle = FontStyle.Italic,
-                modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
-            )
-            GlassButton("MEDS LOG", buttonFont, onClick = onMedsLogClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("SUPPLIMENTS", buttonFont, onClick = onSupplimentsClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("SEVERE", buttonFont, onClick = onSevereClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("DIET", buttonFont, onClick = onDietClick)
+        Text(
+            text = "MEDS",
+            color = palette.onSurface,
+            fontSize = 26.sp,
+            fontFamily = titleFont,
+            fontStyle = FontStyle.Italic,
+            modifier = Modifier.padding(bottom = 32.dp),
+            style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
+        )
+        GlassButton("MEDS LOG", buttonFont, onClick = onMedsLogClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("SUPPLIMENTS", buttonFont, onClick = onSupplimentsClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("SEVERE", buttonFont, onClick = onSevereClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("DIET", buttonFont, onClick = onDietClick)
 
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "BACK",
-                color = palette.faint,
-                fontSize = 18.sp,
-                fontFamily = buttonFont,
-                modifier = Modifier.clickable { onBack() }
-            )
-        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "BACK",
+            color = palette.faint,
+            fontSize = 18.sp,
+            fontFamily = buttonFont,
+            modifier = Modifier.clickable { 
+                Haptics.click(context)
+                onBack() 
+            }
+        )
     }
 }
 
@@ -823,46 +897,35 @@ fun SkillOptionsOverlay(
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
-        contentAlignment = Alignment.Center
-    ) {
+    val context = LocalContext.current
+    GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
-        Column(
-            modifier = Modifier
-                .width(340.dp)
-                .padding(24.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(palette.surfaceBrush())
-                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
-                .padding(24.dp)
-                .clickable(enabled = false) { },
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "SKILL",
-                color = palette.onSurface,
-                fontSize = 26.sp,
-                fontFamily = titleFont,
-                fontStyle = FontStyle.Italic,
-                modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
-            )
-            GlassButton("HOBBY", buttonFont, onClick = onHobbyClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("MINOR SKILL TO GROW", buttonFont, onClick = onMinorClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("MAJOR SKILL FOR LIFE", buttonFont, onClick = onMajorClick)
+        Text(
+            text = "SKILL",
+            color = palette.onSurface,
+            fontSize = 26.sp,
+            fontFamily = titleFont,
+            fontStyle = FontStyle.Italic,
+            modifier = Modifier.padding(bottom = 32.dp),
+            style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
+        )
+        GlassButton("HOBBY", buttonFont, onClick = onHobbyClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("MINOR SKILL TO GROW", buttonFont, onClick = onMinorClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("MAJOR SKILL FOR LIFE", buttonFont, onClick = onMajorClick)
 
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "BACK",
-                color = palette.faint,
-                fontSize = 18.sp,
-                fontFamily = buttonFont,
-                modifier = Modifier.clickable { onBack() }
-            )
-        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "BACK",
+            color = palette.faint,
+            fontSize = 18.sp,
+            fontFamily = buttonFont,
+            modifier = Modifier.clickable { 
+                Haptics.click(context)
+                onBack() 
+            }
+        )
     }
 }
 
@@ -878,56 +941,46 @@ fun PeaceOptionsOverlay(
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize().background(LocalPalette.current.scrim).clickable { onClose() },
-        contentAlignment = Alignment.Center
-    ) {
+    val context = LocalContext.current
+    GlassCard(onClose = onClose) {
         val palette = LocalPalette.current
-        Column(
-            modifier = Modifier
-                .width(340.dp)
-                .padding(24.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(palette.surfaceBrush())
-                .border(width = 1.5.dp, brush = palette.borderBrush(), shape = RoundedCornerShape(24.dp))
-                .padding(24.dp)
-                .clickable(enabled = false) { },
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "PEACE",
-                color = palette.onSurface,
-                fontSize = 26.sp,
-                fontFamily = titleFont,
-                fontStyle = FontStyle.Italic,
-                modifier = Modifier.padding(bottom = 32.dp),
-                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
-            )
-            GlassButton("CYCLING", buttonFont, onClick = onCyclingClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("YOGA", buttonFont, onClick = onYogaClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("WALKING", buttonFont, onClick = onWalkingClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("SLEEP", buttonFont, onClick = onSleepClick)
-            Spacer(modifier = Modifier.height(16.dp))
-            GlassButton("HABITS", buttonFont, onClick = onHabitsClick)
+        Text(
+            text = "PEACE",
+            color = palette.onSurface,
+            fontSize = 26.sp,
+            fontFamily = titleFont,
+            fontStyle = FontStyle.Italic,
+            modifier = Modifier.padding(bottom = 32.dp),
+            style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
+        )
+        GlassButton("CYCLING", buttonFont, onClick = onCyclingClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("YOGA", buttonFont, onClick = onYogaClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("WALKING", buttonFont, onClick = onWalkingClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("SLEEP", buttonFont, onClick = onSleepClick)
+        Spacer(modifier = Modifier.height(16.dp))
+        GlassButton("HABITS", buttonFont, onClick = onHabitsClick)
 
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "BACK",
-                color = palette.faint,
-                fontSize = 18.sp,
-                fontFamily = buttonFont,
-                modifier = Modifier.clickable { onBack() }
-            )
-        }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "BACK",
+            color = palette.faint,
+            fontSize = 18.sp,
+            fontFamily = buttonFont,
+            modifier = Modifier.clickable { 
+                Haptics.click(context)
+                onBack() 
+            }
+        )
     }
 }
 
 @Composable
 fun GlassButton(text: String, fontFamily: FontFamily, onClick: () -> Unit = {}) {
     val palette = LocalPalette.current
+    val context = LocalContext.current
     val surfaceBrush = if (palette.isLight) {
         Brush.linearGradient(listOf(palette.onSurface.copy(alpha = 0.06f), palette.onSurface.copy(alpha = 0.02f)))
     } else {
@@ -939,8 +992,12 @@ fun GlassButton(text: String, fontFamily: FontFamily, onClick: () -> Unit = {}) 
             .height(60.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(surfaceBrush)
+            .shimmerEffect()
             .border(width = 1.dp, color = palette.fieldBorder, shape = RoundedCornerShape(14.dp))
-            .clickable { onClick() },
+            .clickable {
+                Haptics.click(context)
+                onClick()
+            },
         contentAlignment = Alignment.CenterStart
     ) {
         Text(
@@ -1022,55 +1079,80 @@ fun UpcomingEventsList(
 
         // ── Events list or empty placeholder ─────────────────────────
         if (upcomingTasks.isEmpty() && (activeLectureName == null || activeLectureProgress >= 1f)) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                Text(
-                    text = "no events on record",
-                    color = Color.White.copy(alpha = 0.4f),
-                    fontSize = 18.sp,
-                    fontFamily = fontFamily,
-                    fontStyle = FontStyle.Italic,
-                    modifier = Modifier.padding(top = 20.dp)
-                )
-            }
+            EmptyState(text = "no events on record", fontFamily = fontFamily)
         } else if (upcomingTasks.isNotEmpty()) {
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fadingEdge(),
                 contentPadding = PaddingValues(vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(upcomingTasks) { (date, task) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.White.copy(alpha = 0.05f))
-                            .clickable { onEventClick(date) }
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                items(upcomingTasks, key = { (date, task) -> "${date}_${task.text}" }) { (date, task) ->
+                    var visible by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { visible = true }
+
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(600)) + slideInVertically(tween(600)) { it / 2 }
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = task.text,
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 16.sp,
-                                fontFamily = fontFamily
-                            )
-                            Text(
-                                text = date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")),
-                                color = Color(0xFFEBC174).copy(alpha = 0.7f),
-                                fontSize = 12.sp,
-                                fontFamily = fontFamily
-                            )
-                        }
-                        if (task.isDone) {
-                            Text("✓", color = Color(0xFF09e8ad), fontWeight = FontWeight.Bold)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.05f))
+                                .clickable { onEventClick(date) }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = task.text,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 16.sp,
+                                    fontFamily = fontFamily
+                                )
+                                Text(
+                                    text = date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")),
+                                    color = Color(0xFFEBC174).copy(alpha = 0.7f),
+                                    fontSize = 12.sp,
+                                    fontFamily = fontFamily
+                                )
+                            }
+                            if (task.isDone) {
+                                Text("✓", color = Color(0xFF09e8ad), fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun EmptyState(
+    text: String,
+    fontFamily: FontFamily,
+    iconRes: Int = R.drawable.ic_calendar
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(top = 20.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                modifier = Modifier.size(64.dp).alpha(0.15f),
+                tint = Color.White
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = text,
+                color = Color.White.copy(alpha = 0.35f),
+                fontSize = 18.sp,
+                fontFamily = fontFamily,
+                fontStyle = FontStyle.Italic
+            )
         }
     }
 }

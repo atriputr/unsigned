@@ -133,7 +133,7 @@ fun PracticeScreen(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(activePractices) { practice ->
+                    items(activePractices, key = { it.id }) { practice ->
                         SubjectListItem(
                             subject = practice,
                             font = contentFont,
@@ -177,7 +177,7 @@ fun PracticeScreen(
                         modifier = Modifier.fillMaxWidth().weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(completedPractices) { practice ->
+                        items(completedPractices, key = { it.id }) { practice ->
                             SubjectListItem(practice, contentFont) {
                                 selectedPracticeForDetail = practice
                             }

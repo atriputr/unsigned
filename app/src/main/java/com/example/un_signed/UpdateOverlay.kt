@@ -1,5 +1,6 @@
 package com.example.un_signed
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -7,12 +8,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +29,15 @@ fun UpdateOverlay(
     onUpdate: () -> Unit,
     onClose: () -> Unit
 ) {
+    val context = LocalContext.current
+    val infiniteTransition = rememberInfiniteTransition(label = "badge")
+    val badgeScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
+        label = "badgeScale"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -77,10 +90,26 @@ fun UpdateOverlay(
                     .height(55.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF09e8ad))
-                    .clickable { onUpdate() },
+                    .clickable { 
+                        Haptics.click(context)
+                        onUpdate() 
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Text("UPDATE NOW", color = Color.Black, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = BebasFont)
+                
+                // NEW Badge
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = (-8).dp, y = (-8).dp)
+                        .scale(badgeScale)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Red)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text("NEW", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black, fontFamily = BebasFont)
+                }
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -90,7 +119,10 @@ fun UpdateOverlay(
                 color = Color.White.copy(alpha = 0.4f),
                 fontSize = 16.sp,
                 fontFamily = BebasFont,
-                modifier = Modifier.clickable { onClose() }
+                modifier = Modifier.clickable { 
+                    Haptics.click(context)
+                    onClose() 
+                }
             )
         }
     }

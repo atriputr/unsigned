@@ -128,7 +128,7 @@ fun CourseScreen(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(activeCourses) { course ->
+                    items(activeCourses, key = { it.id }) { course ->
                         SubjectListItem(course, contentFont) {
                             selectedCourseForDetail = course
                         }
@@ -171,7 +171,7 @@ fun CourseScreen(
                         modifier = Modifier.fillMaxWidth().weight(1f),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(completedCourses) { course ->
+                        items(completedCourses, key = { it.id }) { course ->
                             SubjectListItem(course, contentFont) {
                                 selectedCourseForDetail = course
                             }

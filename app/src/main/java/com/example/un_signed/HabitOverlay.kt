@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -45,97 +46,88 @@ fun HabitOverlay(
     val palette = LocalPalette.current
     var habitName by remember { mutableStateOf("") }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(palette.scrim)
-            .clickable { onClose() },
-        contentAlignment = Alignment.Center
+    GlassCard(
+        modifier = Modifier.heightIn(max = 600.dp),
+        onClose = onClose
     ) {
-        Column(
-            modifier = Modifier
-                .width(360.dp)
-                .heightIn(max = 600.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(palette.surfaceBrush())
-                .border(1.5.dp, palette.borderBrush(), RoundedCornerShape(24.dp))
-                .clickable(enabled = false) { }
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "HABITS",
-                color = palette.onSurface,
-                fontSize = 26.sp,
-                fontFamily = titleFont,
-                fontStyle = FontStyle.Italic,
-                modifier = Modifier.padding(bottom = 20.dp),
-                style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
-            )
+        Text(
+            text = "HABITS",
+            color = palette.onSurface,
+            fontSize = 26.sp,
+            fontFamily = titleFont,
+            fontStyle = FontStyle.Italic,
+            modifier = Modifier.padding(bottom = 20.dp),
+            style = TextStyle(shadow = Shadow(color = palette.accentPrimary.copy(alpha = 0.35f), blurRadius = 8f))
+        )
 
-            // Input Area
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text("ENTER HABIT", color = palette.subtle, fontSize = 18.sp, fontFamily = titleFont)
-                Spacer(modifier = Modifier.height(4.dp))
-                BasicTextField(
-                    value = habitName,
-                    onValueChange = { habitName = it },
-                    textStyle = TextStyle(color = palette.onSurface, fontSize = 20.sp, fontFamily = contentFont),
-                    cursorBrush = androidx.compose.ui.graphics.SolidColor(palette.accentPrimary),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(palette.fieldBg)
-                        .border(1.dp, palette.fieldBorder, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    decorationBox = { innerTextField ->
-                        if (habitName.isEmpty()) {
-                            Text("New habit...", color = palette.faint, fontSize = 20.sp, fontFamily = contentFont)
-                        }
-                        innerTextField()
-                    }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Save Button
-            Box(
+        // Input Area
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text("ENTER HABIT", color = palette.subtle, fontSize = 18.sp, fontFamily = titleFont)
+            Spacer(modifier = Modifier.height(4.dp))
+            BasicTextField(
+                value = habitName,
+                onValueChange = { habitName = it },
+                textStyle = TextStyle(color = palette.onSurface, fontSize = 20.sp, fontFamily = contentFont),
+                cursorBrush = SolidColor(palette.accentPrimary),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(palette.danger.copy(alpha = 0.85f))
-                    .clickable {
-                        if (habitName.isNotBlank()) {
-                            onSave(habitName)
-                            habitName = ""
-                        }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text("SAVE HABIT", color = Color.White, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            HorizontalDivider(color = palette.divider, thickness = 1.dp)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                "SAVED HABITS:",
-                color = palette.subtle,
-                fontSize = 20.sp,
-                fontFamily = contentFont,
-                modifier = Modifier.align(Alignment.Start)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(palette.fieldBg)
+                    .border(1.dp, palette.fieldBorder, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                decorationBox = { innerTextField ->
+                    if (habitName.isEmpty()) {
+                        Text("New habit...", color = palette.faint, fontSize = 20.sp, fontFamily = contentFont)
+                    }
+                    innerTextField()
+                }
             )
+        }
 
-            Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
+        // Save Button
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(palette.danger.copy(alpha = 0.85f))
+                .clickable {
+                    if (habitName.isNotBlank()) {
+                        onSave(habitName)
+                        habitName = ""
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Text("SAVE HABIT", color = Color.White, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        HorizontalDivider(color = palette.divider, thickness = 1.dp)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            "SAVED HABITS:",
+            color = palette.subtle,
+            fontSize = 20.sp,
+            fontFamily = contentFont,
+            modifier = Modifier.align(Alignment.Start)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (savedHabits.isEmpty()) {
+            Box(modifier = Modifier.weight(1f)) {
+                EmptyState(text = "no habits tracked yet", fontFamily = contentFont)
+            }
+        } else {
             LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                itemsIndexed(savedHabits) { index, habit ->
+                itemsIndexed(savedHabits, key = { _, h -> h.id }) { index, habit ->
                     HabitListItem(
                         habit = habit, 
                         font = contentFont,
@@ -145,16 +137,16 @@ fun HabitOverlay(
                     )
                 }
             }
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            Text(
-                text = "BACK",
-                color = palette.faint,
-                fontSize = 18.sp,
-                fontFamily = titleFont,
-                modifier = Modifier.clickable { onClose() }
-            )
         }
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = "BACK",
+            color = palette.faint,
+            fontSize = 18.sp,
+            fontFamily = titleFont,
+            modifier = Modifier.clickable { onClose() }
+        )
     }
 }
 
