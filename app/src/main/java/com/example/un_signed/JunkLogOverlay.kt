@@ -66,8 +66,8 @@ fun JunkLogOverlay(
     var impact by remember { mutableStateOf<JunkImpact?>(null) }
     var country by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf("") }
-    // Live typing suggestions (debounced 400ms, min 3 chars)
-    var suggestions by remember { mutableStateOf<List<OffProduct>>(emptyList()) }
+    // Live typing suggestions for brands
+    var brandSuggestions by remember { mutableStateOf<List<String>>(emptyList()) }
     var isSuggesting by remember { mutableStateOf(false) }
     var suggestJob by remember { mutableStateOf<Job?>(null) }
 
@@ -77,22 +77,17 @@ fun JunkLogOverlay(
         country = loc?.countryCode ?: ""
     }
 
-    // Debounced live suggestions while user types on step 3
-    LaunchedEffect(queryText, categoryTag, step) {
+    // Debounced live brand suggestions while user types on step 3
+    LaunchedEffect(queryText, step) {
         suggestJob?.cancel()
-        if (step != 3 || queryText.trim().length < 3) {
-            suggestions = emptyList(); isSuggesting = false
+        if (step != 3 || queryText.trim().length < 2) {
+            brandSuggestions = emptyList(); isSuggesting = false
             return@LaunchedEffect
         }
         suggestJob = scope.launch {
-            delay(400L)
+            delay(350L)
             isSuggesting = true
-            suggestions = OpenFoodFactsService.search(
-                query = queryText,
-                countryCode = country,
-                categoryTag = categoryTag,
-                limit = 6
-            )
+            brandSuggestions = OpenFoodFactsService.suggestBrands(queryText)
             isSuggesting = false
         }
     }
@@ -191,11 +186,11 @@ fun JunkLogOverlay(
                             }
                         )
 
-                        // ── Live typing suggestions ──────────────
+                        // ── Live brand suggestions ──────────────
                         when {
-                            queryText.trim().length in 1..2 -> {
+                            queryText.trim().length in 1..1 -> {
                                 Text(
-                                    "keep typing… (min 3 chars for suggestions)",
+                                    "keep typing… (min 2 chars for brand search)",
                                     color = palette.faint, fontSize = 10.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic
                                 )
                             }
@@ -209,28 +204,35 @@ fun JunkLogOverlay(
                                     )
                                     Spacer(Modifier.width(6.dp))
                                     Text(
-                                        "matching products…",
+                                        "finding brands…",
                                         color = palette.subtle, fontSize = 10.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic
                                     )
                                 }
                             }
-                            suggestions.isNotEmpty() -> {
+                            brandSuggestions.isNotEmpty() -> {
                                 Text(
-                                    "TAP TO PICK  ·  or SEARCH for more",
+                                    "TAP A BRAND  ·  to see all local products",
                                     color = palette.accentSecondary, fontSize = 9.sp, fontFamily = titleFont, letterSpacing = 2.sp, fontWeight = FontWeight.Bold
                                 )
-                                suggestions.forEach { p ->
-                                    SuggestionRow(p, palette, contentFont) {
-                                        pickedProduct = p
-                                        servingGrams = if (type == "liquid") 250 else 30
-                                        impact = JunkImpactAnalyzer.analyse(p, servingGrams, profile)
-                                        step = 5
+                                brandSuggestions.forEach { b ->
+                                    BrandSuggestionRow(b, palette, contentFont) {
+                                        scope.launch {
+                                            queryText = b // set name to original
+                                            isSearching = true; errorMsg = ""
+                                            results = OpenFoodFactsService.productsByBrand(
+                                                brand = b,
+                                                countryCode = country
+                                            )
+                                            isSearching = false
+                                            if (results.isEmpty()) errorMsg = "no products found for this brand in $country"
+                                            else step = 4
+                                        }
                                     }
                                 }
                             }
-                            queryText.trim().length >= 3 && !isSuggesting -> {
+                            queryText.trim().length >= 2 && !isSuggesting -> {
                                 Text(
-                                    "no live matches — hit SEARCH for full catalogue",
+                                    "no brand matches — try searching by full product name below",
                                     color = palette.faint, fontSize = 10.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic
                                 )
                             }
@@ -243,18 +245,18 @@ fun JunkLogOverlay(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(palette.danger.copy(alpha = 0.9f))
                                 .clickable(enabled = queryText.isNotBlank() && !isSearching) {
-                                    scope.launch {
-                                        isSearching = true; errorMsg = ""
-                                        results = OpenFoodFactsService.search(
-                                            query = queryText,
-                                            countryCode = country,
-                                            categoryTag = categoryTag,
-                                            limit = 15
-                                        )
-                                        isSearching = false
-                                        if (results.isEmpty()) errorMsg = "no products found — try broader terms"
-                                        else step = 4
-                                    }
+                                        scope.launch {
+                                            isSearching = true; errorMsg = ""
+                                            results = OpenFoodFactsService.search(
+                                                query = queryText,
+                                                countryCode = country,
+                                                categoryTag = categoryTag,
+                                                limit = 20
+                                            )
+                                            isSearching = false
+                                            if (results.isEmpty()) errorMsg = "no products found — try broader terms"
+                                            else step = 4
+                                        }
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -477,7 +479,7 @@ private fun CategoryRow(label: String, selected: Boolean, palette: ThemePalette,
 }
 
 @Composable
-private fun SuggestionRow(p: OffProduct, palette: ThemePalette, font: FontFamily, onClick: () -> Unit) {
+private fun BrandSuggestionRow(brand: String, palette: ThemePalette, font: FontFamily, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -485,32 +487,26 @@ private fun SuggestionRow(p: OffProduct, palette: ThemePalette, font: FontFamily
             .background(palette.chipBg)
             .border(1.dp, palette.fieldBorder, RoundedCornerShape(8.dp))
             .clickable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Colored dot = quick severity read
-        val dotColor = when {
-            p.novaGroup == 4 -> Color(0xFFE41417)
-            p.novaGroup == 3 -> Color(0xFFFFC848)
-            p.nutriscore.equals("d", true) || p.nutriscore.equals("e", true) -> Color(0xFFFF8C1A)
-            else -> Color(0xFF8CD86A)
-        }
         Box(
             modifier = Modifier
                 .size(8.dp)
                 .clip(RoundedCornerShape(50))
-                .background(dotColor)
+                .background(palette.accentPrimary)
         )
-        Spacer(Modifier.width(8.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            if (p.brand.isNotBlank()) {
-                Text(p.brand.uppercase(), color = palette.accentSecondary, fontSize = 8.sp, fontFamily = font, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
-            }
-            Text(p.productName, color = palette.onSurface, fontSize = 12.sp, fontFamily = font, maxLines = 1)
-        }
-        if (p.quantity.isNotBlank()) {
-            Text(p.quantity, color = palette.faint, fontSize = 9.sp, fontFamily = font)
-        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = brand, 
+            color = palette.onSurface, 
+            fontSize = 14.sp, 
+            fontFamily = font, 
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+        Spacer(Modifier.weight(1f))
+        Text("›", color = palette.subtle, fontSize = 16.sp, fontFamily = font)
     }
 }
 

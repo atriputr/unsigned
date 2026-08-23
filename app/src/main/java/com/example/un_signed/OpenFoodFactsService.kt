@@ -85,6 +85,58 @@ object OpenFoodFactsService {
         } catch (_: Exception) { emptyList() }
     }
 
+    /**
+     * Get brand suggestions based on a partial string.
+     * @param term partial brand name (e.g. "Too")
+     */
+    suspend fun suggestBrands(term: String): List<String> = withContext(Dispatchers.IO) {
+        if (term.isBlank()) return@withContext emptyList()
+        try {
+            val t = URLEncoder.encode(term.trim(), "UTF-8")
+            val url = URL("https://world.openfoodfacts.org/cgi/suggest.pl?tagtype=brands&term=$t")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.setRequestProperty("User-Agent", "Unsigned-App Android (personal-tracker)")
+            if (conn.responseCode !in 200..299) return@withContext emptyList()
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONArray(body)
+            (0 until json.length()).map { json.getString(it) }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    /**
+     * Search products for a specific brand and country.
+     */
+    suspend fun productsByBrand(
+        brand: String,
+        countryCode: String = "",
+        limit: Int = 30
+    ): List<OffProduct> = withContext(Dispatchers.IO) {
+        try {
+            val b = URLEncoder.encode(brand.trim(), "UTF-8")
+            val countryParam = if (countryCode.isNotBlank()) {
+                "&tagtype_1=countries&tag_contains_1=contains&tag_1=" +
+                    URLEncoder.encode(countryCodeToTag(countryCode), "UTF-8")
+            } else ""
+
+            val url = URL(
+                "https://world.openfoodfacts.org/cgi/search.pl" +
+                    "?tagtype_0=brands&tag_contains_0=contains&tag_0=$b" +
+                    "&action=process&json=1&page_size=$limit" +
+                    "&fields=code,product_name,brands,categories,image_small_url," +
+                    "countries,quantity,nutriscore_grade,nova_group," +
+                    "nutriments,additives_n,additives_tags,ingredients_text" +
+                    countryParam
+            )
+            val conn = url.openConnection() as HttpURLConnection
+            conn.setRequestProperty("User-Agent", "Unsigned-App Android (personal-tracker)")
+            if (conn.responseCode !in 200..299) return@withContext emptyList()
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            val json = JSONObject(body)
+            val products = json.optJSONArray("products") ?: return@withContext emptyList()
+            (0 until products.length()).mapNotNull { i -> parseProduct(products.getJSONObject(i)) }
+        } catch (_: Exception) { emptyList() }
+    }
+
     /** Fetch a single product by barcode/id. */
     suspend fun productById(id: String): OffProduct? = withContext(Dispatchers.IO) {
         try {
