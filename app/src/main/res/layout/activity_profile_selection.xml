@@ -39,12 +39,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Themed home skin (only visible in CREAM / AMBER) — draws its own bg + buttons -->
+
+    <!-- Themed home skin (only visible in CREAM / AMBER / DARK) — draws its own bg + buttons -->
     <androidx.compose.ui.platform.ComposeView
         android:id="@+id/cvHomeSkin"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -179,6 +179,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="@id/btnLeft"
         app:layout_constraintEnd_toEndOf="@id/btnRight" />
+
 
     <!-- Overlay for the Glass Window -->
     <androidx.compose.ui.platform.ComposeView

@@ -119,8 +119,9 @@ object AppPalettes {
 val LocalPalette = staticCompositionLocalOf { AppPalettes.Dark }
 
 @Composable
-fun AppThemeProvider(theme: String, content: @Composable () -> Unit) {
+fun AppThemeProvider(theme: String, lang: String = "en", content: @Composable () -> Unit) {
     val palette = AppPalettes.byName(theme)
+    val strings = Localization.getStrings(lang)
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -132,7 +133,10 @@ fun AppThemeProvider(theme: String, content: @Composable () -> Unit) {
             }
         }
     }
-    CompositionLocalProvider(LocalPalette provides palette) {
+    CompositionLocalProvider(
+        LocalPalette provides palette,
+        LocalStrings provides strings
+    ) {
         content()
     }
 }

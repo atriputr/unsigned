@@ -1,6 +1,6 @@
 {
-  "versionCode": 13,
-  "versionName": "2.2",
+  "versionCode": 17,
+  "versionName": "2.6",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v2.2: Comprehensive UI polishing, enhanced animations, haptic feedback integration, and search optimizations. 🚀🛸✨"
+  "releaseNotes": "v2.6: Final UI polish for Settings - Added Check for Update and Update Log tiles in the System section. 🚀🛸🤝🏻🦾✨"
 }

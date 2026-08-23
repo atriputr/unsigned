@@ -168,7 +168,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         val jerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
 
         tvClock.setContent {
-            AppThemeProvider(appPrefs.value.theme) {
+            AppThemeProvider(appPrefs.value.theme, appPrefs.value.languageCode) {
                 NixieClock(
                     fontFamily = jerseyFont,
                     onClick = {},
@@ -179,7 +179,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         }
 
         cvUpcomingEvents.setContent {
-            AppThemeProvider(appPrefs.value.theme) {
+            AppThemeProvider(appPrefs.value.theme, appPrefs.value.languageCode) {
                 UpcomingEventsList(
                     allTasks              = allCalendarTasks,
                     fontFamily            = bebasFont,
@@ -262,7 +262,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         pbYearProgress.progressBackgroundTintList = android.content.res.ColorStateList.valueOf(palette.divider.toArgb())
 
         cvStatusBar.setContent {
-            AppThemeProvider(themeName) { StatusBarBox() }
+            AppThemeProvider(themeName, appPrefs.value.languageCode) { StatusBarBox() }
         }
 
         if (themeName == "DARK") {
@@ -274,35 +274,37 @@ class ProfileSelectionActivity : AppCompatActivity() {
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
         cvHomeSkin.visibility = View.VISIBLE
         cvHomeSkin.setContent {
-            // Compute derived state
-            val waterEntry = FitDataRepository.loadWaterEntry(LocalDate.now())
-            val goalMl = waterEntry?.goalMl ?: WaterGoal.compute(userProfile.value, FitDataRepository.loadWeatherCache().takeIf { it.isValid })
-            val glassMl = waterEntry?.glassMl ?: 250
-            val targetGlasses = ((goalMl + glassMl - 1) / glassMl).coerceAtLeast(1)
+            AppThemeProvider(themeName, appPrefs.value.languageCode) {
+                // Compute derived state
+                val waterEntry = FitDataRepository.loadWaterEntry(LocalDate.now())
+                val goalMl = waterEntry?.goalMl ?: WaterGoal.compute(userProfile.value, FitDataRepository.loadWeatherCache().takeIf { it.isValid })
+                val glassMl = waterEntry?.glassMl ?: 250
+                val targetGlasses = ((goalMl + glassMl - 1) / glassMl).coerceAtLeast(1)
 
-            HomeSkin(
-                themeName = themeName,
-                titleFont = bebasFont,
-                quickState = HomeQuickState(
-                    sleepActive = sleepSession.value.active,
-                    sleepDisturbances = sleepSession.value.disturbanceCount,
-                    junkCountToday = savedJunkCount.value,
-                    waterGlassesToday = waterGlassesToday.value,
-                    waterTargetGlasses = targetGlasses
-                ),
-                quickCallbacks = HomeQuickCallbacks(
-                    onSleepBegin     = { onSleepBegin() },
-                    onSleepDisturbed = { onSleepDisturbed() },
-                    onSleepEnd       = { onSleepEnd() },
-                    onSleepManage    = { showSleepManageOverlay() },
-                    onJunkIncrement    = { onJunkChange(+1) },
-                    onJunkDecrement    = { onJunkChange(-1) },
-                    onJunkOpenDetailed = { showJunkLogOverlay() },
-                    onWaterIncrement   = { onWaterChange(+1) },
-                    onWaterDecrement   = { onWaterChange(-1) },
-                    onWaterReset       = { onWaterReset() }
+                HomeSkin(
+                    themeName = themeName,
+                    titleFont = bebasFont,
+                    quickState = HomeQuickState(
+                        sleepActive = sleepSession.value.active,
+                        sleepDisturbances = sleepSession.value.disturbanceCount,
+                        junkCountToday = savedJunkCount.value,
+                        waterGlassesToday = waterGlassesToday.value,
+                        waterTargetGlasses = targetGlasses
+                    ),
+                    quickCallbacks = HomeQuickCallbacks(
+                        onSleepBegin     = { onSleepBegin() },
+                        onSleepDisturbed = { onSleepDisturbed() },
+                        onSleepEnd       = { onSleepEnd() },
+                        onSleepManage    = { showSleepManageOverlay() },
+                        onJunkIncrement    = { onJunkChange(+1) },
+                        onJunkDecrement    = { onJunkChange(-1) },
+                        onJunkOpenDetailed = { showJunkLogOverlay() },
+                        onWaterIncrement   = { onWaterChange(+1) },
+                        onWaterDecrement   = { onWaterChange(-1) },
+                        onWaterReset       = { onWaterReset() }
+                    )
                 )
-            )
+            }
         }
     }
 
@@ -426,11 +428,11 @@ class ProfileSelectionActivity : AppCompatActivity() {
         }
     }
 
-    /** Wrap any overlay content in the active theme so every child composable can read LocalPalette. */
+    /** Wrap any overlay content in the active theme so every child composable can read LocalPalette and LocalStrings. */
     private fun setThemedContent(makeVisible: Boolean = true, content: @Composable () -> Unit) {
         if (makeVisible) composeOverlay.visibility = View.VISIBLE
         composeOverlay.setContent {
-            AppThemeProvider(appPrefs.value.theme) { content() }
+            AppThemeProvider(appPrefs.value.theme, appPrefs.value.languageCode) { content() }
         }
     }
 
@@ -626,7 +628,26 @@ class ProfileSelectionActivity : AppCompatActivity() {
                         Toast.makeText(this@ProfileSelectionActivity, "No update log available", Toast.LENGTH_SHORT).show()
                     }
                 },
+                onChangeLanguage = { showLanguagePicker(titleFont, contentFont) },
                 onClose = { composeOverlay.visibility = View.GONE }
+            )
+        }
+    }
+
+    private fun showLanguagePicker(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent {
+            LanguagePickerOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                onLanguageSelect = { code ->
+                    val updated = appPrefs.value.copy(languageCode = code)
+                    appPrefs.value = updated
+                    FitDataRepository.saveAppPreferences(updated)
+                    applyThemeTint()
+                    // Re-open settings to show updated language
+                    showSettingsOverlay(titleFont, contentFont)
+                },
+                onClose = { showSettingsOverlay(titleFont, contentFont) }
             )
         }
     }

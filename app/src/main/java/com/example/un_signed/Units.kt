@@ -11,7 +11,8 @@ data class AppPreferences(
     val volumeUnit: String = "L",          // L | oz
     val theme: String = "DARK",            // DARK | CREAM | AMBER
     val hapticsEnabled: Boolean = true,
-    val startOfWeek: String = "MONDAY"     // MONDAY | SUNDAY
+    val startOfWeek: String = "MONDAY",    // MONDAY | SUNDAY
+    val languageCode: String = "en"        // en, hi, ru, zh, ja, fr, de, es, it, pt...
 )
 
 // ── Weight log entry (long-term body-tracking) ──────────────

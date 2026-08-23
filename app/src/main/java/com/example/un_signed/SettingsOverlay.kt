@@ -33,6 +33,7 @@ fun SettingsOverlay(
     onWeightLog: () -> Unit,
     onCheckUpdate: () -> Unit,
     onShowUpdateLog: () -> Unit,
+    onChangeLanguage: () -> Unit,
     onClose: () -> Unit
 ) {
     val palette = LocalPalette.current
@@ -180,6 +181,13 @@ fun SettingsOverlay(
                 Spacer(Modifier.height(4.dp))
 
                 SectionHeader("SYSTEM", palette)
+                ActionButton(
+                    label = "CHANGE LANGUAGE (${Localization.languages[current.languageCode] ?: "English"})",
+                    font = contentFont,
+                    palette = palette
+                ) {
+                    Haptics.click(ctx); onChangeLanguage()
+                }
                 ActionButton("CHECK FOR UPDATE", contentFont, palette) {
                     Haptics.click(ctx); onCheckUpdate()
                 }

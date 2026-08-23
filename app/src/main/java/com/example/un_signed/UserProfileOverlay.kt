@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -18,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -70,9 +73,11 @@ fun UserProfileOverlay(
     var heightFt       by remember { mutableStateOf(initHeightFt) }
     var heightIn       by remember { mutableStateOf(initHeightIn) }
     var activityLevel  by remember { mutableStateOf(existing.activityLevel.ifBlank { "Moderate" }) }
+    var languageCode   by remember { mutableStateOf(prefs.languageCode) }
     var errorMsg       by remember { mutableStateOf("") }
     var emails         by remember { mutableStateOf(existing.emails) }
     var newEmail       by remember { mutableStateOf("") }
+    var onboardingStep by remember { mutableStateOf(if (isOnboarding) 0 else 1) } // 0: Lang, 1: Profile
 
     /** Convert & carry the currently-entered value over when the user flips the weight unit. */
     fun switchWeightUnit(to: String) {
@@ -126,14 +131,74 @@ fun UserProfileOverlay(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = if (isOnboarding) "WELCOME" else "YOUR PROFILE",
-                color = palette.onSurface,
-                fontSize = 26.sp,
-                fontFamily = titleFont,
-                fontStyle = FontStyle.Italic,
-                style = TextStyle(shadow = Shadow(color = palette.onSurface.copy(alpha = 0.3f), blurRadius = 8f))
-            )
+            if (onboardingStep == 0) {
+                Text(
+                    text = "LANGUAGE",
+                    color = palette.onSurface,
+                    fontSize = 26.sp,
+                    fontFamily = titleFont,
+                    fontStyle = FontStyle.Italic
+                )
+                if (isOnboarding) {
+                    Text(
+                        "Please select your preferred language.",
+                        color = palette.subtle,
+                        fontSize = 12.sp,
+                        fontFamily = contentFont,
+                        modifier = Modifier.padding(top = 6.dp, bottom = 14.dp)
+                    )
+                } else {
+                    Spacer(Modifier.height(14.dp))
+                }
+                
+                Box(modifier = Modifier.weight(1f)) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(Localization.languages.toList().size) { idx ->
+                            val (code, name) = Localization.languages.toList()[idx]
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (languageCode == code) OrangeFire.copy(alpha = 0.3f) else palette.chipBg)
+                                    .border(1.dp, if (languageCode == code) OrangeFire else palette.fieldBorder, RoundedCornerShape(12.dp))
+                                    .clickable { 
+                                        languageCode = code
+                                        onPrefsChange(prefs.copy(languageCode = code))
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(name, color = palette.onSurface, fontSize = 14.sp, fontFamily = contentFont)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(55.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF09e8ad))
+                        .clickable { onboardingStep = 1 },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("NEXT", color = Color.Black, fontSize = 18.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold)
+                }
+            } else {
+                Text(
+                    text = if (isOnboarding) "WELCOME" else "YOUR PROFILE",
+                    color = palette.onSurface,
+                    fontSize = 26.sp,
+                    fontFamily = titleFont,
+                    fontStyle = FontStyle.Italic,
+                    style = TextStyle(shadow = Shadow(color = palette.onSurface.copy(alpha = 0.3f), blurRadius = 8f))
+                )
             if (isOnboarding) {
                 Text(
                     "Tell us about yourself to personalise your health targets.",
@@ -268,7 +333,7 @@ fun UserProfileOverlay(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         textStyle = TextStyle(color = palette.onSurface, fontSize = 14.sp, fontFamily = contentFont),
-                        cursorBrush = androidx.compose.ui.graphics.SolidColor(OrangeFire),
+                        cursorBrush = SolidColor(OrangeFire),
                         modifier = Modifier
                             .weight(1f)
                             .height(40.dp)
@@ -422,6 +487,7 @@ fun UserProfileOverlay(
                 )
             }
         }
+        }
     }
 }
 
@@ -445,7 +511,7 @@ private fun LabeledField(
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = keyboard),
             textStyle = TextStyle(color = palette.onSurface, fontSize = 18.sp, fontFamily = font),
-            cursorBrush = androidx.compose.ui.graphics.SolidColor(OrangeFire),
+            cursorBrush = SolidColor(OrangeFire),
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
