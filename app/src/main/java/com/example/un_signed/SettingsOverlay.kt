@@ -90,9 +90,16 @@ fun SettingsOverlay(
                 // ── Theme ────────────────────────────────
                 SectionHeader(LocalStrings.current.theme, palette)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(LocalStrings.current.dark, LocalStrings.current.cream, LocalStrings.current.amber).forEach { t ->
-                        Toggle(t.take(5), current.theme == t, contentFont, palette, Modifier.weight(1f)) {
-                            update(current.copy(theme = t))
+                    // Value is the canonical KEY (DARK / CREAM / AMBER) — never localised.
+                    // The visible label uses the localised string. This keeps AppPalettes.byName() working
+                    // in every language.
+                    listOf(
+                        "DARK"  to LocalStrings.current.dark,
+                        "CREAM" to LocalStrings.current.cream,
+                        "AMBER" to LocalStrings.current.amber
+                    ).forEach { (key, label) ->
+                        Toggle(label.take(5), current.theme == key, contentFont, palette, Modifier.weight(1f)) {
+                            update(current.copy(theme = key))
                         }
                     }
                 }

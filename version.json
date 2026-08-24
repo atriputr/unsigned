@@ -1,6 +1,6 @@
 {
-  "versionCode": 19,
-  "versionName": "2.8",
+  "versionCode": 20,
+  "versionName": "2.9",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v2.8: Deep Localization Fix! Numbers now translate to Bengali, Telugu, Tamil, Marathi, Punjabi, Gujarati, Kannada, and Malayalam scripts! 🌍🛸"
+  "releaseNotes": "v2.9: Stability improvements and settings optimizations. 🚀✨"
 }
