@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
@@ -18,14 +19,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,6 +77,37 @@ fun JunkLogOverlay(
     var isSuggesting by remember { mutableStateOf(false) }
     var suggestJob by remember { mutableStateOf<Job?>(null) }
 
+    // ── Custom-item fallback state (Step 6) ──────────────────
+    // Used when the product isn't in Open Food Facts — user can log it manually
+    // with a rough severity + serving. No API required, always works.
+    var customName by remember { mutableStateOf("") }
+    var customBrand by remember { mutableStateOf("") }
+    var customSeverity by remember { mutableStateOf("Bad") }  // Ok | Watch | Bad | Critical
+
+    // Auto-focus + keyboard controller for a smoother Step 3 entry
+    val focusRequester = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val strings = LocalStrings.current
+
+    /** Kick off the OFF search (shared between button + IME "Search" key). */
+    fun triggerSearch() {
+        if (queryText.isBlank() || isSearching) return
+        keyboard?.hide()
+        Haptics.click(ctx)
+        scope.launch {
+            isSearching = true; errorMsg = ""
+            results = OpenFoodFactsService.search(
+                query = queryText,
+                countryCode = country,
+                categoryTag = categoryTag,
+                limit = 20
+            )
+            isSearching = false
+            if (results.isEmpty()) errorMsg = "${strings.noProductsFound} — try broader terms or save as custom"
+            else step = 4
+        }
+    }
+
     // Fetch country once for country-scoped search
     LaunchedEffect(Unit) {
         val loc = LocationHelper.resolve(ctx)
@@ -93,12 +129,16 @@ fun JunkLogOverlay(
         }
     }
 
-    // Fire haptic on every step change (except the initial value)
+    // Fire haptic on every step change + auto-focus text field on Step 3
     LaunchedEffect(step) {
-        if (step in 2..5) Haptics.tick(ctx)
+        if (step in 2..6) Haptics.tick(ctx)
+        if (step == 3) {
+            // Small delay so the composition mounts the field before requesting focus
+            kotlinx.coroutines.delay(120L)
+            try { focusRequester.requestFocus() } catch (_: Exception) { /* not yet attached */ }
+        }
     }
 
-    val strings = LocalStrings.current
     GlassCard(
         modifier = Modifier.heightIn(max = 720.dp),
         onClose = onClose
@@ -113,27 +153,47 @@ fun JunkLogOverlay(
             style = TextStyle(shadow = Shadow(color = palette.danger.copy(alpha = 0.4f), blurRadius = 10f))
         )
 
-        // ── Step-indicator dots ─────────────────────────────────
-        Row(
-            modifier = Modifier.padding(top = 10.dp, bottom = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            (1..5).forEach { i ->
-                val active = i == step
-                val done   = i < step
-                Box(
-                    modifier = Modifier
-                        .width(if (active) 22.dp else 8.dp)
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(50))
-                        .background(
-                            when {
-                                active -> palette.danger
-                                done   -> palette.danger.copy(alpha = 0.45f)
-                                else   -> palette.divider
-                            }
-                        )
+        // ── Step-indicator dots (or CUSTOM pill on Step 6) ─────
+        if (step == 6) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 10.dp, bottom = 6.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(palette.accentSecondary.copy(alpha = 0.25f))
+                    .border(1.dp, palette.accentSecondary, RoundedCornerShape(50))
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    "CUSTOM MODE",
+                    color = palette.accentSecondary,
+                    fontSize = 9.sp,
+                    fontFamily = titleFont,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp
                 )
+            }
+        } else {
+            Row(
+                modifier = Modifier.padding(top = 10.dp, bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                (1..5).forEach { i ->
+                    val active = i == step
+                    val done   = i < step
+                    Box(
+                        modifier = Modifier
+                            .width(if (active) 22.dp else 8.dp)
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(
+                                when {
+                                    active -> palette.danger
+                                    done   -> palette.danger.copy(alpha = 0.45f)
+                                    else   -> palette.divider
+                                }
+                            )
+                    )
+                }
             }
         }
 
@@ -143,7 +203,9 @@ fun JunkLogOverlay(
                 2 -> "${strings.step} ${strings.formatNumbers(2)} · ${strings.whichCategory}"
                 3 -> "${strings.step} ${strings.formatNumbers(3)} · ${strings.brandAndName}"
                 4 -> "${strings.step} ${strings.formatNumbers(4)} · ${strings.pickExactProduct}"
-                else -> "${strings.step} ${strings.formatNumbers(5)} · ${strings.healthImpact}"
+                5 -> "${strings.step} ${strings.formatNumbers(5)} · ${strings.healthImpact}"
+                6 -> "Custom item · manual entry"
+                else -> ""
             },
             color = palette.subtle,
             fontSize = 11.sp,
@@ -218,7 +280,11 @@ fun JunkLogOverlay(
                         value = queryText,
                         onValueChange = { queryText = it },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Search
+                        ),
+                        keyboardActions = KeyboardActions(onSearch = { triggerSearch() }),
                         textStyle = TextStyle(color = palette.onSurface, fontSize = 16.sp, fontFamily = contentFont),
                         cursorBrush = SolidColor(palette.accentPrimary),
                         modifier = Modifier
@@ -227,6 +293,7 @@ fun JunkLogOverlay(
                             .clip(RoundedCornerShape(10.dp))
                             .background(palette.fieldBg)
                             .border(1.dp, palette.fieldBorder, RoundedCornerShape(10.dp))
+                            .focusRequester(focusRequester)
                             .padding(horizontal = 12.dp),
                         decorationBox = { inner ->
                             Box(contentAlignment = Alignment.CenterStart) {
@@ -297,27 +364,14 @@ fun JunkLogOverlay(
                         }
                     }
 
+                    // ── Primary SEARCH button ──────────────
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(46.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(palette.danger.copy(alpha = 0.9f))
-                            .clickable(enabled = queryText.isNotBlank() && !isSearching) {
-                                    Haptics.click(ctx)
-                                    scope.launch {
-                                        isSearching = true; errorMsg = ""
-                                        results = OpenFoodFactsService.search(
-                                            query = queryText,
-                                            countryCode = country,
-                                            categoryTag = categoryTag,
-                                            limit = 20
-                                        )
-                                        isSearching = false
-                                        if (results.isEmpty()) errorMsg = "${strings.noProductsFound} — try broader terms"
-                                        else step = 4
-                                    }
-                            },
+                            .clickable(enabled = queryText.isNotBlank() && !isSearching) { triggerSearch() },
                         contentAlignment = Alignment.Center
                     ) {
                         if (isSearching) {
@@ -337,11 +391,231 @@ fun JunkLogOverlay(
                             )
                         }
                     }
+
                     if (country.isNotBlank()) {
                         Text("${strings.filteredToCountry} $country", color = palette.faint, fontSize = 10.sp, fontFamily = contentFont, fontStyle = FontStyle.Italic)
                     }
                     if (errorMsg.isNotBlank()) {
                         Text(errorMsg, color = palette.danger, fontSize = 11.sp, fontFamily = contentFont)
+                    }
+
+                    // ── Always-available custom fallback ────
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(palette.chipBg)
+                            .border(1.dp, palette.fieldBorder, RoundedCornerShape(10.dp))
+                            .clickable {
+                                Haptics.click(ctx)
+                                // Seed the custom-name field with whatever they typed
+                                customName = queryText
+                                step = 6
+                            }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "CAN'T FIND IT? SAVE AS CUSTOM",
+                                color = palette.accentSecondary,
+                                fontSize = 11.sp,
+                                fontFamily = titleFont,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.5.sp
+                            )
+                            Text(
+                                "manual entry · works for any local snack",
+                                color = palette.faint,
+                                fontSize = 10.sp,
+                                fontFamily = contentFont
+                            )
+                        }
+                        Text("›", color = palette.subtle, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                // ────────────────────────────  STEP 6 · CUSTOM ITEM  ─
+                6 -> {
+                    Text(
+                        "Product not in the database? Log it manually.",
+                        color = palette.subtle,
+                        fontSize = 12.sp,
+                        fontFamily = contentFont,
+                        fontStyle = FontStyle.Italic
+                    )
+
+                    // Product name
+                    Text("PRODUCT NAME", color = palette.subtle, fontSize = 10.sp, fontFamily = titleFont, letterSpacing = 2.sp)
+                    BasicTextField(
+                        value = customName,
+                        onValueChange = { customName = it },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                        textStyle = TextStyle(color = palette.onSurface, fontSize = 16.sp, fontFamily = contentFont),
+                        cursorBrush = SolidColor(palette.accentPrimary),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(palette.fieldBg)
+                            .border(1.dp, palette.fieldBorder, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp),
+                        decorationBox = { inner ->
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (customName.isEmpty()) Text("e.g. Grandma's homemade jalebi", color = palette.faint, fontSize = 14.sp, fontFamily = contentFont)
+                                inner()
+                            }
+                        }
+                    )
+
+                    // Optional brand
+                    Text("BRAND (optional)", color = palette.subtle, fontSize = 10.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.padding(top = 4.dp))
+                    BasicTextField(
+                        value = customBrand,
+                        onValueChange = { customBrand = it },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                        textStyle = TextStyle(color = palette.onSurface, fontSize = 15.sp, fontFamily = contentFont),
+                        cursorBrush = SolidColor(palette.accentPrimary),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(palette.fieldBg)
+                            .border(1.dp, palette.fieldBorder, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp),
+                        decorationBox = { inner ->
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (customBrand.isEmpty()) Text("(leave blank if unknown)", color = palette.faint, fontSize = 13.sp, fontFamily = contentFont)
+                                inner()
+                            }
+                        }
+                    )
+
+                    // Rough severity picker
+                    Text("HOW BAD IS IT?", color = palette.subtle, fontSize = 10.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.padding(top = 4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            "Ok"       to "OK",
+                            "Watch"    to "MILD",
+                            "Bad"      to "BAD",
+                            "Critical" to "AWFUL"
+                        ).forEach { (key, label) ->
+                            val sel = customSeverity == key
+                            val chipColor = when (key) {
+                                "Ok"       -> Color(0xFF8CD86A)
+                                "Watch"    -> Color(0xFFFFC848)
+                                "Bad"      -> Color(0xFFFF8C1A)
+                                else       -> Color(0xFFE41417)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (sel) chipColor.copy(alpha = 0.35f) else palette.chipBg)
+                                    .border(1.dp, if (sel) chipColor else palette.fieldBorder, RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        Haptics.tick(ctx)
+                                        customSeverity = key
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    label,
+                                    color = if (sel) palette.onSurface else palette.subtle,
+                                    fontSize = 11.sp,
+                                    fontFamily = titleFont,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // Serving preset (reused pattern from Step 5)
+                    Text("SERVING", color = palette.subtle, fontSize = 10.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.padding(top = 4.dp))
+                    val presets = if (type == "liquid") {
+                        listOf("SIP" to 150, "CAN" to 330, "BOTTLE" to 500, "1L" to 1000)
+                    } else {
+                        listOf("MINI" to 15, "PACK" to 30, "SHARE" to 60, "FAMILY" to 150)
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        presets.forEach { (label, size) ->
+                            val sel = servingGrams == size
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) palette.accentPrimary.copy(alpha = 0.30f) else palette.chipBg)
+                                    .border(1.dp, if (sel) palette.accentPrimary else palette.fieldBorder, RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        Haptics.tick(ctx)
+                                        servingGrams = size
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(label, color = palette.onSurface, fontSize = 10.sp, fontFamily = titleFont, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                    Text("${size}${if (type == "liquid") "ml" else "g"}", color = palette.subtle, fontSize = 9.sp, fontFamily = contentFont)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(4.dp))
+
+                    // Save
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (customName.isNotBlank()) palette.danger
+                                else palette.danger.copy(alpha = 0.35f)
+                            )
+                            .clickable(enabled = customName.isNotBlank()) {
+                                Haptics.click(ctx)
+                                val entry = JunkLogEntry(
+                                    dateIso = LocalDate.now().toString(),
+                                    type = type,
+                                    category = categoryTag,
+                                    brand = customBrand.trim(),
+                                    productName = customName.trim(),
+                                    productId = "",                                       // empty = custom
+                                    servingGrams = servingGrams,
+                                    country = country,
+                                    nutriscore = "",
+                                    novaGroup = when (customSeverity) {
+                                        "Ok" -> 1; "Watch" -> 2; "Bad" -> 3; else -> 4
+                                    },
+                                    kcal = 0,
+                                    sugarG = 0.0,
+                                    satFatG = 0.0,
+                                    saltG = 0.0,
+                                    additivesCount = 0,
+                                    overallSeverity = customSeverity
+                                )
+                                FitDataRepository.addJunkLogEntry(entry)
+                                onSaved(entry)
+                                onClose()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "SAVE + COUNT",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontFamily = titleFont,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 2.sp
+                        )
                     }
                 }
                 // ────────────────────────────  STEP 4  ────────────
@@ -596,7 +870,14 @@ private fun RecentJunkRow(entry: JunkLogEntry, palette: ThemePalette, font: Font
             if (entry.brand.isNotBlank()) {
                 Text(entry.brand.uppercase(), color = palette.accentSecondary, fontSize = 8.sp, fontFamily = font, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
             }
-            Text(entry.productName, color = palette.onSurface, fontSize = 13.sp, fontFamily = font, maxLines = 1)
+            Text(
+                entry.productName,
+                color = palette.onSurface,
+                fontSize = 13.sp,
+                fontFamily = font,
+                maxLines = 2,
+                lineHeight = 16.sp
+            )
         }
         Text(
             "↻",
@@ -702,7 +983,15 @@ private fun ResultRow(p: OffProduct, palette: ThemePalette, font: FontFamily, on
                 )
             }
         }
-        Text(p.productName, color = palette.onSurface, fontSize = 14.sp, fontFamily = font, fontWeight = FontWeight.Bold)
+        Text(
+            p.productName,
+            color = palette.onSurface,
+            fontSize = 14.sp,
+            fontFamily = font,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            lineHeight = 18.sp
+        )
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
