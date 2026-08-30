@@ -15,8 +15,8 @@ android {
         applicationId = "com.example.un_signed"
         minSdk = 29
         targetSdk = 36
-        versionCode = 20
-        versionName = "2.9"
+        versionCode = 21
+        versionName = "3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.activity.compose)
 
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation(libs.health.connect.client)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.espresso.core)

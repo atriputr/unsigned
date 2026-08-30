@@ -33,6 +33,14 @@ object AnalyticsEngine {
         val history: List<Pair<String, Int>>
     )
 
+    data class SyncStats(
+        val totalTasks: Int,
+        val calendarSyncedTasks: Int,
+        val alarmSyncedTasks: Int,
+        val pomodoroReminderTasks: Int,
+        val fitnessSampleDays: Int
+    )
+
     fun computeSessionStats(sessions: List<AppSession>, from: LocalDate, to: LocalDate): SessionStats {
         val zone = ZoneId.systemDefault()
         val fromMs = from.atStartOfDay(zone).toInstant().toEpochMilli()
@@ -90,6 +98,20 @@ object AnalyticsEngine {
             totalJunkCount = total,
             averagePerDay = if (sorted.isNotEmpty()) total.toFloat() / sorted.size else 0f,
             history = sorted
+        )
+    }
+
+    fun computeSyncStats(tasks: Map<LocalDate, List<CalendarTask>>, from: LocalDate, to: LocalDate): SyncStats {
+        val all = tasks.values.flatten()
+        val fromStr = from.toString(); val toStr = to.toString()
+        val fitnessDays = FitDataRepository.loadFitnessSamples()
+            .count { it.dateIso in fromStr..toStr && it.source != "unavailable" }
+        return SyncStats(
+            totalTasks = all.size,
+            calendarSyncedTasks = all.count { it.systemCalendarEventId != null },
+            alarmSyncedTasks = all.count { it.systemAlarmSet },
+            pomodoroReminderTasks = all.count { it.pomodoroReminders },
+            fitnessSampleDays = fitnessDays
         )
     }
 }

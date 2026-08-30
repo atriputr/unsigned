@@ -189,6 +189,14 @@ data class SleepSessionState(
     val disturbanceCount: Int = 0
 )
 
+// ── Fitness sample (Health Connect / step sensor) ─────────────
+data class FitnessSample(
+    val dateIso: String = LocalDate.now().toString(),
+    val steps: Int = 0,
+    val source: String = "unavailable",      // health_connect | step_sensor | unavailable
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 // ── Junk log entry (rich, product-catalogued) ────────────────
 data class JunkLogEntry(
     val id: String = UUID.randomUUID().toString(),

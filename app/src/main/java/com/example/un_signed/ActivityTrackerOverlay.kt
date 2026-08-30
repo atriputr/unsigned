@@ -137,6 +137,16 @@ fun ActivityTrackerOverlay(
                 StatTile(strings.sessions, strings.formatNumbers(weekSessions.size), contentFont, accent, Modifier.weight(1f))
             }
 
+            if (activity == "walking") {
+                val todaySteps = remember {
+                    FitDataRepository.loadFitnessSamples().firstOrNull { it.dateIso == today.toString() }
+                }
+                if (todaySteps != null && todaySteps.source != "unavailable") {
+                    Spacer(Modifier.height(8.dp))
+                    StatTile("STEPS TODAY", strings.formatNumbers(todaySteps.steps), contentFont, accent, Modifier.fillMaxWidth())
+                }
+            }
+
             Spacer(Modifier.height(14.dp))
 
             // Entry form

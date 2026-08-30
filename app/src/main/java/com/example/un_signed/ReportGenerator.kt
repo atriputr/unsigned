@@ -30,6 +30,7 @@ object ReportGenerator {
         val ss = AnalyticsEngine.computeSessionStats(sessions, from, to)
         val es = AnalyticsEngine.computeEducationStats(subjects, courses, practices)
         val cs = AnalyticsEngine.computeCalendarStats(calendarTasks)
+        val syncStats = AnalyticsEngine.computeSyncStats(calendarTasks, from, to)
         val hs = AnalyticsEngine.computeHealthStats(junkHistory, from, to)
         val now = java.time.LocalDateTime.now().toString().take(16).replace('T', ' ')
 
@@ -88,6 +89,14 @@ object ReportGenerator {
             appendLine(row("Pending", "${cs.pendingTasks}"))
             appendLine(row("Completion Rate", "${(cs.completionRate * 100).toInt()}%"))
             appendLine("</div></div></div>")
+
+            // Sync & Automation
+            appendLine("<div class='section'><div class='section-title'>Sync &amp; Automation</div><div class='stats-list'>")
+            appendLine(row("Synced to Phone Calendar", "${syncStats.calendarSyncedTasks} / ${syncStats.totalTasks}"))
+            appendLine(row("Synced to Phone Alarms", "${syncStats.alarmSyncedTasks} / ${syncStats.totalTasks}"))
+            appendLine(row("Pomodoro Reminders Active", "${syncStats.pomodoroReminderTasks}"))
+            appendLine(row("Fitness Data Days Recorded", "${syncStats.fitnessSampleDays}"))
+            appendLine("</div></div>")
 
             // Habits
             if (habits.isNotEmpty()) {

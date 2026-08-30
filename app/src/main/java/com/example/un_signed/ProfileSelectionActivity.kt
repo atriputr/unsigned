@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.util.*
 
@@ -97,6 +98,21 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { /* silent: WeatherService already falls back to IP if denied */ }
+
+    // Calendar / notifications / activity-recognition — used by the Permissions settings section.
+    private val runtimePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* SettingsOverlay re-reads granted state on next recomposition */ }
+
+    private fun requestCalendarPermission() {
+        val missing = PermissionsManager.missingCalendarPermissions(this)
+        if (missing.isNotEmpty()) runtimePermissionLauncher.launch(missing.toTypedArray())
+    }
+
+    private fun requestReminderAndFitnessPermissions() {
+        val missing = PermissionsManager.missingReminderAndFitnessPermissions(this)
+        if (missing.isNotEmpty()) runtimePermissionLauncher.launch(missing.toTypedArray())
+    }
 
     private val updateTimeRunnable = object : Runnable {
         override fun run() {
@@ -629,6 +645,11 @@ class ProfileSelectionActivity : AppCompatActivity() {
                     }
                 },
                 onChangeLanguage = { showLanguagePicker(titleFont, contentFont) },
+                hasCalendarPermission = PermissionsManager.hasCalendarPermission(this),
+                hasReminderFitnessPermission = PermissionsManager.hasNotificationPermission(this) &&
+                    PermissionsManager.hasActivityRecognitionPermission(this),
+                onRequestCalendarPermission = { requestCalendarPermission() },
+                onRequestReminderFitnessPermission = { requestReminderAndFitnessPermissions() },
                 onClose = { composeOverlay.visibility = View.GONE }
             )
         }
@@ -700,14 +721,61 @@ class ProfileSelectionActivity : AppCompatActivity() {
             GlassCalendarOverlay(
                 allTasks = allCalendarTasks,
                 onUpdateTasks = { date, tasks ->
+                    val oldTasks = allCalendarTasks[date] ?: emptyList()
                     if (tasks.isEmpty()) allCalendarTasks.remove(date)
                     else allCalendarTasks[date] = tasks
                     FitDataRepository.saveCalendarTasks(allCalendarTasks.toMap())
+                    syncTaskChanges(date, oldTasks, tasks)
                 },
                 fontFamily = fontFamily,
                 initialDate = initialDate,
                 onClose = { composeOverlay.visibility = View.GONE }
             )
+        }
+    }
+
+    /** Mirrors task changes to the system Calendar/Alarm apps and (re)schedules reminders, per user prefs. */
+    private fun syncTaskChanges(date: LocalDate, oldTasks: List<CalendarTask>, newTasks: List<CalendarTask>) {
+        val prefs = appPrefs.value
+        val oldById = oldTasks.associateBy { it.id }
+        val newById = newTasks.associateBy { it.id }
+
+        val removedIds = oldById.keys - newById.keys
+        val addedOrChanged = newTasks.filter { t -> oldById[t.id] != t }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            removedIds.forEach { id ->
+                TaskReminderScheduler.cancelReminders(this@ProfileSelectionActivity, id)
+                oldById[id]?.systemCalendarEventId?.let { SystemCalendarSync.deleteEvent(this@ProfileSelectionActivity, it) }
+            }
+
+            var updatedList = newTasks
+            addedOrChanged.forEach { task ->
+                var current = task
+
+                if (prefs.syncTasksToPhoneCalendar && PermissionsManager.hasCalendarPermission(this@ProfileSelectionActivity)) {
+                    val eventId = SystemCalendarSync.upsertEvent(this@ProfileSelectionActivity, date, current)
+                    if (eventId != null) current = current.copy(systemCalendarEventId = eventId)
+                }
+
+                TaskReminderScheduler.scheduleReminder(this@ProfileSelectionActivity, date, current, prefs.pomodoroReminderIntervalMin)
+
+                if (prefs.syncTasksToPhoneAlarms && current.timeMinutesOfDay != null && !current.systemAlarmSet) {
+                    val added = SystemAlarmSync.addSystemAlarm(this@ProfileSelectionActivity, current, date)
+                    if (added) current = current.copy(systemAlarmSet = true)
+                }
+
+                if (current != task) {
+                    updatedList = updatedList.map { if (it.id == current.id) current else it }
+                }
+            }
+
+            if (updatedList != newTasks) {
+                withContext(Dispatchers.Main) {
+                    if (updatedList.isEmpty()) allCalendarTasks.remove(date) else allCalendarTasks[date] = updatedList
+                    FitDataRepository.saveCalendarTasks(allCalendarTasks.toMap())
+                }
+            }
         }
     }
 

@@ -34,6 +34,10 @@ fun SettingsOverlay(
     onCheckUpdate: () -> Unit,
     onShowUpdateLog: () -> Unit,
     onChangeLanguage: () -> Unit,
+    hasCalendarPermission: Boolean = false,
+    hasReminderFitnessPermission: Boolean = false,
+    onRequestCalendarPermission: () -> Unit = {},
+    onRequestReminderFitnessPermission: () -> Unit = {},
     onClose: () -> Unit
 ) {
     val palette = LocalPalette.current
@@ -172,6 +176,55 @@ fun SettingsOverlay(
                     }
                     Toggle(LocalStrings.current.off, !current.hapticsEnabled, contentFont, palette, Modifier.weight(1f)) {
                         update(current.copy(hapticsEnabled = false))
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                SectionHeader("PERMISSIONS", palette)
+                ActionButton(
+                    label = "Calendar Sync — ${if (hasCalendarPermission) "Granted" else "Tap to grant"}",
+                    font = contentFont,
+                    palette = palette
+                ) {
+                    Haptics.click(ctx); onRequestCalendarPermission()
+                }
+                ActionButton(
+                    label = "Reminders & Fitness — ${if (hasReminderFitnessPermission) "Granted" else "Tap to grant"}",
+                    font = contentFont,
+                    palette = palette
+                ) {
+                    Haptics.click(ctx); onRequestReminderFitnessPermission()
+                }
+
+                SectionHeader("SYNC TO PHONE", palette)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Toggle(LocalStrings.current.on, current.syncTasksToPhoneCalendar, contentFont, palette, Modifier.weight(1f)) {
+                        update(current.copy(syncTasksToPhoneCalendar = true))
+                    }
+                    Toggle(LocalStrings.current.off, !current.syncTasksToPhoneCalendar, contentFont, palette, Modifier.weight(1f)) {
+                        update(current.copy(syncTasksToPhoneCalendar = false))
+                    }
+                }
+                Text("Mirror tasks into your phone's Calendar app", color = palette.subtle, fontSize = 10.sp, fontFamily = contentFont)
+
+                SectionHeader("SYNC TO ALARMS", palette)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Toggle(LocalStrings.current.on, current.syncTasksToPhoneAlarms, contentFont, palette, Modifier.weight(1f)) {
+                        update(current.copy(syncTasksToPhoneAlarms = true))
+                    }
+                    Toggle(LocalStrings.current.off, !current.syncTasksToPhoneAlarms, contentFont, palette, Modifier.weight(1f)) {
+                        update(current.copy(syncTasksToPhoneAlarms = false))
+                    }
+                }
+                Text("Add timed tasks to your phone's Alarm app", color = palette.subtle, fontSize = 10.sp, fontFamily = contentFont)
+
+                SectionHeader("POMODORO REMINDER INTERVAL", palette)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(5, 10, 15, 30).forEach { mins ->
+                        Toggle("$mins m", current.pomodoroReminderIntervalMin == mins, contentFont, palette, Modifier.weight(1f)) {
+                            update(current.copy(pomodoroReminderIntervalMin = mins))
+                        }
                     }
                 }
 

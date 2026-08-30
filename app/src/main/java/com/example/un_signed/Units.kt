@@ -12,7 +12,10 @@ data class AppPreferences(
     val theme: String = "DARK",            // DARK | CREAM | AMBER
     val hapticsEnabled: Boolean = true,
     val startOfWeek: String = "MONDAY",    // MONDAY | SUNDAY
-    val languageCode: String = "en"        // en, hi, ru, zh, ja, fr, de, es, it, pt...
+    val languageCode: String = "en",       // en, hi, ru, zh, ja, fr, de, es, it, pt...
+    val syncTasksToPhoneCalendar: Boolean = false,
+    val syncTasksToPhoneAlarms: Boolean = false,
+    val pomodoroReminderIntervalMin: Int = 15
 )
 
 // ── Weight log entry (long-term body-tracking) ──────────────

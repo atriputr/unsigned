@@ -1,28 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ClaudeCodeEditorTabs">
-    <option name="activeSessionId" value="5b8a65b0-49d7-44ce-9722-68e45d873c61" />
+    <option name="activeSessionId" value="ceed6afd-2ba2-4b87-a341-c2c343339fc4" />
     <option name="openSessionIds">
       <list>
-        <option value="de064c94-0c2e-4565-8bff-d8eab8aec405" />
-        <option value="e0ac56a9-fdab-4842-9fe8-ff692ade88c9" />
-        <option value="a325f68d-264c-4b0f-8ea0-1ac53713cc7d" />
-        <option value="5b8a65b0-49d7-44ce-9722-68e45d873c61" />
+        <option value="ceed6afd-2ba2-4b87-a341-c2c343339fc4" />
       </list>
     </option>
     <option name="sessionPaths">
       <map>
-        <entry key="5b8a65b0-49d7-44ce-9722-68e45d873c61" value="/sessions/6dc63ba8-e010-48e4-bb35-1a5d6e0088ac" />
-        <entry key="a325f68d-264c-4b0f-8ea0-1ac53713cc7d" value="/sessions/fc943594-e4f7-42d3-9c1f-6d151e5edff3" />
-        <entry key="e0ac56a9-fdab-4842-9fe8-ff692ade88c9" value="/sessions/new" />
+        <entry key="ceed6afd-2ba2-4b87-a341-c2c343339fc4" value="/sessions/f614d0ff-7cfc-43b8-a45a-e12ab36057f0" />
       </map>
     </option>
     <option name="sessionTitles">
       <map>
         <entry key="0c794013-e102-49d1-9ced-6e8017d044f4" value="Claude Code" />
-        <entry key="5b8a65b0-49d7-44ce-9722-68e45d873c61" value="stopwatch me yahaan jo number hai visibility incre" />
-        <entry key="a325f68d-264c-4b0f-8ea0-1ac53713cc7d" value="I need you to do a full project-wide audit to find" />
-        <entry key="e0ac56a9-fdab-4842-9fe8-ff692ade88c9" value="Claude Code" />
+        <entry key="ceed6afd-2ba2-4b87-a341-c2c343339fc4" value="bhai tu hai na logged in?" />
       </map>
     </option>
   </component>

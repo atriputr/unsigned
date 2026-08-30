@@ -50,7 +50,11 @@ data class CalendarTask(
     val id: String = UUID.randomUUID().toString(),
     val text: String,
     val isDone: Boolean = false,
-    val colorIndex: Int = 0
+    val colorIndex: Int = 0,
+    val timeMinutesOfDay: Int? = null,         // parsed from " @ HH:MM AM/PM" suffix, null = all-day
+    val systemCalendarEventId: Long? = null,   // Calendar Provider event id, once synced
+    val systemAlarmSet: Boolean = false,       // whether a stock-Alarm-app entry exists for it
+    val pomodoroReminders: Boolean = false     // per-task opt-in for frequent short-fuse reminders
 )
 
 @Composable
@@ -72,6 +76,8 @@ fun GlassCalendarOverlay(
     var showTimePicker by remember { mutableStateOf(false) }
     var taskToDelete   by remember { mutableStateOf<CalendarTask?>(null) }
     var lastSavedTaskName by remember { mutableStateOf("") }
+    var pendingNewTask   by remember { mutableStateOf<CalendarTask?>(null) }
+    var showPomodoroPrompt by remember { mutableStateOf(false) }
 
     val localTasks = remember {
         mutableStateMapOf<LocalDate, List<CalendarTask>>().also { m ->
@@ -86,6 +92,17 @@ fun GlassCalendarOverlay(
 
     fun extractName(raw: String): String =
         if (" @ " in raw) raw.substringBefore(" @ ").trim() else raw.trim()
+
+    fun parseTimeMinutes(raw: String): Int? {
+        if (" @ " !in raw) return null
+        val afterAt = raw.substringAfter(" @ ").trim()
+        val timePart = afterAt.substringBefore(" [").trim() // strip optional repeat suffix
+        val m = Regex("""^(\d{1,2}):(\d{2})\s*(AM|PM)$""").find(timePart) ?: return null
+        val (hStr, mStr, ampm) = m.destructured
+        var hour = hStr.toInt() % 12
+        if (ampm == "PM") hour += 12
+        return hour * 60 + mStr.toInt()
+    }
 
     val yearMonth      = YearMonth.of(displayYear, displayMonth)
     val prevYearMonth  = yearMonth.minusMonths(1)
@@ -270,8 +287,14 @@ fun GlassCalendarOverlay(
                                 keyboardActions = KeyboardActions(onDone = {
                                     if (newTaskText.isNotBlank()) {
                                         lastSavedTaskName = extractName(newTaskText)
-                                        commitTasks(selectedDate, selectedTasks + CalendarTask(text = newTaskText.trim()))
+                                        val newTask = CalendarTask(text = newTaskText.trim())
                                         newTaskText = lastSavedTaskName
+                                        if (!selectedDate.isAfter(today.plusDays(1))) {
+                                            pendingNewTask = newTask
+                                            showPomodoroPrompt = true
+                                        } else {
+                                            commitTasks(selectedDate, selectedTasks + newTask)
+                                        }
                                     }
                                     addingTask = false
                                 }),
@@ -450,6 +473,15 @@ fun GlassCalendarOverlay(
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f)
                                 )
+                                if (task.systemCalendarEventId != null || task.systemAlarmSet || task.pomodoroReminders) {
+                                    Spacer(Modifier.width(6.dp))
+                                    val glyphs = buildString {
+                                        if (task.systemCalendarEventId != null) append("📅 ") // 📅
+                                        if (task.systemAlarmSet) append("⏰ ") // ⏰
+                                        if (task.pomodoroReminders) append("🍅") // 🍅
+                                    }.trim()
+                                    Text(glyphs, fontSize = 13.sp, color = taskColor.copy(alpha = 0.85f))
+                                }
                             }
                         }
                     }
@@ -469,12 +501,76 @@ fun GlassCalendarOverlay(
                     val taskName = newTaskText.trim()
                     val taskWithTime = "$taskName @ $timeStr$repeatSuffix"
                     lastSavedTaskName = taskName
-                    commitTasks(selectedDate, selectedTasks + CalendarTask(text = taskWithTime))
+                    val hour24 = (h % 12) + (if (isAm) 0 else 12)
+                    val minutesOfDay = (hour24 % 24) * 60 + m
+                    pendingNewTask = CalendarTask(text = taskWithTime, timeMinutesOfDay = minutesOfDay)
                     newTaskText = lastSavedTaskName
                     showTimePicker = false
                     addingTask = false
+                    if (!selectedDate.isAfter(today.plusDays(1))) {
+                        showPomodoroPrompt = true
+                    } else {
+                        commitTasks(selectedDate, selectedTasks + pendingNewTask!!)
+                        pendingNewTask = null
+                    }
                 },
                 onDismiss = { showTimePicker = false }
+            )
+        }
+
+        // ── Pomodoro reminder opt-in (tasks due today / within 24h) ──
+        if (showPomodoroPrompt && pendingNewTask != null) {
+            AlertDialog(
+                onDismissRequest = {
+                    commitTasks(selectedDate, selectedTasks + pendingNewTask!!)
+                    pendingNewTask = null
+                    showPomodoroPrompt = false
+                },
+                containerColor = Color(0xFF1A1A2A),
+                title = {
+                    Text("POMODORO REMINDERS", color = Color(0xFF09e8ad), fontFamily = fontFamily, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    Text(
+                        "This task is due today or within 24 hours.\nEnable frequent Pomodoro-style reminders so you don't miss it?",
+                        color = Color.White.copy(0.75f), fontFamily = fontFamily, fontSize = 13.sp
+                    )
+                },
+                confirmButton = {
+                    Box(
+                        modifier = Modifier
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF09e8ad))
+                            .clickable {
+                                commitTasks(selectedDate, selectedTasks + pendingNewTask!!.copy(pomodoroReminders = true))
+                                pendingNewTask = null
+                                showPomodoroPrompt = false
+                            }
+                            .padding(horizontal = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("ENABLE", color = Color.Black, fontFamily = fontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                },
+                dismissButton = {
+                    Box(
+                        modifier = Modifier
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.White.copy(0.08f))
+                            .border(1.dp, Color.White.copy(0.25f), RoundedCornerShape(8.dp))
+                            .clickable {
+                                commitTasks(selectedDate, selectedTasks + pendingNewTask!!)
+                                pendingNewTask = null
+                                showPomodoroPrompt = false
+                            }
+                            .padding(horizontal = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("NOT NOW", color = Color.White, fontFamily = fontFamily, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                }
             )
         }
 

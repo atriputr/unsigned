@@ -179,6 +179,16 @@ object FitDataRepository {
     fun loadSleepSession(): SleepSessionState = loadJson("sleep_session.json", SleepSessionState())
     fun clearSleepSession() = saveJson("sleep_session.json", SleepSessionState())
 
+    // ── Fitness samples (Health Connect / step sensor) ─────────
+    fun saveFitnessSamples(list: List<FitnessSample>) = saveJson("fitness_samples.json", list)
+    fun loadFitnessSamples(): List<FitnessSample> = loadJson("fitness_samples.json", emptyList<FitnessSample>())
+    fun upsertFitnessSample(sample: FitnessSample) {
+        val list = loadFitnessSamples().toMutableList()
+        val idx = list.indexOfFirst { it.dateIso == sample.dateIso }
+        if (idx >= 0) list[idx] = sample else list.add(sample)
+        saveFitnessSamples(list)
+    }
+
     // ── Junk log (product-catalogued) ──────────────────────────
     fun saveJunkLogEntries(entries: List<JunkLogEntry>) = saveJson("junk_log.json", entries)
     fun loadJunkLogEntries(): List<JunkLogEntry> = loadJson("junk_log.json", emptyList<JunkLogEntry>())

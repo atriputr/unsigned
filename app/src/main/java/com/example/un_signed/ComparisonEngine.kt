@@ -134,6 +134,25 @@ object ComparisonEngine {
 
         // ── MOVEMENT ───────────────────────────────────────────
         val movement = mutableListOf<Comparison>()
+        val todaySteps = FitDataRepository.loadFitnessSamples().firstOrNull { it.dateIso == today.toString() }
+        if (todaySteps != null && todaySteps.source != "unavailable") {
+            val stepsBand = GlobalNorms.stepsBand(todaySteps.steps)
+            movement += Comparison(
+                metric = "Steps · today",
+                userValueDisplay = "${todaySteps.steps}",
+                referenceDisplay = "global μ ${GlobalNorms.stepsGlobalMean()} steps/day",
+                band = stepsBand.band,
+                bandLabel = stepsBand.label,
+                insight = when (stepsBand.band) {
+                    GlobalNorms.Band.Excellent -> "Highly active — well above the global average."
+                    GlobalNorms.Band.Healthy   -> "Active — above the global daily average."
+                    GlobalNorms.Band.Concern   -> "Below the global average — a short walk helps."
+                    GlobalNorms.Band.AtRisk    -> "Low movement today — inactivity is a major mortality risk factor."
+                    else -> "—"
+                },
+                source = if (todaySteps.source == "health_connect") "Health Connect · Althoff Nature 2017" else "Device step sensor · Althoff Nature 2017"
+            )
+        }
         val exBand = GlobalNorms.exerciseWeekBand(snap.exerciseWeekMin)
         movement += Comparison(
             metric = "Exercise · this week",
