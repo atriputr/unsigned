@@ -7,18 +7,23 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -141,9 +146,10 @@ fun HomeSkin(
 
 // ══════════════════════════════════════════════════════════════════
 //  DARK INDUSTRIAL  ·  Standard theme
-//  The title + three menu buttons are the untouched bg_select_profile.png
-//  (rendered by the ImageView beneath us). We only overlay the bottom
-//  quick-action bar — everything else stays pixel-perfect from the PNG.
+//  Grunge title + three menu buttons come from bg_select_profile.png
+//  (rendered by the ImageView beneath us). For non-English locales we
+//  overlay localised text on top with a dark backing patch that hides
+//  the baked English pixels; English keeps the PNG pixel-perfect.
 // ══════════════════════════════════════════════════════════════════
 @Composable
 private fun DarkIndustrialSkin(
@@ -153,7 +159,203 @@ private fun DarkIndustrialSkin(
 ) {
     val scope = rememberCoroutineScope()
     val strings = LocalStrings.current
-    Box(modifier = Modifier.fillMaxSize()) {
+    val defaults = remember { AppStrings() }
+    val needsLocalisedTitle = strings.selectProfile != defaults.selectProfile ||
+        strings.idealProfile != defaults.idealProfile ||
+        strings.customProfile != defaults.customProfile ||
+        strings.exportProgress != defaults.exportProgress
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val screenH = maxHeight
+
+        if (needsLocalisedTitle) {
+            // Title — three-layer red neon (wide halo → soft glow → crisp core) sits over
+            // a soft radial dark blob that fades into the PNG's dark frame on the sides
+            // instead of ending in a hard rectangle.
+            val redNeon = Color(0xFFE41417)
+            val redCore = Color(0xFFFF4A2C)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = screenH * 0.058f)
+                    .fillMaxWidth(0.98f)
+                    .padding(vertical = 12.dp)
+                    .drawBehind {
+                        drawRect(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color.Black,
+                                    Color.Black,
+                                    Color.Black.copy(alpha = 0.65f),
+                                    Color.Transparent
+                                ),
+                                center = Offset(size.width / 2f, size.height / 2f),
+                                radius = size.width * 0.5f
+                            )
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                // Widest halo
+                Text(
+                    text = strings.selectProfile,
+                    color = redNeon.copy(alpha = 0.35f),
+                    fontSize = 36.sp,
+                    fontFamily = titleFont,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 4.sp,
+                    style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 44f))
+                )
+                // Mid glow
+                Text(
+                    text = strings.selectProfile,
+                    color = redNeon.copy(alpha = 0.6f),
+                    fontSize = 36.sp,
+                    fontFamily = titleFont,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 4.sp,
+                    style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 20f))
+                )
+                // Crisp core
+                Text(
+                    text = strings.selectProfile,
+                    color = redCore,
+                    fontSize = 36.sp,
+                    fontFamily = titleFont,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 4.sp,
+                    style = TextStyle(
+                        shadow = Shadow(color = Color.Black, offset = Offset(1f, 2f), blurRadius = 3f)
+                    )
+                )
+            }
+
+            // Three buttons: clean grunge plate + icon + label + chevron. Icons and
+            // chevron get a soft amber radial halo so they read as "lit" against the
+            // dark plate — matches the glow feel of the baked PNG buttons.
+            data class Btn(
+                val yFraction: Float,
+                val label: String,
+                val plateRes: Int,
+                val iconRes: Int
+            )
+            val amberBright = Color(0xFFF5B85B)
+            val amberDeep   = Color(0xFFD48420)
+            val amberGlow   = Color(0xFFFF9A3C)
+            listOf(
+                Btn(BTN1_CENTER, strings.idealProfile, R.drawable.btn_plate_1, R.drawable.ic_person),
+                Btn(BTN2_CENTER, strings.customProfile, R.drawable.btn_plate_2, R.drawable.ic_gear),
+                Btn(BTN3_CENTER, strings.exportProgress, R.drawable.btn_plate_3, R.drawable.ic_cloud)
+            ).forEach { btn ->
+                val boxHeight = screenH * BTN_HEIGHT_FRAC * 1.5f
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .offset(y = screenH * btn.yFraction - boxHeight / 2f)
+                        .height(boxHeight)
+                ) {
+                    // Grunge plate covers the baked button underneath
+                    Image(
+                        painter = painterResource(id = btn.plateRes),
+                        contentDescription = null,
+                        contentScale = ContentScale.FillBounds,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 2.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 22.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Icon with soft amber halo
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .drawBehind {
+                                    drawCircle(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(
+                                                amberGlow.copy(alpha = 0.35f),
+                                                Color.Transparent
+                                            ),
+                                            center = Offset(size.width / 2f, size.height / 2f),
+                                            radius = size.width / 2f
+                                        )
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = btn.iconRes),
+                                contentDescription = null,
+                                tint = amberBright,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Warm under-glow behind label
+                            Text(
+                                text = btn.label,
+                                color = amberGlow.copy(alpha = 0.5f),
+                                fontSize = 18.sp,
+                                fontFamily = titleFont,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 2.5.sp,
+                                style = TextStyle(shadow = Shadow(color = amberGlow, blurRadius = 18f))
+                            )
+                            // Crisp bronze-gradient label
+                            Text(
+                                text = btn.label,
+                                color = amberDeep,
+                                fontSize = 18.sp,
+                                fontFamily = titleFont,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 2.5.sp,
+                                style = TextStyle(
+                                    brush = Brush.linearGradient(listOf(amberBright, amberDeep)),
+                                    shadow = Shadow(color = Color.Black, offset = Offset(1f, 2f), blurRadius = 4f)
+                                )
+                            )
+                        }
+
+                        // Chevron with matching soft amber halo
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .drawBehind {
+                                    drawCircle(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(
+                                                amberGlow.copy(alpha = 0.35f),
+                                                Color.Transparent
+                                            ),
+                                            center = Offset(size.width / 2f, size.height / 2f),
+                                            radius = size.width / 2f
+                                        )
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_chevron_right),
+                                contentDescription = null,
+                                tint = amberBright,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
