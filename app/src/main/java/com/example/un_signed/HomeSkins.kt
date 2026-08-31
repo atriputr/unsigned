@@ -141,10 +141,9 @@ fun HomeSkin(
 
 // ══════════════════════════════════════════════════════════════════
 //  DARK INDUSTRIAL  ·  Standard theme
-//  Fully editable Compose recreation of the baked bg_select_profile.png
-//  ─ Text and icons are LIVE (no PNG text) — safe to edit + localise later.
-//  ─ Buttons positioned at the exact same y-fractions as the interactive Views
-//    so clicks continue to register on the underlying XML click targets.
+//  The title + three menu buttons are the untouched bg_select_profile.png
+//  (rendered by the ImageView beneath us). We only overlay the bottom
+//  quick-action bar — everything else stays pixel-perfect from the PNG.
 // ══════════════════════════════════════════════════════════════════
 @Composable
 private fun DarkIndustrialSkin(
@@ -154,44 +153,7 @@ private fun DarkIndustrialSkin(
 ) {
     val scope = rememberCoroutineScope()
     val strings = LocalStrings.current
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
-        val screenH = maxHeight
-        val btnHeight = screenH * BTN_HEIGHT_FRAC
-        val sideMargin = 24.dp
-
-        StatusBarBox()
-
-        // ── "SELECT PROFILE" title — pure text, no PNG ────────
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = screenH * 0.04f),
-            contentAlignment = Alignment.Center
-        ) {
-            SelectProfileTitle(titleFont, strings.selectProfile)
-        }
-
-        // ── Three editable menu buttons at exact same fractions ─
-        listOf(
-            Triple(BTN1_CENTER, strings.idealProfile, R.drawable.ic_person),
-            Triple(BTN2_CENTER, strings.customProfile, R.drawable.ic_gear),
-            Triple(BTN3_CENTER, strings.exportProgress, R.drawable.ic_cloud)
-        ).forEach { (fraction, label, iconRes) ->
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = sideMargin)
-                    .height(btnHeight)
-                    .offset(y = screenH * fraction - btnHeight / 2f)
-            ) {
-                DarkMenuButton(label = label, iconRes = iconRes, titleFont = titleFont)
-            }
-        }
-
+    Box(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -235,171 +197,6 @@ private fun DarkIndustrialSkin(
                     onReset = quickCallbacks.onWaterReset
                 ),
                 modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-/**
- * "SELECT PROFILE" title — pure text with red-neon glow.
- * Text is a Kotlin string, editable in one place.
- */
-@Composable
-private fun SelectProfileTitle(titleFont: FontFamily, label: String) {
-    val neon = Color(0xFFE41417)
-    Box(contentAlignment = Alignment.Center) {
-        // Outer glow layer
-        Text(
-            text = label,
-            color = neon.copy(alpha = 0.45f),
-            fontSize = 44.sp,
-            fontFamily = titleFont,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 6.sp,
-            style = TextStyle(shadow = Shadow(color = neon, blurRadius = 32f))
-        )
-        // Crisp core layer
-        Text(
-            text = label,
-            color = Color(0xFFFF5555),
-            fontSize = 44.sp,
-            fontFamily = titleFont,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 6.sp,
-            style = TextStyle(shadow = Shadow(color = Color.Black, offset = Offset(1f, 2f), blurRadius = 3f))
-        )
-    }
-}
-
-/**
- * Grungy dark-industrial menu button:
- *   ─ noisy top+bottom brush edges
- *   ─ dark metal plate
- *   ─ icon in orange sweep-ring on the left
- *   ─ vertical orange divider
- *   ─ bronze-gradient label
- *   ─ pulsing orange chevron on the right
- * All labels + icons come from parameters — nothing baked.
- */
-@Composable
-private fun DarkMenuButton(label: String, iconRes: Int, titleFont: FontFamily) {
-    val infiniteTransition = rememberInfiniteTransition(label = "chev-glow")
-    val glowPulse by infiniteTransition.animateFloat(
-        initialValue = 0.55f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "chev"
-    )
-
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-
-        // ── Brush-stroke plate (Canvas: noisy top+bottom edges + dark metal centre) ──
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            val rnd = kotlin.random.Random(label.hashCode())
-
-            // ── 1. Big metal plate first (fills ~92% of button height, slight rounded corners) ──
-            val plateTop = h * 0.05f
-            val plateBot = h * 0.95f
-            drawRoundRect(
-                brush = Brush.verticalGradient(
-                    listOf(Color(0xFF2A2020), ButtonMetalBg, Color(0xFF0A0808))
-                ),
-                topLeft = Offset(2f, plateTop),
-                size = Size(w - 4f, plateBot - plateTop),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(10f, 10f)
-            )
-
-            // ── 2. Brush-texture torn edges — thin bands at very top and very bottom ──
-            val steps = 200
-            val stepSize = w / steps
-
-            val topPath = androidx.compose.ui.graphics.Path().apply { moveTo(0f, 0f) }
-            val botPath = androidx.compose.ui.graphics.Path().apply { moveTo(0f, h) }
-            for (i in 0..steps) {
-                val x = i * stepSize
-                val edgeFade = when {
-                    i < 12 -> i / 12f
-                    i > steps - 12 -> (steps - i) / 12f
-                    else -> 1f
-                }
-                val noiseTop = (rnd.nextFloat() - 0.5f) * 6f
-                val noiseBot = (rnd.nextFloat() - 0.5f) * 6f
-                topPath.lineTo(x, (plateTop + 2f + noiseTop) * edgeFade)
-                botPath.lineTo(x, h - (h - plateBot + 2f + noiseBot) * edgeFade)
-            }
-            topPath.lineTo(w, 0f); topPath.close()
-            botPath.lineTo(w, h); botPath.close()
-            drawPath(topPath, color = GrungeEdgeColor.copy(alpha = 0.28f))
-            drawPath(botPath, color = GrungeEdgeColor.copy(alpha = 0.28f))
-
-            // ── 3. Subtle inner highlight along the top of the plate (soft sheen) ──
-            drawLine(
-                color = Color.White.copy(alpha = 0.06f),
-                start = Offset(20f, plateTop + 2f),
-                end = Offset(w - 20f, plateTop + 2f),
-                strokeWidth = 1f
-            )
-
-            // ── 4. Very faint horizontal brushed-metal scratches inside the plate ──
-            repeat(12) {
-                val y = plateTop + rnd.nextFloat() * (plateBot - plateTop)
-                drawLine(
-                    color = Color.White.copy(alpha = 0.04f),
-                    start = Offset(15f, y),
-                    end = Offset(w - 15f, y),
-                    strokeWidth = 1f
-                )
-            }
-        }
-
-        // ── Foreground row: icon · divider · text · chevron ────
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Icon in orange sweep-ring
-            Box(contentAlignment = Alignment.Center) {
-                Canvas(modifier = Modifier.size(48.dp)) {
-                    drawCircle(brush = Brush.radialGradient(listOf(IconRingStart.copy(alpha = 0.3f), Color.Transparent)), radius = size.width / 1.2f)
-                    drawCircle(brush = Brush.sweepGradient(listOf(IconRingStart, IconRingEnd, IconRingStart)), style = Stroke(width = 1.5.dp.toPx()))
-                    drawCircle(color = Color.Black, radius = size.width / 2 - 1.5.dp.toPx())
-                }
-                Icon(
-                    painter = androidx.compose.ui.res.painterResource(id = iconRes),
-                    contentDescription = null,
-                    tint = IconRingStart,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            Spacer(Modifier.width(10.dp))
-            // Thin vertical orange divider
-            Canvas(modifier = Modifier.width(1.dp).fillMaxHeight(0.35f)) { drawRect(color = DividerColor) }
-            Spacer(Modifier.width(14.dp))
-
-            // Editable label text
-            Text(
-                text = label,
-                color = BronzeTextStart,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp,
-                style = TextStyle(
-                    brush = Brush.linearGradient(listOf(BronzeTextStart, BronzeTextEnd)),
-                    fontFamily = titleFont
-                )
-            )
-
-            Spacer(Modifier.weight(1f))
-
-            // Pulsing orange chevron
-            Icon(
-                painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_chevron_right),
-                contentDescription = null,
-                tint = ChevronStart.copy(alpha = glowPulse),
-                modifier = Modifier.size(22.dp)
             )
         }
     }

@@ -15,8 +15,8 @@ android {
         applicationId = "com.example.un_signed"
         minSdk = 29
         targetSdk = 36
-        versionCode = 21
-        versionName = "3.0"
+        versionCode = 22
+        versionName = "3.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

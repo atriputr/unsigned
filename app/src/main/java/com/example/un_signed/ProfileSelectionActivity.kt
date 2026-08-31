@@ -282,10 +282,12 @@ class ProfileSelectionActivity : AppCompatActivity() {
             AppThemeProvider(themeName, appPrefs.value.languageCode) { StatusBarBox() }
         }
 
-        // In every theme (including DARK) the Compose home-skin fully replaces the baked
-        // bg_select_profile.png — so we always draw an opaque tint over it. This is what
-        // lets us keep the text + icons as editable Kotlin strings instead of a PNG.
-        bgThemeTint.setBackgroundColor(0xFF000000.toInt())
+        // DARK theme shows the original bg_select_profile.png untouched — the Compose skin
+        // only overlays the bottom quick-action bar. Other themes cover the PNG completely
+        // with their own skin, so we draw an opaque tint underneath them.
+        bgThemeTint.setBackgroundColor(
+            if (themeName.uppercase() == "DARK") 0x00000000 else 0xFF000000.toInt()
+        )
 
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
         cvHomeSkin.visibility = View.VISIBLE

@@ -24,6 +24,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -36,7 +37,16 @@ fun CompareToGlobeOverlay(
     onClose: () -> Unit
 ) {
     val palette = LocalPalette.current
-    val sections = remember { ComparisonEngine.buildAll(profile, prefs) }
+    val ctx = LocalContext.current
+    var stepsRefreshTick by remember { mutableStateOf(0) }
+
+    // Pull a fresh step count from Health Connect (Google Fit's modern replacement) or the device sensor.
+    LaunchedEffect(Unit) {
+        FitnessDataRepository.getTodaySteps(ctx)
+        stepsRefreshTick++
+    }
+
+    val sections = remember(stepsRefreshTick) { ComparisonEngine.buildAll(profile, prefs) }
 
     Box(
         modifier = Modifier

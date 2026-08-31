@@ -37,6 +37,9 @@ fun DailyBriefingOverlay(
     val scope = rememberCoroutineScope()
     var weather by remember { mutableStateOf(FitDataRepository.loadWeatherCache()) }
     var snapshot by remember { mutableStateOf(InsightsEngine.snapshot(profile)) }
+    var stepsSample by remember {
+        mutableStateOf(FitDataRepository.loadFitnessSamples().firstOrNull { it.dateIso == snapshot.date.toString() })
+    }
 
     LaunchedEffect(Unit) {
         if (!weather.isValid || weather.isStale()) {
@@ -45,6 +48,9 @@ fun DailyBriefingOverlay(
     }
     // Recompute snapshot whenever weather resolves (may shift water goal display)
     LaunchedEffect(weather.fetchedAt) { snapshot = InsightsEngine.snapshot(profile) }
+
+    // Pull a fresh step count from Health Connect (Google Fit's modern replacement) or the device sensor.
+    LaunchedEffect(Unit) { stepsSample = FitnessDataRepository.getTodaySteps(ctx) }
 
     val nudges = InsightsEngine.nudges(snapshot, profile, weather)
 
@@ -141,6 +147,21 @@ fun DailyBriefingOverlay(
                         modifier = Modifier.weight(1f)
                     )
                 }
+                stepsSample?.let { fs ->
+                    if (fs.source != "unavailable") {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            MetricCard(
+                                label = "STEPS",
+                                value = "${fs.steps}",
+                                detail = if (fs.source == "health_connect") "synced · Google Fit / Health Connect" else "device sensor",
+                                accent = Color(0xFFFF9B44),
+                                streak = 0,
+                                font = contentFont,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
 
                 Spacer(Modifier.height(4.dp))
 
@@ -168,7 +189,7 @@ fun DailyBriefingOverlay(
                 // ── vs GLOBAL mini section ────────────────────
                 Spacer(Modifier.height(8.dp))
                 Text("VS GLOBAL", color = Color(0xFF6ACBEA), fontSize = 10.sp, fontFamily = titleFont, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
-                val sections = remember(profile, prefs, snapshot) { ComparisonEngine.buildAll(profile, prefs) }
+                val sections = remember(profile, prefs, snapshot, stepsSample) { ComparisonEngine.buildAll(profile, prefs) }
                 val topRows = sections.flatMap { it.comparisons }.take(5)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     topRows.forEach { c ->
