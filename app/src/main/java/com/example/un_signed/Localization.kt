@@ -237,7 +237,19 @@ data class AppStrings(
     fun formatNumbers(input: Any): String {
         val s = input.toString()
         if (numberTranslation.isEmpty()) return s
-        return s.map { numberTranslation.getOrDefault(it, it) }.joinToString("")
+        // Fast path: skip building a new string if the input has no ASCII digits
+        var hasDigit = false
+        for (i in s.indices) {
+            val c = s[i]
+            if (c in '0'..'9') { hasDigit = true; break }
+        }
+        if (!hasDigit) return s
+        val sb = StringBuilder(s.length)
+        for (i in s.indices) {
+            val c = s[i]
+            sb.append(numberTranslation[c] ?: c)
+        }
+        return sb.toString()
     }
 }
 
@@ -507,6 +519,15 @@ val LocFR = AppStrings(
     thisWeek = "CETTE SEMAINE", distanceLabel = "DISTANCE", sessions = "SESSIONS"
 )
 
+// Digit-only locale variants: English strings with per-script numerals.
+// Cached as top-level vals so getStrings() doesn't allocate a fresh AppStrings on every recomposition.
+val LocTE = LocEN.copy(numberTranslation = TeluguNums)
+val LocTA = LocEN.copy(numberTranslation = TamilNums)
+val LocGU = LocEN.copy(numberTranslation = GujaratiNums)
+val LocKN = LocEN.copy(numberTranslation = KannadaNums)
+val LocML = LocEN.copy(numberTranslation = MalayalamNums)
+val LocPA = LocEN.copy(numberTranslation = GurmukhiNums)
+
 object Localization {
     val languages = mapOf(
         "en" to "English", "hi" to "हिन्दी (Hindi)", "bn" to "বাংলা (Bengali)", "mr" to "मराठी (Marathi)",
@@ -524,12 +545,12 @@ object Localization {
         "zh" -> LocZH
         "ja" -> LocJA
         "fr" -> LocFR
-        "te" -> LocEN.copy(numberTranslation = TeluguNums)
-        "ta" -> LocEN.copy(numberTranslation = TamilNums)
-        "gu" -> LocEN.copy(numberTranslation = GujaratiNums)
-        "kn" -> LocEN.copy(numberTranslation = KannadaNums)
-        "ml" -> LocEN.copy(numberTranslation = MalayalamNums)
-        "pa" -> LocEN.copy(numberTranslation = GurmukhiNums)
+        "te" -> LocTE
+        "ta" -> LocTA
+        "gu" -> LocGU
+        "kn" -> LocKN
+        "ml" -> LocML
+        "pa" -> LocPA
         else -> LocEN
     }
 }

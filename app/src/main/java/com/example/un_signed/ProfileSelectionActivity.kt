@@ -275,8 +275,12 @@ class ProfileSelectionActivity : AppCompatActivity() {
         val palette   = AppPalettes.byName(themeName)
         tvYearPercent.setTextColor(palette.onSurface.toArgb())
 
-        pbYearProgress.progressTintList = android.content.res.ColorStateList.valueOf(palette.accentPrimary.toArgb())
-        pbYearProgress.progressBackgroundTintList = android.content.res.ColorStateList.valueOf(palette.divider.toArgb())
+        // DARK/Ashes uses a muted grey bar to match the ash aesthetic; other themes use their accent
+        val isDark = themeName.equals("DARK", ignoreCase = true)
+        val barFill = if (isDark) 0xFFB0B0B0.toInt() else palette.accentPrimary.toArgb()
+        val barBack = if (isDark) 0xFF2A2A2A.toInt() else palette.divider.toArgb()
+        pbYearProgress.progressTintList = android.content.res.ColorStateList.valueOf(barFill)
+        pbYearProgress.progressBackgroundTintList = android.content.res.ColorStateList.valueOf(barBack)
 
         cvStatusBar.setContent {
             AppThemeProvider(themeName, appPrefs.value.languageCode) { StatusBarBox() }
