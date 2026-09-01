@@ -282,11 +282,10 @@ class ProfileSelectionActivity : AppCompatActivity() {
             AppThemeProvider(themeName, appPrefs.value.languageCode) { StatusBarBox() }
         }
 
-        // DARK theme shows the original bg_select_profile.png untouched — the Compose skin
-        // only overlays the bottom quick-action bar. Other themes cover the PNG completely
-        // with their own skin, so we draw an opaque tint underneath them.
+        // DARK lets the PNG's top+bottom red gaming borders peek through; the Compose skin paints
+        // its own black mask over the middle. CREAM/AMBER fully cover the PNG with their own art.
         bgThemeTint.setBackgroundColor(
-            if (themeName.uppercase() == "DARK") 0x00000000 else 0xFF000000.toInt()
+            if (themeName.equals("DARK", ignoreCase = true)) 0x00000000 else 0xFF000000.toInt()
         )
 
         val bebasFont = FontFamily(Font(R.font.bebas_neue))

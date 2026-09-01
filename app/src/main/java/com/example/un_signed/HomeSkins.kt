@@ -33,12 +33,20 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CoroutineScope
+
+private data class DarkPlate(
+    val yFraction: Float,
+    val label: String,
+    val plateRes: Int,
+    val iconRes: Int
+)
 
 // Button vertical positions must match the interactive View guidelines in activity_profile_selection.xml
 // so the themed visuals sit exactly where the clickable Views are.
@@ -145,11 +153,10 @@ fun HomeSkin(
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  DARK INDUSTRIAL  ·  Standard theme
-//  Grunge title + three menu buttons come from bg_select_profile.png
-//  (rendered by the ImageView beneath us). For non-English locales we
-//  overlay localised text on top with a dark backing patch that hides
-//  the baked English pixels; English keeps the PNG pixel-perfect.
+//  ASHES  ·  DARK theme  (monochrome, low-contrast, minimalist)
+//  Pure black bg, three grungy ash plates for menu buttons — no red,
+//  no amber, no title. Icons + labels + chevrons are all soft grey so
+//  they read as "written in ash" against the plate.
 // ══════════════════════════════════════════════════════════════════
 @Composable
 private fun DarkIndustrialSkin(
@@ -159,199 +166,149 @@ private fun DarkIndustrialSkin(
 ) {
     val scope = rememberCoroutineScope()
     val strings = LocalStrings.current
-    val defaults = remember { AppStrings() }
-    val needsLocalisedTitle = strings.selectProfile != defaults.selectProfile ||
-        strings.idealProfile != defaults.idealProfile ||
-        strings.customProfile != defaults.customProfile ||
-        strings.exportProgress != defaults.exportProgress
+
+    val ashLabel   = Color(0xFF9A9A9A)
+    val ashIcon    = Color(0xFF7A7A7A)
+
+    // Fractions of screen height reserved for the PNG's red gaming borders (top + bottom)
+    val topBorderFrac = 0.075f
+    val botBorderFrac = 0.075f
+
+    val nokiaFont = remember { FontFamily(Font(R.font.nokia_kokia)) }
+    val redCore   = Color(0xFFFF2323)
+    val redNeon   = Color(0xFFE41417)
+    val redHalo   = Color(0xFFFF6A6A)
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val screenH = maxHeight
 
-        if (needsLocalisedTitle) {
-            // Title — three-layer red neon (wide halo → soft glow → crisp core) sits over
-            // a soft radial dark blob that fades into the PNG's dark frame on the sides
-            // instead of ending in a hard rectangle.
-            val redNeon = Color(0xFFE41417)
-            val redCore = Color(0xFFFF4A2C)
+        // Opaque black mask over the middle — hides bg_select_profile's baked title + plates,
+        // leaves the top and bottom red gaming borders visible.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .offset(y = screenH * topBorderFrac)
+                .height(screenH * (1f - topBorderFrac - botBorderFrac))
+                .background(Color.Black)
+        )
+
+        // "SELECT PROFILE" — red forged-glass title sitting just below the top red border,
+        // above the first plate (~13% of screen height). Multi-layer: wide halo → mid glow →
+        // crisp core with a white specular top-highlight for the glass shine.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .offset(y = screenH * 0.095f),
+            contentAlignment = Alignment.Center
+        ) {
+            // Wide outer halo
+            Text(
+                text = strings.selectProfile,
+                color = redHalo.copy(alpha = 0.55f),
+                fontSize = 26.sp,
+                fontFamily = nokiaFont,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+                softWrap = false,
+                style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 40f))
+            )
+            // Mid glow
+            Text(
+                text = strings.selectProfile,
+                color = redNeon.copy(alpha = 0.85f),
+                fontSize = 26.sp,
+                fontFamily = nokiaFont,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+                softWrap = false,
+                style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 18f))
+            )
+            // Crisp red core
+            Text(
+                text = strings.selectProfile,
+                color = redCore,
+                fontSize = 26.sp,
+                fontFamily = nokiaFont,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+                softWrap = false,
+                style = TextStyle(shadow = Shadow(color = Color.Black, offset = Offset(1f, 2f), blurRadius = 3f))
+            )
+            // Forged-glass specular highlight — slim white sheen offset upward
+            Text(
+                text = strings.selectProfile,
+                color = Color.White.copy(alpha = 0.55f),
+                fontSize = 26.sp,
+                fontFamily = nokiaFont,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.offset(y = (-1).dp),
+                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.35f), blurRadius = 2f))
+            )
+        }
+
+        listOf(
+            DarkPlate(BTN1_CENTER, strings.idealProfile, R.drawable.btn_plate_1, R.drawable.ic_person),
+            DarkPlate(BTN2_CENTER, strings.customProfile, R.drawable.btn_plate_2, R.drawable.ic_gear),
+            DarkPlate(BTN3_CENTER, strings.exportProgress, R.drawable.btn_plate_3, R.drawable.ic_cloud)
+        ).forEach { btn ->
+            // Multiplier < ~1.0 leaves a visible gap between plates (centres are ~7.1% apart)
+            val boxHeight = screenH * BTN_HEIGHT_FRAC * 0.9f
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = screenH * 0.058f)
-                    .fillMaxWidth(0.98f)
-                    .padding(vertical = 12.dp)
-                    .drawBehind {
-                        drawRect(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color.Black,
-                                    Color.Black,
-                                    Color.Black.copy(alpha = 0.65f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(size.width / 2f, size.height / 2f),
-                                radius = size.width * 0.5f
-                            )
-                        )
-                    },
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .offset(y = screenH * btn.yFraction - boxHeight / 2f)
+                    .height(boxHeight)
             ) {
-                // Widest halo
-                Text(
-                    text = strings.selectProfile,
-                    color = redNeon.copy(alpha = 0.35f),
-                    fontSize = 36.sp,
-                    fontFamily = titleFont,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 4.sp,
-                    style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 44f))
-                )
-                // Mid glow
-                Text(
-                    text = strings.selectProfile,
-                    color = redNeon.copy(alpha = 0.6f),
-                    fontSize = 36.sp,
-                    fontFamily = titleFont,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 4.sp,
-                    style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 20f))
-                )
-                // Crisp core
-                Text(
-                    text = strings.selectProfile,
-                    color = redCore,
-                    fontSize = 36.sp,
-                    fontFamily = titleFont,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 4.sp,
-                    style = TextStyle(
-                        shadow = Shadow(color = Color.Black, offset = Offset(1f, 2f), blurRadius = 3f)
-                    )
-                )
-            }
-
-            // Three buttons: clean grunge plate + icon + label + chevron. Icons and
-            // chevron get a soft amber radial halo so they read as "lit" against the
-            // dark plate — matches the glow feel of the baked PNG buttons.
-            data class Btn(
-                val yFraction: Float,
-                val label: String,
-                val plateRes: Int,
-                val iconRes: Int
-            )
-            val amberBright = Color(0xFFF5B85B)
-            val amberDeep   = Color(0xFFD48420)
-            val amberGlow   = Color(0xFFFF9A3C)
-            listOf(
-                Btn(BTN1_CENTER, strings.idealProfile, R.drawable.btn_plate_1, R.drawable.ic_person),
-                Btn(BTN2_CENTER, strings.customProfile, R.drawable.btn_plate_2, R.drawable.ic_gear),
-                Btn(BTN3_CENTER, strings.exportProgress, R.drawable.btn_plate_3, R.drawable.ic_cloud)
-            ).forEach { btn ->
-                val boxHeight = screenH * BTN_HEIGHT_FRAC * 1.5f
-                Box(
+                Image(
+                    painter = painterResource(id = btn.plateRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.FillBounds,
                     modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .offset(y = screenH * btn.yFraction - boxHeight / 2f)
-                        .height(boxHeight)
+                        .fillMaxSize()
+                        .padding(horizontal = 2.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 26.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    // Grunge plate covers the baked button underneath
-                    Image(
-                        painter = painterResource(id = btn.plateRes),
+                    Icon(
+                        painter = painterResource(id = btn.iconRes),
                         contentDescription = null,
-                        contentScale = ContentScale.FillBounds,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 2.dp)
+                        tint = ashIcon,
+                        modifier = Modifier.size(24.dp)
                     )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 22.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Icon with soft amber halo
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .drawBehind {
-                                    drawCircle(
-                                        brush = Brush.radialGradient(
-                                            colors = listOf(
-                                                amberGlow.copy(alpha = 0.35f),
-                                                Color.Transparent
-                                            ),
-                                            center = Offset(size.width / 2f, size.height / 2f),
-                                            radius = size.width / 2f
-                                        )
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = btn.iconRes),
-                                contentDescription = null,
-                                tint = amberBright,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier.weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Warm under-glow behind label
-                            Text(
-                                text = btn.label,
-                                color = amberGlow.copy(alpha = 0.5f),
-                                fontSize = 18.sp,
-                                fontFamily = titleFont,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 2.5.sp,
-                                style = TextStyle(shadow = Shadow(color = amberGlow, blurRadius = 18f))
-                            )
-                            // Crisp bronze-gradient label
-                            Text(
-                                text = btn.label,
-                                color = amberDeep,
-                                fontSize = 18.sp,
-                                fontFamily = titleFont,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 2.5.sp,
-                                style = TextStyle(
-                                    brush = Brush.linearGradient(listOf(amberBright, amberDeep)),
-                                    shadow = Shadow(color = Color.Black, offset = Offset(1f, 2f), blurRadius = 4f)
-                                )
-                            )
-                        }
-
-                        // Chevron with matching soft amber halo
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .drawBehind {
-                                    drawCircle(
-                                        brush = Brush.radialGradient(
-                                            colors = listOf(
-                                                amberGlow.copy(alpha = 0.35f),
-                                                Color.Transparent
-                                            ),
-                                            center = Offset(size.width / 2f, size.height / 2f),
-                                            radius = size.width / 2f
-                                        )
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_chevron_right),
-                                contentDescription = null,
-                                tint = amberBright,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = btn.label,
+                        color = ashLabel,
+                        fontSize = 16.sp,
+                        fontFamily = titleFont,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.5.sp,
+                        style = TextStyle(
+                            shadow = Shadow(color = Color.Black, offset = Offset(0f, 1f), blurRadius = 2f)
+                        )
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_chevron_right),
+                        contentDescription = null,
+                        tint = ashIcon,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
@@ -360,7 +317,7 @@ private fun DarkIndustrialSkin(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 16.dp, vertical = 24.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             DarkQuickButton(

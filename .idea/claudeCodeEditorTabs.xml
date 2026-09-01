@@ -1,21 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ClaudeCodeEditorTabs">
-    <option name="activeSessionId" value="ceed6afd-2ba2-4b87-a341-c2c343339fc4" />
+    <option name="activeSessionId" value="fdcec57a-cb3d-49ce-8fa9-358e0175b013" />
     <option name="openSessionIds">
       <list>
         <option value="ceed6afd-2ba2-4b87-a341-c2c343339fc4" />
+        <option value="fdcec57a-cb3d-49ce-8fa9-358e0175b013" />
       </list>
     </option>
     <option name="sessionPaths">
       <map>
         <entry key="ceed6afd-2ba2-4b87-a341-c2c343339fc4" value="/sessions/f614d0ff-7cfc-43b8-a45a-e12ab36057f0" />
+        <entry key="fdcec57a-cb3d-49ce-8fa9-358e0175b013" value="/sessions/6ae3acb8-d07c-4dbc-be60-e9c529bdf160" />
       </map>
     </option>
     <option name="sessionTitles">
       <map>
         <entry key="0c794013-e102-49d1-9ced-6e8017d044f4" value="Claude Code" />
         <entry key="ceed6afd-2ba2-4b87-a341-c2c343339fc4" value="bhai tu hai na logged in?" />
+        <entry key="fdcec57a-cb3d-49ce-8fa9-358e0175b013" value="bro you forgot these borders to draw for top and b" />
       </map>
     </option>
   </component>
