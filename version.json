@@ -1,6 +1,6 @@
 {
-  "versionCode": 29,
-  "versionName": "3.8",
+  "versionCode": 30,
+  "versionName": "3.9",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v3.8: Added My Permissions manager under Settings > System & System Settings launcher. ⚙️🔒✨"
+  "releaseNotes": "v3.9: Native city geocoding, live location resolution & interactive permission manager. 📍⚙️✨"
 }

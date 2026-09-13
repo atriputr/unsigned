@@ -1,6 +1,7 @@
 package com.example.un_signed
 
 import android.content.Context
+import android.location.Geocoder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -179,6 +180,24 @@ object WeatherService {
         } catch (_: Exception) { "" }
     }
 
+    private fun getNativeCityName(context: Context, lat: Double, lon: Double): String {
+        return try {
+            val geocoder = Geocoder(context, Locale.getDefault())
+            @Suppress("DEPRECATION")
+            val addresses = geocoder.getFromLocation(lat, lon, 1)
+            if (!addresses.isNullOrEmpty()) {
+                val addr = addresses[0]
+                val city = addr.locality ?: addr.subAdminArea ?: addr.adminArea
+                val country = addr.countryName ?: ""
+                if (!city.isNullOrBlank()) {
+                    if (country.isNotBlank()) "$city, $country" else city
+                } else {
+                    addr.featureName ?: ""
+                }
+            } else ""
+        } catch (_: Exception) { "" }
+    }
+
     /**
      * Get current weather. Returns cached value if fresh, else fetches.
      */
@@ -187,9 +206,10 @@ object WeatherService {
         if (!forceRefresh && cache.isValid && !cache.isStale(TTL_MS)) return cache
 
         val loc = LocationHelper.resolve(context) ?: return cache
-        val rawName = loc.label.ifBlank { reverseName(loc.latitude, loc.longitude) }
-        val name = if (rawName.isBlank() || rawName.equals("LOCATION", ignoreCase = true)) {
-            reverseName(loc.latitude, loc.longitude).ifBlank { "DETECTED LOCATION" }
+        val nativeName = getNativeCityName(context, loc.latitude, loc.longitude)
+        val rawName = nativeName.ifBlank { loc.label.ifBlank { reverseName(loc.latitude, loc.longitude) } }
+        val name = if (rawName.isBlank() || rawName.equals("LOCATION", ignoreCase = true) || rawName.equals("DETECTED LOCATION", ignoreCase = true)) {
+            "MY LOCATION"
         } else rawName
 
         val fresh = fetchOpenMeteo(loc.latitude, loc.longitude, name) ?: return cache

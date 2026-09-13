@@ -44,6 +44,7 @@ fun SettingsOverlay(
     onChangeLanguage: () -> Unit,
     hasCalendarPermission: Boolean = false,
     hasReminderFitnessPermission: Boolean = false,
+    onRequestLocationPermission: () -> Unit = {},
     onRequestCalendarPermission: () -> Unit = {},
     onRequestReminderFitnessPermission: () -> Unit = {},
     onClose: () -> Unit
@@ -277,6 +278,9 @@ fun SettingsOverlay(
                 titleFont = titleFont,
                 contentFont = contentFont,
                 palette = palette,
+                onRequestLocationPermission = onRequestLocationPermission,
+                onRequestCalendarPermission = onRequestCalendarPermission,
+                onRequestReminderFitnessPermission = onRequestReminderFitnessPermission,
                 onClose = { showMyPermissions = false }
             )
         }
@@ -288,6 +292,9 @@ private fun MyPermissionsDialog(
     titleFont: FontFamily,
     contentFont: FontFamily,
     palette: ThemePalette,
+    onRequestLocationPermission: () -> Unit,
+    onRequestCalendarPermission: () -> Unit,
+    onRequestReminderFitnessPermission: () -> Unit,
     onClose: () -> Unit
 ) {
     val ctx = LocalContext.current
@@ -302,6 +309,16 @@ private fun MyPermissionsDialog(
     val hasExactAlarm = remember { PermissionsManager.canScheduleExactAlarms(ctx) }
     val hasInstall = remember { ctx.packageManager.canRequestPackageInstalls() }
 
+    fun openAppSettings() {
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:${ctx.packageName}")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            ctx.startActivity(intent)
+        } catch (_: Exception) { }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -311,8 +328,8 @@ private fun MyPermissionsDialog(
     ) {
         Column(
             modifier = Modifier
-                .width(320.dp)
-                .heightIn(max = 580.dp)
+                .width(340.dp)
+                .heightIn(max = 620.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(palette.surfaceBrush())
                 .border(1.5.dp, palette.borderBrush(), RoundedCornerShape(20.dp))
@@ -328,7 +345,7 @@ private fun MyPermissionsDialog(
                 style = TextStyle(shadow = Shadow(color = OrangeFire.copy(alpha = 0.5f), blurRadius = 8f))
             )
             Text(
-                "Active System Access & Status",
+                "Tap any item to grant or toggle permission",
                 color = palette.subtle,
                 fontSize = 11.sp,
                 fontFamily = contentFont,
@@ -342,12 +359,79 @@ private fun MyPermissionsDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                PermissionRow("Location Access", hasLocation, "Weather, AQI & Location-based goals", contentFont, palette)
-                PermissionRow("Calendar Read & Write", hasCalendar, "Two-way task sync with phone calendar", contentFont, palette)
-                PermissionRow("Notifications", hasNotifications, "Task reminders, alarms & update notices", contentFont, palette)
-                PermissionRow("Activity Recognition", hasActivity, "Physical step counting & sensor tracking", contentFont, palette)
-                PermissionRow("Exact Alarms & Timers", hasExactAlarm, "Precise timing for reminders & tasks", contentFont, palette)
-                PermissionRow("Install Packages", hasInstall, "Direct in-app update installation", contentFont, palette)
+                PermissionRow(
+                    name = "Location Access",
+                    granted = hasLocation,
+                    description = "Weather, AQI & Location-based goals",
+                    font = contentFont,
+                    palette = palette
+                ) {
+                    Haptics.click(ctx)
+                    if (!hasLocation) onRequestLocationPermission() else openAppSettings()
+                }
+
+                PermissionRow(
+                    name = "Calendar Read & Write",
+                    granted = hasCalendar,
+                    description = "Two-way task sync with phone calendar",
+                    font = contentFont,
+                    palette = palette
+                ) {
+                    Haptics.click(ctx)
+                    if (!hasCalendar) onRequestCalendarPermission() else openAppSettings()
+                }
+
+                PermissionRow(
+                    name = "Notifications",
+                    granted = hasNotifications,
+                    description = "Task reminders, alarms & update notices",
+                    font = contentFont,
+                    palette = palette
+                ) {
+                    Haptics.click(ctx)
+                    if (!hasNotifications) onRequestReminderFitnessPermission() else openAppSettings()
+                }
+
+                PermissionRow(
+                    name = "Activity Recognition",
+                    granted = hasActivity,
+                    description = "Physical step counting & sensor tracking",
+                    font = contentFont,
+                    palette = palette
+                ) {
+                    Haptics.click(ctx)
+                    if (!hasActivity) onRequestReminderFitnessPermission() else openAppSettings()
+                }
+
+                PermissionRow(
+                    name = "Exact Alarms & Timers",
+                    granted = hasExactAlarm,
+                    description = "Precise timing for reminders & tasks",
+                    font = contentFont,
+                    palette = palette
+                ) {
+                    Haptics.click(ctx)
+                    if (!hasExactAlarm && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        try {
+                            ctx.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${ctx.packageName}")))
+                        } catch (_: Exception) { openAppSettings() }
+                    } else openAppSettings()
+                }
+
+                PermissionRow(
+                    name = "Install Packages",
+                    granted = hasInstall,
+                    description = "Direct in-app update installation",
+                    font = contentFont,
+                    palette = palette
+                ) {
+                    Haptics.click(ctx)
+                    if (!hasInstall) {
+                        try {
+                            ctx.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}")))
+                        } catch (_: Exception) { openAppSettings() }
+                    } else openAppSettings()
+                }
             }
 
             Spacer(Modifier.height(16.dp))
@@ -362,18 +446,12 @@ private fun MyPermissionsDialog(
                     .border(1.dp, OrangeFire, RoundedCornerShape(10.dp))
                     .clickable {
                         Haptics.click(ctx)
-                        try {
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.parse("package:${ctx.packageName}")
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                            }
-                            ctx.startActivity(intent)
-                        } catch (_: Exception) { }
+                        openAppSettings()
                     },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "OPEN PHONE SETTINGS",
+                    "OPEN ALL APP SETTINGS",
                     color = palette.onSurface,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
@@ -402,7 +480,8 @@ private fun PermissionRow(
     granted: Boolean,
     description: String,
     font: FontFamily,
-    palette: ThemePalette
+    palette: ThemePalette,
+    onClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -410,6 +489,7 @@ private fun PermissionRow(
             .clip(RoundedCornerShape(10.dp))
             .background(palette.chipBg)
             .border(1.dp, if (granted) Color(0x664CAF50) else Color(0x66EF5350), RoundedCornerShape(10.dp))
+            .clickable { onClick() }
             .padding(12.dp)
     ) {
         Column {
@@ -435,8 +515,8 @@ private fun PermissionRow(
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        if (granted) "ENABLED" else "DISABLED",
-                        color = if (granted) Color(0xFF81C784) else Color(0xFFE57373),
+                        if (granted) "ENABLED ✎" else "TAP TO GRANT ✚",
+                        color = if (granted) Color(0xFF81C784) else Color(0xFFFF8A80),
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = font,

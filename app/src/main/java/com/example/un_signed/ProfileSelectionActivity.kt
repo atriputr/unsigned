@@ -680,6 +680,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 hasCalendarPermission = PermissionsManager.hasCalendarPermission(this),
                 hasReminderFitnessPermission = PermissionsManager.hasNotificationPermission(this) &&
                     PermissionsManager.hasActivityRecognitionPermission(this),
+                onRequestLocationPermission = { locationPermissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION)) },
                 onRequestCalendarPermission = { requestCalendarPermission() },
                 onRequestReminderFitnessPermission = { requestReminderAndFitnessPermissions() },
                 onClose = { composeOverlay.visibility = View.GONE }
@@ -1126,15 +1127,15 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private fun updateWeatherLocationUi(weather: WeatherData) {
         if (weather.isValid) {
             val rawLoc = weather.locationName.trim()
-            val locName = if (rawLoc.isBlank() || rawLoc.equals("LOCATION", ignoreCase = true)) {
-                "DETECTED LOCATION"
+            val locName = if (rawLoc.isBlank() || rawLoc.equals("LOCATION", ignoreCase = true) || rawLoc.equals("DETECTED LOCATION", ignoreCase = true)) {
+                "MY LOCATION"
             } else rawLoc.uppercase()
             val temp = String.format(Locale.getDefault(), "%.1f°C", weather.temperatureC)
             val cond = weather.condition.uppercase()
             tvWeatherLocation.text = if (cond.isNotBlank()) {
-                "LOCATION: $locName  ·  WEATHER: $temp $cond"
+                "$locName  ·  WEATHER: $temp $cond"
             } else {
-                "LOCATION: $locName  ·  WEATHER: $temp"
+                "$locName  ·  WEATHER: $temp"
             }
         } else {
             val lang = appPrefs.value.languageCode
