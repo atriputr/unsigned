@@ -1,5 +1,11 @@
 package com.example.un_signed
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +28,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 
 @Composable
 fun SettingsOverlay(
@@ -44,6 +51,7 @@ fun SettingsOverlay(
     val palette = LocalPalette.current
     val ctx = LocalContext.current
     var current by remember { mutableStateOf(prefs) }
+    var showMyPermissions by remember { mutableStateOf(false) }
 
     fun update(p: AppPreferences) {
         current = p
@@ -95,9 +103,6 @@ fun SettingsOverlay(
                 // ── Theme ────────────────────────────────
                 SectionHeader(LocalStrings.current.theme, palette)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // Value is the canonical KEY (DARK / CREAM / AMBER) — never localised.
-                    // The visible label uses the localised string. This keeps AppPalettes.byName() working
-                    // in every language.
                     listOf(
                         "DARK"  to LocalStrings.current.dark,
                         "CREAM" to LocalStrings.current.cream,
@@ -252,6 +257,9 @@ fun SettingsOverlay(
                 ) {
                     Haptics.click(ctx); onChangeLanguage()
                 }
+                ActionButton("MY PERMISSIONS", contentFont, palette) {
+                    Haptics.click(ctx); showMyPermissions = true
+                }
                 ActionButton(LocalStrings.current.checkUpdate, contentFont, palette) {
                     Haptics.click(ctx); onCheckUpdate()
                 }
@@ -262,6 +270,189 @@ fun SettingsOverlay(
 
             Spacer(Modifier.height(14.dp))
             Text(LocalStrings.current.done, color = palette.faint, fontSize = 14.sp, fontFamily = titleFont, letterSpacing = 2.sp, modifier = Modifier.clickable { onClose() })
+        }
+
+        if (showMyPermissions) {
+            MyPermissionsDialog(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                palette = palette,
+                onClose = { showMyPermissions = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun MyPermissionsDialog(
+    titleFont: FontFamily,
+    contentFont: FontFamily,
+    palette: ThemePalette,
+    onClose: () -> Unit
+) {
+    val ctx = LocalContext.current
+
+    val hasLocation = remember {
+        ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
+    val hasCalendar = remember { PermissionsManager.hasCalendarPermission(ctx) }
+    val hasNotifications = remember { PermissionsManager.hasNotificationPermission(ctx) }
+    val hasActivity = remember { PermissionsManager.hasActivityRecognitionPermission(ctx) }
+    val hasExactAlarm = remember { PermissionsManager.canScheduleExactAlarms(ctx) }
+    val hasInstall = remember { ctx.packageManager.canRequestPackageInstalls() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.85f))
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onClose() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .width(320.dp)
+                .heightIn(max = 580.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(palette.surfaceBrush())
+                .border(1.5.dp, palette.borderBrush(), RoundedCornerShape(20.dp))
+                .clickable(enabled = false) { }
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "MY PERMISSIONS",
+                color = palette.onSurface,
+                fontSize = 22.sp,
+                fontFamily = titleFont,
+                style = TextStyle(shadow = Shadow(color = OrangeFire.copy(alpha = 0.5f), blurRadius = 8f))
+            )
+            Text(
+                "Active System Access & Status",
+                color = palette.subtle,
+                fontSize = 11.sp,
+                fontFamily = contentFont,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
+            )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PermissionRow("Location Access", hasLocation, "Weather, AQI & Location-based goals", contentFont, palette)
+                PermissionRow("Calendar Read & Write", hasCalendar, "Two-way task sync with phone calendar", contentFont, palette)
+                PermissionRow("Notifications", hasNotifications, "Task reminders, alarms & update notices", contentFont, palette)
+                PermissionRow("Activity Recognition", hasActivity, "Physical step counting & sensor tracking", contentFont, palette)
+                PermissionRow("Exact Alarms & Timers", hasExactAlarm, "Precise timing for reminders & tasks", contentFont, palette)
+                PermissionRow("Install Packages", hasInstall, "Direct in-app update installation", contentFont, palette)
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Open System Settings button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(42.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(OrangeFire.copy(alpha = 0.25f))
+                    .border(1.dp, OrangeFire, RoundedCornerShape(10.dp))
+                    .clickable {
+                        Haptics.click(ctx)
+                        try {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${ctx.packageName}")
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            ctx.startActivity(intent)
+                        } catch (_: Exception) { }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "OPEN PHONE SETTINGS",
+                    color = palette.onSurface,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = titleFont,
+                    letterSpacing = 1.sp
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                "CLOSE",
+                color = palette.faint,
+                fontSize = 13.sp,
+                fontFamily = titleFont,
+                letterSpacing = 2.sp,
+                modifier = Modifier.clickable { onClose() }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PermissionRow(
+    name: String,
+    granted: Boolean,
+    description: String,
+    font: FontFamily,
+    palette: ThemePalette
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(palette.chipBg)
+            .border(1.dp, if (granted) Color(0x664CAF50) else Color(0x66EF5350), RoundedCornerShape(10.dp))
+            .padding(12.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    name.uppercase(),
+                    color = palette.onSurface,
+                    fontSize = 12.sp,
+                    fontFamily = font,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (granted) Color(0x224CAF50) else Color(0x22EF5350))
+                        .border(0.5.dp, if (granted) Color(0xFF4CAF50) else Color(0xFFEF5350), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        if (granted) "ENABLED" else "DISABLED",
+                        color = if (granted) Color(0xFF81C784) else Color(0xFFE57373),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = font,
+                        letterSpacing = 1.sp
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(2.dp))
+
+            Text(
+                description,
+                color = palette.subtle,
+                fontSize = 10.sp,
+                fontFamily = font
+            )
         }
     }
 }
