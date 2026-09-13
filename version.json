@@ -1,6 +1,6 @@
 {
-  "versionCode": 32,
-  "versionName": "4.1",
+  "versionCode": 33,
+  "versionName": "4.2",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v4.1: Multi-source reverse geocoding (BigDataCloud + OSM + Geocoder) & city name fix. 📍🏙️✨"
+  "releaseNotes": "v4.2: Added animated horizontal reel ticker to 'SELECT PROFILE' glowing title (left-to-right glide). 🎞️🔥✨"
 }

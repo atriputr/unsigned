@@ -18,11 +18,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -32,6 +36,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -152,6 +159,103 @@ fun HomeSkin(
     }
 }
 
+@Composable
+private fun SelectProfileReel(
+    text: String,
+    fontFamily: FontFamily,
+    redCore: Color,
+    redNeon: Color,
+    redHalo: Color,
+    modifier: Modifier = Modifier
+) {
+    var textWidthPx by remember { mutableFloatStateOf(400f) }
+
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(42.dp)
+            .clipToBounds(),
+        contentAlignment = Alignment.Center
+    ) {
+        val containerWidthPx = with(LocalDensity.current) { this@BoxWithConstraints.maxWidth.toPx() }
+
+        // Horizontal reel coming from left (-textWidthPx) going to right (+containerWidthPx)
+        val transition = rememberInfiniteTransition(label = "titleReel")
+        val offsetXPx by transition.animateFloat(
+            initialValue = -textWidthPx,
+            targetValue = containerWidthPx,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 6500, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "titleX"
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .offset { IntOffset(offsetXPx.toInt(), 0) },
+            contentAlignment = Alignment.Center
+        ) {
+            // Wide outer halo
+            Text(
+                text = text,
+                color = redHalo.copy(alpha = 0.55f),
+                fontSize = 26.sp,
+                fontFamily = fontFamily,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+                softWrap = false,
+                style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 40f)),
+                modifier = Modifier.onGloballyPositioned { coordinates ->
+                    val w = coordinates.size.width.toFloat()
+                    if (w > 0f && w != textWidthPx) {
+                        textWidthPx = w
+                    }
+                }
+            )
+            // Mid glow
+            Text(
+                text = text,
+                color = redNeon.copy(alpha = 0.85f),
+                fontSize = 26.sp,
+                fontFamily = fontFamily,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+                softWrap = false,
+                style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 18f))
+            )
+            // Crisp core
+            Text(
+                text = text,
+                color = redCore,
+                fontSize = 26.sp,
+                fontFamily = fontFamily,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+                softWrap = false,
+                style = TextStyle(shadow = Shadow(color = Color.Black, offset = Offset(1f, 2f), blurRadius = 3f))
+            )
+            // Forged-glass specular highlight
+            Text(
+                text = text,
+                color = Color.White.copy(alpha = 0.55f),
+                fontSize = 26.sp,
+                fontFamily = fontFamily,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.offset(y = (-1).dp),
+                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.35f), blurRadius = 2f))
+            )
+        }
+    }
+}
+
 // ══════════════════════════════════════════════════════════════════
 //  ASHES  ·  DARK theme  (monochrome, low-contrast, minimalist)
 //  Pure black bg, three grungy ash plates for menu buttons — no red,
@@ -193,9 +297,7 @@ private fun DarkIndustrialSkin(
                 .background(Color.Black)
         )
 
-        // "SELECT PROFILE" — red forged-glass title sitting just below the top red border,
-        // above the first plate (~13% of screen height). Multi-layer: wide halo → mid glow →
-        // crisp core with a white specular top-highlight for the glass shine.
+        // "SELECT PROFILE" — animated horizontal reel title coming from left going to right
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -203,54 +305,12 @@ private fun DarkIndustrialSkin(
                 .offset(y = screenH * 0.095f),
             contentAlignment = Alignment.Center
         ) {
-            // Wide outer halo
-            Text(
+            SelectProfileReel(
                 text = strings.selectProfile,
-                color = redHalo.copy(alpha = 0.55f),
-                fontSize = 26.sp,
                 fontFamily = nokiaFont,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-                maxLines = 1,
-                softWrap = false,
-                style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 40f))
-            )
-            // Mid glow
-            Text(
-                text = strings.selectProfile,
-                color = redNeon.copy(alpha = 0.85f),
-                fontSize = 26.sp,
-                fontFamily = nokiaFont,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-                maxLines = 1,
-                softWrap = false,
-                style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 18f))
-            )
-            // Crisp red core
-            Text(
-                text = strings.selectProfile,
-                color = redCore,
-                fontSize = 26.sp,
-                fontFamily = nokiaFont,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-                maxLines = 1,
-                softWrap = false,
-                style = TextStyle(shadow = Shadow(color = Color.Black, offset = Offset(1f, 2f), blurRadius = 3f))
-            )
-            // Forged-glass specular highlight — slim white sheen offset upward
-            Text(
-                text = strings.selectProfile,
-                color = Color.White.copy(alpha = 0.55f),
-                fontSize = 26.sp,
-                fontFamily = nokiaFont,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 2.sp,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier.offset(y = (-1).dp),
-                style = TextStyle(shadow = Shadow(color = Color.White.copy(alpha = 0.35f), blurRadius = 2f))
+                redCore = redCore,
+                redNeon = redNeon,
+                redHalo = redHalo
             )
         }
 
