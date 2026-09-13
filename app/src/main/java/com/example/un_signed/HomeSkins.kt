@@ -6,6 +6,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -177,31 +181,64 @@ private fun SelectProfileReel(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(42.dp)
-            .clipToBounds(),
+            .height(54.dp)
+            .clipToBounds()
+            // Horizontal edge fade — the reel materialises out of and dissolves into shadow.
+            // DstIn keeps DST where SRC is opaque, so we paint Black in the middle (keep) and
+            // fade to Transparent at the edges (dissolve).
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                val fadeFrac = 0.10f
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        0f to Color.Transparent,
+                        fadeFrac to Color.Black,
+                        (1f - fadeFrac) to Color.Black,
+                        1f to Color.Transparent
+                    ),
+                    blendMode = BlendMode.DstIn
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
         val containerWidthPx = with(LocalDensity.current) { this@BoxWithConstraints.maxWidth.toPx() }
 
-        // Horizontal reel coming from left (-textWidthPx) going to right (+containerWidthPx)
+        // Right-to-left marquee (classic ticker direction). Linear horizontal motion —
+        // the curved-drum feel comes from the sine bow + scale/alpha bloom below, adding
+        // extra easing to horizontal speed would fight the visual rhythm.
         val transition = rememberInfiniteTransition(label = "titleReel")
-        val offsetXPx by transition.animateFloat(
-            initialValue = -textWidthPx,
-            targetValue = containerWidthPx,
+        val progress by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
             animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 6500, easing = LinearEasing),
+                animation = tween(durationMillis = 9000, easing = LinearEasing),
                 repeatMode = RepeatMode.Restart
             ),
-            label = "titleX"
+            label = "reelProgress"
         )
+        val offsetXPx = containerWidthPx - progress * (textWidthPx + containerWidthPx)
+
+        // Sinusoidal vertical bow — traces the curve of an imaginary drum surface.
+        val centerNorm = ((offsetXPx + textWidthPx / 2f) / containerWidthPx).coerceIn(0f, 1f)
+        val bow = kotlin.math.sin(centerNorm * kotlin.math.PI).toFloat()   // 0 → 1 → 0
+        // Rise slightly through the centre; scale + brightness bloom subtly at the apex.
+        val bowDy = -bow * 4f          // pixels lift
+        val bowScale = 1f + bow * 0.03f
+        val bowAlpha = 0.75f + bow * 0.25f
 
         Box(
             modifier = Modifier
                 .fillMaxHeight()
-                .offset { IntOffset(offsetXPx.toInt(), 0) },
+                .offset { IntOffset(offsetXPx.toInt(), bowDy.toInt()) }
+                .graphicsLayer {
+                    scaleX = bowScale
+                    scaleY = bowScale
+                    alpha = bowAlpha
+                },
             contentAlignment = Alignment.Center
         ) {
-            // Wide outer halo
+            // Wide outer halo — the "spill" around the letters
             Text(
                 text = text,
                 color = redHalo.copy(alpha = 0.55f),
