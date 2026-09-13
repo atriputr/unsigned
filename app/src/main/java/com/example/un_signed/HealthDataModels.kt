@@ -193,9 +193,105 @@ data class SleepSessionState(
 data class FitnessSample(
     val dateIso: String = LocalDate.now().toString(),
     val steps: Int = 0,
+    val activeKcal: Int = 0,                 // active calories burnt (Health Connect only)
+    val distanceMeters: Int = 0,             // distance covered (Health Connect only)
     val source: String = "unavailable",      // health_connect | step_sensor | unavailable
     val timestamp: Long = System.currentTimeMillis()
 )
+
+// ── Blood pressure (BP) reading ──────────────────────────────
+data class BpReading(
+    val id: String = UUID.randomUUID().toString(),
+    val systolic: Int = 0,                    // upper number, mmHg
+    val diastolic: Int = 0,                   // lower number, mmHg
+    val pulse: Int = 0,                       // bpm; 0 = not entered
+    val timestamp: Long = System.currentTimeMillis(),
+    val notes: String = ""
+) {
+    val dateIso: String
+        get() = Instant.ofEpochMilli(timestamp)
+            .atZone(ZoneId.systemDefault()).toLocalDate().toString()
+
+    /** ACC/AHA 2017 guideline categories. Order matters: highest match wins. */
+    val category: String
+        get() = when {
+            systolic <= 0 || diastolic <= 0 -> "—"
+            systolic >= 180 || diastolic >= 120 -> "Hypertensive Crisis"
+            systolic >= 140 || diastolic >= 90 -> "Stage 2 Hypertension"
+            systolic >= 130 || diastolic >= 80 -> "Stage 1 Hypertension"
+            systolic in 120..129 && diastolic < 80 -> "Elevated"
+            systolic < 90 || diastolic < 60 -> "Low (Hypotension)"
+            else -> "Normal"
+        }
+
+    /** Traffic-light status: ok | watch | bad | critical | low */
+    val status: String
+        get() = when (category) {
+            "Normal" -> "ok"
+            "Elevated" -> "watch"
+            "Stage 1 Hypertension" -> "bad"
+            "Stage 2 Hypertension" -> "bad"
+            "Hypertensive Crisis" -> "critical"
+            "Low (Hypotension)" -> "low"
+            else -> "unknown"
+        }
+}
+
+// ── Glucose reading ──────────────────────────────────────────
+data class GlucoseReading(
+    val id: String = UUID.randomUUID().toString(),
+    val mgPerDl: Int = 0,                     // milligrams per deciliter
+    val context: String = "Random",           // Fasting | PostMeal | Random | Bedtime
+    val timestamp: Long = System.currentTimeMillis(),
+    val notes: String = ""
+) {
+    val dateIso: String
+        get() = Instant.ofEpochMilli(timestamp)
+            .atZone(ZoneId.systemDefault()).toLocalDate().toString()
+
+    /** ADA guideline categories, context-aware. */
+    val category: String
+        get() {
+            if (mgPerDl <= 0) return "—"
+            return when (context) {
+                "Fasting" -> when {
+                    mgPerDl < 70 -> "Low (Hypoglycemia)"
+                    mgPerDl < 100 -> "Normal"
+                    mgPerDl < 126 -> "Pre-diabetic"
+                    else -> "Diabetic"
+                }
+                "PostMeal" -> when {
+                    mgPerDl < 70 -> "Low (Hypoglycemia)"
+                    mgPerDl < 140 -> "Normal"
+                    mgPerDl < 200 -> "Pre-diabetic"
+                    else -> "Diabetic"
+                }
+                "Bedtime" -> when {
+                    mgPerDl < 90 -> "Low (Hypoglycemia)"
+                    mgPerDl < 150 -> "Normal"
+                    mgPerDl < 180 -> "Elevated"
+                    else -> "High"
+                }
+                else -> when {   // Random
+                    mgPerDl < 70 -> "Low (Hypoglycemia)"
+                    mgPerDl < 140 -> "Normal"
+                    mgPerDl < 200 -> "Elevated"
+                    else -> "Diabetic"
+                }
+            }
+        }
+
+    val status: String
+        get() = when (category) {
+            "Normal" -> "ok"
+            "Elevated" -> "watch"
+            "Pre-diabetic" -> "watch"
+            "High" -> "bad"
+            "Diabetic" -> "bad"
+            "Low (Hypoglycemia)" -> "low"
+            else -> "unknown"
+        }
+}
 
 // ── Junk log entry (rich, product-catalogued) ────────────────
 data class JunkLogEntry(

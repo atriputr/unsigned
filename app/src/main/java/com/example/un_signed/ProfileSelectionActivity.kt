@@ -85,6 +85,10 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private val pendingUpdate = mutableStateOf<UpdateInfo?>(null)
     private lateinit var updateManager: UpdateManager
 
+    // Reverse-sync (phone calendar → app) state
+    private var calendarObserver: android.database.ContentObserver? = null
+    private var calendarReconcileJob: kotlinx.coroutines.Job? = null
+
     private val downloadReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1) ?: -1
@@ -630,6 +634,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 },
                 onEditProfile = { showProfileOverlay(titleFont, contentFont, isOnboarding = false) },
                 onWeightLog   = { showWeightLogOverlay(titleFont, contentFont) },
+                onVitalsLog   = { showVitalsOverlay(titleFont, contentFont) },
                 onCheckUpdate = {
                     lifecycleScope.launch(Dispatchers.Main) {
                         val info = updateManager.checkForUpdate()
@@ -695,6 +700,16 @@ class ProfileSelectionActivity : AppCompatActivity() {
         }
     }
 
+    private fun showVitalsOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent {
+            VitalsOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                onClose = { showSettingsOverlay(titleFont, contentFont) }
+            )
+        }
+    }
+
     private fun showStopwatchOverlay(fontFamily: FontFamily, advanceMode: () -> Unit) {
         setThemedContent {
             StopwatchOverlay(
@@ -750,12 +765,19 @@ class ProfileSelectionActivity : AppCompatActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             removedIds.forEach { id ->
+                val removed = oldById[id] ?: return@forEach
                 TaskReminderScheduler.cancelReminders(this@ProfileSelectionActivity, id)
-                oldById[id]?.systemCalendarEventId?.let { SystemCalendarSync.deleteEvent(this@ProfileSelectionActivity, it) }
+                // Only delete events we OWN (i.e. events in the Unsigned mirror calendar).
+                // Never touch external calendars — that data belongs to the user's other apps.
+                if (!removed.isExternal) {
+                    removed.systemCalendarEventId?.let { SystemCalendarSync.deleteEvent(this@ProfileSelectionActivity, it) }
+                }
             }
 
             var updatedList = newTasks
             addedOrChanged.forEach { task ->
+                // Skip everything for read-only external events (imported from phone calendar).
+                if (task.isExternal) return@forEach
                 var current = task
 
                 if (prefs.syncTasksToPhoneCalendar && PermissionsManager.hasCalendarPermission(this@ProfileSelectionActivity)) {
@@ -1052,10 +1074,60 @@ class ProfileSelectionActivity : AppCompatActivity() {
         tvYearPercent.text = String.format(Locale.getDefault(), "%s: %.6f%%", yearLabel, progress)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Every time we come back to the foreground we (a) start observing the phone
+        // calendar for live changes and (b) immediately reconcile so anything the user
+        // added in the Google/Samsung/etc calendar app while we were away shows up.
+        startCalendarReverseSync()
+        reconcileExternalCalendar()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        SystemCalendarSync.stopObserving(this, calendarObserver)
+        calendarObserver = null
+    }
+
+    private fun startCalendarReverseSync() {
+        if (calendarObserver != null) return
+        if (!PermissionsManager.hasCalendarPermission(this)) return
+        calendarObserver = SystemCalendarSync.startObserving(this) {
+            reconcileExternalCalendar()
+        }
+    }
+
+    /**
+     * Debounced pull from the phone Calendar Provider. Reads a rolling window
+     * (30 days back → 180 days ahead), merges results with existing tasks, and
+     * persists. Runs on IO; UI state is updated back on Main.
+     */
+    private fun reconcileExternalCalendar() {
+        if (!PermissionsManager.hasCalendarPermission(this)) return
+        calendarReconcileJob?.cancel()
+        calendarReconcileJob = lifecycleScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(250) // simple debounce vs observer bursts
+            val today = LocalDate.now()
+            val from = today.minusDays(30)
+            val to = today.plusDays(180)
+            val imported = SystemCalendarSync.importExternalEvents(this@ProfileSelectionActivity, from, to) ?: return@launch
+
+            withContext(Dispatchers.Main) {
+                val existing = allCalendarTasks.toMap()
+                val merged = SystemCalendarSync.mergeImported(existing, imported, from, to)
+                allCalendarTasks.clear()
+                allCalendarTasks.putAll(merged)
+                FitDataRepository.saveCalendarTasks(allCalendarTasks.toMap())
+            }
+        }
+    }
+
     override fun onDestroy() {
         FitDataRepository.recordSessionEnd(currentSessionId)
         timeHandler.removeCallbacks(updateTimeRunnable)
         try { unregisterReceiver(downloadReceiver) } catch (_: Exception) {}
+        SystemCalendarSync.stopObserving(this, calendarObserver)
+        calendarObserver = null
         super.onDestroy()
     }
 }

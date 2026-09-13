@@ -54,8 +54,13 @@ data class CalendarTask(
     val timeMinutesOfDay: Int? = null,         // parsed from " @ HH:MM AM/PM" suffix, null = all-day
     val systemCalendarEventId: Long? = null,   // Calendar Provider event id, once synced
     val systemAlarmSet: Boolean = false,       // whether a stock-Alarm-app entry exists for it
-    val pomodoroReminders: Boolean = false     // per-task opt-in for frequent short-fuse reminders
-)
+    val pomodoroReminders: Boolean = false,    // per-task opt-in for frequent short-fuse reminders
+    val externalCalendarId: Long? = null,      // non-null = imported from phone calendar (read-only)
+    val externalCalendarName: String = "",     // display name of the source calendar (e.g. "gmail.com")
+    val lastSyncedAtMs: Long = 0L              // wall-clock of most recent import for de-dupe
+) {
+    val isExternal: Boolean get() = externalCalendarId != null
+}
 
 @Composable
 fun GlassCalendarOverlay(
@@ -357,25 +362,46 @@ fun GlassCalendarOverlay(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(7.dp))
-                                        .background(taskColor.copy(alpha = 0.12f))
-                                        .border(1.dp, taskColor.copy(alpha = 0.40f), RoundedCornerShape(7.dp))
-                                        .pointerInput(task.id, task.colorIndex) {
-                                            detectTapGestures(
-                                                onTap = {
-                                                    val next = (task.colorIndex + 1) % TASK_COLORS.size
-                                                    commitTasks(selectedDate, selectedTasks.map {
-                                                        if (it.id == task.id) it.copy(colorIndex = next) else it
-                                                    })
-                                                },
-                                                onLongPress = { taskToDelete = task }
-                                            )
+                                        .background(taskColor.copy(alpha = if (task.isExternal) 0.08f else 0.12f))
+                                        .border(
+                                            1.dp,
+                                            taskColor.copy(alpha = if (task.isExternal) 0.25f else 0.40f),
+                                            RoundedCornerShape(7.dp)
+                                        )
+                                        .pointerInput(task.id, task.colorIndex, task.isExternal) {
+                                            if (task.isExternal) {
+                                                // External events are read-only inside the app.
+                                                detectTapGestures {}
+                                            } else {
+                                                detectTapGestures(
+                                                    onTap = {
+                                                        val next = (task.colorIndex + 1) % TASK_COLORS.size
+                                                        commitTasks(selectedDate, selectedTasks.map {
+                                                            if (it.id == task.id) it.copy(colorIndex = next) else it
+                                                        })
+                                                    },
+                                                    onLongPress = { taskToDelete = task }
+                                                )
+                                            }
                                         }
                                         .padding(horizontal = 8.dp, vertical = 7.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Box(Modifier.size(8.dp).clip(CircleShape).background(taskColor))
                                     Spacer(Modifier.width(7.dp))
-                                    Text(task.text, color = taskColor, fontSize = 19.sp, fontFamily = fontFamily, modifier = Modifier.weight(1f), maxLines = 2)
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(task.text, color = taskColor, fontSize = 19.sp, fontFamily = fontFamily, maxLines = 2)
+                                        if (task.isExternal) {
+                                            Text(
+                                                "🔗 ${task.externalCalendarName.ifBlank { "phone calendar" }}",
+                                                color = Color.White.copy(alpha = 0.45f),
+                                                fontSize = 11.sp,
+                                                fontFamily = fontFamily,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -473,12 +499,13 @@ fun GlassCalendarOverlay(
                                     overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f)
                                 )
-                                if (task.systemCalendarEventId != null || task.systemAlarmSet || task.pomodoroReminders) {
+                                if (task.isExternal || task.systemCalendarEventId != null || task.systemAlarmSet || task.pomodoroReminders) {
                                     Spacer(Modifier.width(6.dp))
                                     val glyphs = buildString {
-                                        if (task.systemCalendarEventId != null) append("📅 ") // 📅
-                                        if (task.systemAlarmSet) append("⏰ ") // ⏰
-                                        if (task.pomodoroReminders) append("🍅") // 🍅
+                                        if (task.isExternal) append("🔗 ")
+                                        else if (task.systemCalendarEventId != null) append("📅 ")
+                                        if (task.systemAlarmSet) append("⏰ ")
+                                        if (task.pomodoroReminders) append("🍅")
                                     }.trim()
                                     Text(glyphs, fontSize = 13.sp, color = taskColor.copy(alpha = 0.85f))
                                 }

@@ -31,6 +31,7 @@ fun SettingsOverlay(
     onPrefsChange: (AppPreferences) -> Unit,
     onEditProfile: () -> Unit,
     onWeightLog: () -> Unit,
+    onVitalsLog: () -> Unit,
     onCheckUpdate: () -> Unit,
     onShowUpdateLog: () -> Unit,
     onChangeLanguage: () -> Unit,
@@ -236,6 +237,9 @@ fun SettingsOverlay(
                 }
                 ActionButton(LocalStrings.current.weightLog, contentFont, palette) {
                     Haptics.click(ctx); onWeightLog()
+                }
+                ActionButton("BP & Glucose", contentFont, palette) {
+                    Haptics.click(ctx); onVitalsLog()
                 }
 
                 Spacer(Modifier.height(4.dp))

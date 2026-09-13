@@ -40,9 +40,10 @@ fun CompareToGlobeOverlay(
     val ctx = LocalContext.current
     var stepsRefreshTick by remember { mutableStateOf(0) }
 
-    // Pull a fresh step count from Health Connect (Google Fit's modern replacement) or the device sensor.
+    // Pull a fresh fitness snapshot (steps + calories + distance) from Health Connect
+    // (Google Fit's modern replacement) or the device sensor.
     LaunchedEffect(Unit) {
-        FitnessDataRepository.getTodaySteps(ctx)
+        FitnessDataRepository.getTodayFitness(ctx)
         stepsRefreshTick++
     }
 

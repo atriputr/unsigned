@@ -42,6 +42,9 @@ object ReportGenerator {
         val logsAll        = FitDataRepository.loadLogEntries()
         val skillsAll      = FitDataRepository.loadSkillItems()
         val activitiesAll  = FitDataRepository.loadActivitySessions()
+        val bpAll          = FitDataRepository.loadBpReadings()
+        val glucoseAll     = FitDataRepository.loadGlucoseReadings()
+        val fitnessAll     = FitDataRepository.loadFitnessSamples()
         val periodDates = generateSequence(from) { it.plusDays(1) }.takeWhile { !it.isAfter(to) }.toList()
 
         val waterAvg = if (periodDates.isNotEmpty()) periodDates.map { waterHistory[it.toString()]?.let { w -> w.glassesConsumed * w.glassMl } ?: 0 }.average() else 0.0
@@ -217,6 +220,133 @@ object ReportGenerator {
                     appendLine("</div>")
                 }
                 appendLine("</div></div></div></div>")
+            }
+
+            // ── Fitness (Health Connect / Google Fit) ─────
+            val fitnessInPeriod = fitnessAll.filter { dateInRange(it.dateIso, from, to) }
+            if (fitnessInPeriod.isNotEmpty()) {
+                val avgSteps = fitnessInPeriod.map { it.steps }.average()
+                val totalKcal = fitnessInPeriod.sumOf { it.activeKcal }
+                val totalKm = fitnessInPeriod.sumOf { it.distanceMeters } / 1000.0
+                val hcDays = fitnessInPeriod.count { it.source == "health_connect" }
+                appendLine("<div class='section'><div class='section-title'>Movement &mdash; Health Connect</div><div class='stats-list'>")
+                appendLine(row("Avg Daily Steps", "%.0f".format(avgSteps)))
+                appendLine(row("Total Active Calories", "$totalKcal kcal"))
+                appendLine(row("Total Distance", "%.1f km".format(totalKm)))
+                appendLine(row("Days Synced via Health Connect", "$hcDays / ${fitnessInPeriod.size}"))
+                appendLine("</div>")
+                val trend = fitnessInPeriod.sortedBy { it.dateIso }.takeLast(14)
+                val maxSteps = (trend.maxOfOrNull { it.steps } ?: 1).coerceAtLeast(1)
+                appendLine("<div style='flex:1'>")
+                appendLine("<div class='bar-label-top'>Steps Daily Trend</div>")
+                appendLine("<div style='display:flex;align-items:flex-end;height:80px;gap:5px;border-bottom:1px solid #1a2d40;padding-bottom:4px'>")
+                trend.forEach { fs ->
+                    val h = (fs.steps.toFloat() / maxSteps * 64).toInt().coerceAtLeast(2)
+                    appendLine("<div style='flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end'>")
+                    appendLine("<div style='width:100%;height:${h}px;background:#FF9B44;border-radius:2px 2px 0 0;opacity:.85'></div>")
+                    appendLine("<div style='font-size:8px;color:#3a5060;margin-top:3px;writing-mode:vertical-rl;transform:rotate(180deg)'>${fs.dateIso.takeLast(5)}</div>")
+                    appendLine("</div>")
+                }
+                appendLine("</div></div></div>")
+            }
+
+            // ── Blood pressure ────────────────────────────
+            val bpInPeriod = bpAll.filter { dateInRange(it.dateIso, from, to) }.sortedBy { it.timestamp }
+            if (bpInPeriod.isNotEmpty()) {
+                val avgSys = bpInPeriod.map { it.systolic }.average()
+                val avgDia = bpInPeriod.map { it.diastolic }.average()
+                val avgPulse = bpInPeriod.filter { it.pulse > 0 }.map { it.pulse }.average().takeIf { !it.isNaN() } ?: 0.0
+                val latest = bpInPeriod.last()
+                appendLine("<div class='section'><div class='section-title'>Blood Pressure</div><div class='chart-row'>")
+                appendLine("<div class='stats-list'>")
+                appendLine(row("Latest", "${latest.systolic}/${latest.diastolic} mmHg &mdash; ${latest.category}"))
+                appendLine(row("Average", "%.0f / %.0f mmHg".format(avgSys, avgDia)))
+                if (avgPulse > 0) appendLine(row("Average Pulse", "%.0f bpm".format(avgPulse)))
+                appendLine(row("Readings", "${bpInPeriod.size}"))
+                appendLine("</div>")
+                val recent = bpInPeriod.takeLast(20)
+                val maxV = recent.maxOf { it.systolic }.coerceAtLeast(180)
+                val minV = (recent.minOf { it.diastolic } - 5).coerceAtLeast(50)
+                val range = (maxV - minV).coerceAtLeast(1)
+                appendLine("<div style='flex:1'>")
+                appendLine("<div class='bar-label-top'>Systolic (red) &middot; Diastolic (blue)</div>")
+                appendLine("<div style='position:relative;height:80px;border-bottom:1px solid #1a2d40;padding-bottom:4px'>")
+                appendLine("<svg width='100%' height='80' preserveAspectRatio='none' viewBox='0 0 ${recent.size * 20} 80'>")
+                fun pts(sel: (BpReading) -> Int, color: String): String {
+                    val sb = StringBuilder()
+                    recent.forEachIndexed { i, r ->
+                        val y = 80 - ((sel(r) - minV).toFloat() / range * 76f).toInt()
+                        val x = i * 20 + 10
+                        if (i == 0) sb.append("M $x $y ") else sb.append("L $x $y ")
+                    }
+                    return "<path d='$sb' fill='none' stroke='$color' stroke-width='2'/>"
+                }
+                appendLine(pts({ it.systolic }, "#E85D5D"))
+                appendLine(pts({ it.diastolic }, "#6ACBEA"))
+                appendLine("</svg></div></div></div>")
+
+                // Category counts
+                val catCounts = bpInPeriod.groupingBy { it.category }.eachCount()
+                appendLine("<table class='h-table'><tr><th>Category</th><th>Readings</th></tr>")
+                catCounts.entries.sortedByDescending { it.value }.forEach { (cat, count) ->
+                    val statusColor = when (cat) {
+                        "Normal" -> "#8CD86A"
+                        "Elevated" -> "#FFC848"
+                        "Stage 1 Hypertension", "Stage 2 Hypertension" -> "#FF6666"
+                        "Hypertensive Crisis" -> "#E41417"
+                        "Low (Hypotension)" -> "#6ACBEA"
+                        else -> "#aaa"
+                    }
+                    appendLine("<tr><td><span style='color:$statusColor'>&#9679;</span> $cat</td><td style='color:$statusColor'>$count</td></tr>")
+                }
+                appendLine("</table></div>")
+            }
+
+            // ── Glucose ───────────────────────────────────
+            val gluInPeriod = glucoseAll.filter { dateInRange(it.dateIso, from, to) }.sortedBy { it.timestamp }
+            if (gluInPeriod.isNotEmpty()) {
+                val avg = gluInPeriod.map { it.mgPerDl }.average()
+                val fastingAvg = gluInPeriod.filter { it.context == "Fasting" }.map { it.mgPerDl }.average().takeIf { !it.isNaN() } ?: 0.0
+                val postAvg = gluInPeriod.filter { it.context == "PostMeal" }.map { it.mgPerDl }.average().takeIf { !it.isNaN() } ?: 0.0
+                val latest = gluInPeriod.last()
+                appendLine("<div class='section'><div class='section-title'>Glucose</div><div class='chart-row'>")
+                appendLine("<div class='stats-list'>")
+                appendLine(row("Latest", "${latest.mgPerDl} mg/dL &mdash; ${latest.category} (${latest.context})"))
+                appendLine(row("Overall Average", "%.0f mg/dL".format(avg)))
+                if (fastingAvg > 0) appendLine(row("Fasting Average", "%.0f mg/dL".format(fastingAvg)))
+                if (postAvg > 0) appendLine(row("Post-meal Average", "%.0f mg/dL".format(postAvg)))
+                appendLine(row("Readings", "${gluInPeriod.size}"))
+                appendLine("</div>")
+                val recent = gluInPeriod.takeLast(20)
+                val maxV = recent.maxOf { it.mgPerDl }.coerceAtLeast(180)
+                val minV = (recent.minOf { it.mgPerDl } - 10).coerceAtLeast(40)
+                val range = (maxV - minV).coerceAtLeast(1)
+                appendLine("<div style='flex:1'>")
+                appendLine("<div class='bar-label-top'>Glucose Trend (mg/dL)</div>")
+                appendLine("<div style='position:relative;height:80px;border-bottom:1px solid #1a2d40;padding-bottom:4px'>")
+                appendLine("<svg width='100%' height='80' preserveAspectRatio='none' viewBox='0 0 ${recent.size * 20} 80'>")
+                val sb = StringBuilder()
+                recent.forEachIndexed { i, r ->
+                    val y = 80 - ((r.mgPerDl - minV).toFloat() / range * 76f).toInt()
+                    val x = i * 20 + 10
+                    if (i == 0) sb.append("M $x $y ") else sb.append("L $x $y ")
+                }
+                appendLine("<path d='$sb' fill='none' stroke='#FF8A00' stroke-width='2'/>")
+                appendLine("</svg></div></div></div>")
+
+                val catCounts = gluInPeriod.groupingBy { it.category }.eachCount()
+                appendLine("<table class='h-table'><tr><th>Category</th><th>Readings</th></tr>")
+                catCounts.entries.sortedByDescending { it.value }.forEach { (cat, count) ->
+                    val statusColor = when (cat) {
+                        "Normal" -> "#8CD86A"
+                        "Elevated", "Pre-diabetic" -> "#FFC848"
+                        "High", "Diabetic" -> "#FF6666"
+                        "Low (Hypoglycemia)" -> "#6ACBEA"
+                        else -> "#aaa"
+                    }
+                    appendLine("<tr><td><span style='color:$statusColor'>&#9679;</span> $cat</td><td style='color:$statusColor'>$count</td></tr>")
+                }
+                appendLine("</table></div>")
             }
 
             // ── Meds / Suppliments / Severe / Diet ────────

@@ -196,4 +196,16 @@ object FitDataRepository {
         val list = loadJunkLogEntries() + entry
         saveJunkLogEntries(list)
     }
+
+    // ── Vitals: Blood pressure ─────────────────────────────────
+    fun saveBpReadings(list: List<BpReading>) = saveJson("bp_readings.json", list)
+    fun loadBpReadings(): List<BpReading> = loadJson("bp_readings.json", emptyList<BpReading>())
+    fun addBpReading(entry: BpReading) = saveBpReadings((loadBpReadings() + entry).sortedBy { it.timestamp })
+    fun deleteBpReading(id: String) = saveBpReadings(loadBpReadings().filter { it.id != id })
+
+    // ── Vitals: Glucose ────────────────────────────────────────
+    fun saveGlucoseReadings(list: List<GlucoseReading>) = saveJson("glucose_readings.json", list)
+    fun loadGlucoseReadings(): List<GlucoseReading> = loadJson("glucose_readings.json", emptyList<GlucoseReading>())
+    fun addGlucoseReading(entry: GlucoseReading) = saveGlucoseReadings((loadGlucoseReadings() + entry).sortedBy { it.timestamp })
+    fun deleteGlucoseReading(id: String) = saveGlucoseReadings(loadGlucoseReadings().filter { it.id != id })
 }

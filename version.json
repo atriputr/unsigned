@@ -1,6 +1,6 @@
 {
-  "versionCode": 26,
-  "versionName": "3.5",
+  "versionCode": 27,
+  "versionName": "3.6",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v3.5: Updated localization and UI refinements. 🚀🛸✨"
+  "releaseNotes": "v3.6: GlassCalendar, Report Generator, Vitals tracking & UI sync updates. 🚀🛸✨"
 }

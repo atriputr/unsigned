@@ -52,24 +52,43 @@ object FitnessDataRepository {
         }
     }
 
-    /** Reads today's step count from Health Connect, falls back to the device sensor, else returns an "unavailable" sample. */
-    suspend fun getTodaySteps(ctx: Context): FitnessSample {
+    /**
+     * Reads today's fitness snapshot — steps + active calories + distance — from Health Connect,
+     * falling back to the device step-counter for steps only when HC isn't installed. Result is
+     * persisted so late-day reads (or no-network state) still show something.
+     */
+    suspend fun getTodayFitness(ctx: Context): FitnessSample {
         val today = LocalDate.now()
+        val zone = ZoneId.systemDefault()
+        val startInstant = today.atStartOfDay(zone).toInstant()
+        val endInstant = Instant.now()
+
         client(ctx)?.let { hc ->
             try {
-                if (hc.permissionController.getGrantedPermissions().contains(HealthPermission.getReadPermission(StepsRecord::class))) {
-                    val zone = ZoneId.systemDefault()
-                    val start = today.atStartOfDay(zone).toInstant()
-                    val end = Instant.now()
-                    val response = hc.aggregate(
-                        AggregateRequest(
-                            metrics = setOf(StepsRecord.COUNT_TOTAL),
-                            timeRangeFilter = TimeRangeFilter.between(start, end)
+                val granted = hc.permissionController.getGrantedPermissions()
+                val filter = TimeRangeFilter.between(startInstant, endInstant)
+
+                val metrics = mutableSetOf<androidx.health.connect.client.aggregate.AggregateMetric<*>>()
+                if (granted.contains(HealthPermission.getReadPermission(StepsRecord::class))) metrics += StepsRecord.COUNT_TOTAL
+                if (granted.contains(HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class))) metrics += ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL
+                if (granted.contains(HealthPermission.getReadPermission(DistanceRecord::class))) metrics += DistanceRecord.DISTANCE_TOTAL
+
+                if (metrics.isNotEmpty()) {
+                    val response = hc.aggregate(AggregateRequest(metrics = metrics, timeRangeFilter = filter))
+                    val steps = response[StepsRecord.COUNT_TOTAL]?.toInt() ?: 0
+                    val kcal = response[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories?.toInt() ?: 0
+                    val meters = response[DistanceRecord.DISTANCE_TOTAL]?.inMeters?.toInt() ?: 0
+
+                    // Only trust the response if we got *some* signal (avoid overwriting sensor
+                    // fallback with all-zero placeholders when HC has no data yet today).
+                    if (steps > 0 || kcal > 0 || meters > 0) {
+                        val sample = FitnessSample(
+                            dateIso = today.toString(),
+                            steps = steps,
+                            activeKcal = kcal,
+                            distanceMeters = meters,
+                            source = "health_connect"
                         )
-                    )
-                    val steps = response[StepsRecord.COUNT_TOTAL]?.toInt()
-                    if (steps != null) {
-                        val sample = FitnessSample(dateIso = today.toString(), steps = steps, source = "health_connect")
                         FitDataRepository.upsertFitnessSample(sample)
                         return sample
                     }
@@ -84,11 +103,39 @@ object FitnessDataRepository {
             StepSensorTracker.sampleOnce(ctx) { result = it }
             val steps = result
             if (steps != null) {
-                return FitnessSample(dateIso = today.toString(), steps = steps, source = "step_sensor")
+                // Rough on-device estimate when HC has no calories/distance to offer.
+                val profile = FitDataRepository.loadUserProfile()
+                val (estKcal, estMeters) = estimateFromSteps(steps, profile)
+                val sample = FitnessSample(
+                    dateIso = today.toString(),
+                    steps = steps,
+                    activeKcal = estKcal,
+                    distanceMeters = estMeters,
+                    source = "step_sensor"
+                )
+                FitDataRepository.upsertFitnessSample(sample)
+                return sample
             }
         }
 
         return FitDataRepository.loadFitnessSamples().firstOrNull { it.dateIso == today.toString() }
             ?: FitnessSample(dateIso = today.toString(), steps = 0, source = "unavailable")
+    }
+
+    /** Backwards-compatible alias used by older callers. */
+    suspend fun getTodaySteps(ctx: Context): FitnessSample = getTodayFitness(ctx)
+
+    /**
+     * Rough estimator for the sensor-only path.
+     *  - stride ≈ 0.415 × height (Boone & Bove) → falls back to 0.75 m if height unknown.
+     *  - calories/step ≈ 0.04 × (weight in kg / 70) — cheap approximation.
+     */
+    private fun estimateFromSteps(steps: Int, profile: UserProfile): Pair<Int, Int> {
+        if (steps <= 0) return 0 to 0
+        val strideM = if (profile.heightCm > 0) profile.heightCm / 100.0 * 0.415 else 0.75
+        val meters = (steps * strideM).toInt()
+        val kg = if (profile.weightKg > 0) profile.weightKg else 70.0
+        val kcal = (steps * 0.04 * (kg / 70.0)).toInt()
+        return kcal to meters
     }
 }

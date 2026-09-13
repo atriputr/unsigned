@@ -3,11 +3,23 @@ package com.example.un_signed
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
+import android.database.ContentObserver
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.CalendarContract
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.ZoneId
+import java.util.UUID
 
-/** Mirrors CalendarTask entries into a dedicated local "Unsigned" calendar via the system Calendar Provider. */
+/**
+ * Two-way bridge between the app's CalendarTask store and the phone's Calendar Provider.
+ *  · Outbound: app-created tasks are mirrored into a dedicated local "Unsigned" calendar.
+ *  · Inbound:  events from every visible calendar on the device are imported as read-only
+ *              CalendarTasks (marker: externalCalendarId != null), so the user's phone-calendar
+ *              activity shows up in the app automatically.
+ */
 object SystemCalendarSync {
 
     private const val CALENDAR_DISPLAY_NAME = "Unsigned"
@@ -54,6 +66,7 @@ object SystemCalendarSync {
 
     /** Inserts or updates the system Calendar event mirroring [task]. Returns the event id, or null on failure. */
     fun upsertEvent(ctx: Context, date: LocalDate, task: CalendarTask): Long? {
+        if (task.isExternal) return null  // never round-trip external events back out
         if (!PermissionsManager.hasCalendarPermission(ctx)) return null
         val calendarId = ensureCalendarId(ctx) ?: return null
         val resolver = ctx.contentResolver
@@ -112,5 +125,154 @@ object SystemCalendarSync {
         } catch (_: Exception) {
             // ignore — event may already be gone
         }
+    }
+
+    // ── Reverse sync: phone calendar → app ─────────────────────────
+
+    /**
+     * Reads events from every visible calendar (except the app's own "Unsigned" one), pulls them into
+     * a map keyed by date. Bounded to [from]..[to] inclusive to keep the query cheap.
+     *
+     * Returns null if permissions aren't granted (caller should keep whatever it already has).
+     */
+    fun importExternalEvents(ctx: Context, from: LocalDate, to: LocalDate): Map<LocalDate, List<CalendarTask>>? {
+        if (!PermissionsManager.hasCalendarPermission(ctx)) return null
+        val ownCalendarId = ensureCalendarId(ctx)
+        val resolver = ctx.contentResolver
+        val zone = ZoneId.systemDefault()
+
+        val startMs = from.atStartOfDay(zone).toInstant().toEpochMilli()
+        val endMs = to.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+
+        // Use Instances URI so we get expanded recurring events too.
+        val instancesUri = CalendarContract.Instances.CONTENT_URI.buildUpon()
+            .appendPath(startMs.toString())
+            .appendPath(endMs.toString())
+            .build()
+
+        val projection = arrayOf(
+            CalendarContract.Instances.EVENT_ID,
+            CalendarContract.Instances.TITLE,
+            CalendarContract.Instances.BEGIN,
+            CalendarContract.Instances.END,
+            CalendarContract.Instances.ALL_DAY,
+            CalendarContract.Instances.CALENDAR_ID,
+            CalendarContract.Instances.CALENDAR_DISPLAY_NAME,
+            CalendarContract.Instances.VISIBLE
+        )
+
+        val result = mutableMapOf<LocalDate, MutableList<CalendarTask>>()
+        val now = System.currentTimeMillis()
+
+        try {
+            resolver.query(instancesUri, projection, null, null, "${CalendarContract.Instances.BEGIN} ASC")?.use { cursor ->
+                val idxEventId = cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_ID)
+                val idxTitle = cursor.getColumnIndexOrThrow(CalendarContract.Instances.TITLE)
+                val idxBegin = cursor.getColumnIndexOrThrow(CalendarContract.Instances.BEGIN)
+                val idxAllDay = cursor.getColumnIndexOrThrow(CalendarContract.Instances.ALL_DAY)
+                val idxCalId = cursor.getColumnIndexOrThrow(CalendarContract.Instances.CALENDAR_ID)
+                val idxCalName = cursor.getColumnIndexOrThrow(CalendarContract.Instances.CALENDAR_DISPLAY_NAME)
+                val idxVisible = cursor.getColumnIndexOrThrow(CalendarContract.Instances.VISIBLE)
+
+                while (cursor.moveToNext()) {
+                    val calId = cursor.getLong(idxCalId)
+                    // Skip our own mirror calendar to prevent double-imports of app-created tasks.
+                    if (ownCalendarId != null && calId == ownCalendarId) continue
+                    if (cursor.getInt(idxVisible) == 0) continue
+
+                    val title = cursor.getString(idxTitle)?.takeIf { it.isNotBlank() } ?: continue
+                    val begin = cursor.getLong(idxBegin)
+                    val allDay = cursor.getInt(idxAllDay) == 1
+                    val calName = cursor.getString(idxCalName).orEmpty()
+                    val eventId = cursor.getLong(idxEventId)
+
+                    val dt = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(begin), zone)
+                    val date = dt.toLocalDate()
+                    val minutesOfDay = if (allDay) null else dt.hour * 60 + dt.minute
+
+                    // Deterministic id so re-imports collapse onto the same CalendarTask.
+                    val stableId = UUID.nameUUIDFromBytes("cp:$calId:$eventId:${date}".toByteArray()).toString()
+
+                    val task = CalendarTask(
+                        id = stableId,
+                        text = title,
+                        isDone = false,
+                        colorIndex = ((calId % 8).toInt() + 8) % 8,
+                        timeMinutesOfDay = minutesOfDay,
+                        systemCalendarEventId = eventId,
+                        externalCalendarId = calId,
+                        externalCalendarName = calName,
+                        lastSyncedAtMs = now
+                    )
+                    result.getOrPut(date) { mutableListOf() }.add(task)
+                }
+            }
+        } catch (_: Exception) {
+            return null
+        }
+        return result
+    }
+
+    /**
+     * Merges [imported] external events into [existing] app tasks: external entries are refreshed
+     * (deleted stale ones for the same [from]..[to] window, re-added), user-authored tasks are
+     * preserved untouched.
+     */
+    fun mergeImported(
+        existing: Map<LocalDate, List<CalendarTask>>,
+        imported: Map<LocalDate, List<CalendarTask>>,
+        from: LocalDate,
+        to: LocalDate
+    ): Map<LocalDate, List<CalendarTask>> {
+        val merged = existing.toMutableMap()
+        val touchedDates = mutableSetOf<LocalDate>()
+
+        // Drop previous externals inside the window so deletions on the phone are picked up.
+        generateSequence(from) { it.plusDays(1) }.takeWhile { !it.isAfter(to) }.forEach { date ->
+            val current = merged[date] ?: return@forEach
+            val kept = current.filterNot { it.isExternal }
+            if (kept.isEmpty()) merged.remove(date) else merged[date] = kept
+            touchedDates += date
+        }
+
+        imported.forEach { (date, tasks) ->
+            val current = merged[date] ?: emptyList()
+            // Preserve isDone from previous import if we've already seen the same external event.
+            val previousById = current.associateBy { it.id }
+            val next = current + tasks.map { imp ->
+                val prev = previousById[imp.id]
+                if (prev != null) imp.copy(isDone = prev.isDone) else imp
+            }
+            merged[date] = next
+            touchedDates += date
+        }
+
+        return merged
+    }
+
+    /**
+     * Registers a ContentObserver for the calendar provider. The callback fires on the main
+     * thread whenever the OS notifies of any change (add / edit / delete). Returns a handle
+     * the caller can pass back to [stopObserving].
+     */
+    fun startObserving(ctx: Context, onChange: () -> Unit): ContentObserver? {
+        if (!PermissionsManager.hasCalendarPermission(ctx)) return null
+        val handler = Handler(Looper.getMainLooper())
+        val observer = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean, uri: Uri?) { onChange() }
+        }
+        return try {
+            ctx.contentResolver.registerContentObserver(
+                CalendarContract.Events.CONTENT_URI, true, observer
+            )
+            observer
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun stopObserving(ctx: Context, observer: ContentObserver?) {
+        if (observer == null) return
+        try { ctx.contentResolver.unregisterContentObserver(observer) } catch (_: Exception) {}
     }
 }

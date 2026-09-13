@@ -49,8 +49,9 @@ fun DailyBriefingOverlay(
     // Recompute snapshot whenever weather resolves (may shift water goal display)
     LaunchedEffect(weather.fetchedAt) { snapshot = InsightsEngine.snapshot(profile) }
 
-    // Pull a fresh step count from Health Connect (Google Fit's modern replacement) or the device sensor.
-    LaunchedEffect(Unit) { stepsSample = FitnessDataRepository.getTodaySteps(ctx) }
+    // Pull a fresh fitness snapshot (steps + calories + distance) from Health Connect
+    // (Google Fit's modern replacement) or the device sensor.
+    LaunchedEffect(Unit) { stepsSample = FitnessDataRepository.getTodayFitness(ctx) }
 
     val nudges = InsightsEngine.nudges(snapshot, profile, weather)
 
@@ -149,16 +150,40 @@ fun DailyBriefingOverlay(
                 }
                 stepsSample?.let { fs ->
                     if (fs.source != "unavailable") {
+                        val sourceLabel = if (fs.source == "health_connect") "synced · Health Connect" else "device sensor"
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             MetricCard(
                                 label = "STEPS",
                                 value = "${fs.steps}",
-                                detail = if (fs.source == "health_connect") "synced · Google Fit / Health Connect" else "device sensor",
+                                detail = sourceLabel,
                                 accent = Color(0xFFFF9B44),
                                 streak = 0,
                                 font = contentFont,
                                 modifier = Modifier.weight(1f)
                             )
+                            MetricCard(
+                                label = "KCAL",
+                                value = "${fs.activeKcal}",
+                                detail = if (fs.source == "step_sensor") "estimate" else "active burn",
+                                accent = Color(0xFFE85D5D),
+                                streak = 0,
+                                font = contentFont,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (fs.distanceMeters > 0) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                val km = fs.distanceMeters / 1000.0
+                                MetricCard(
+                                    label = "DISTANCE",
+                                    value = Units.displayDistance(km, prefs.distanceUnit),
+                                    detail = sourceLabel,
+                                    accent = Color(0xFF6ACBEA),
+                                    streak = 0,
+                                    font = contentFont,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                         }
                     }
                 }
