@@ -133,6 +133,34 @@
         app:layout_constraintStart_toStartOf="@id/btnLeft"
         app:layout_constraintEnd_toEndOf="@id/btnRight" />
 
+    <!-- Weather & Location above Clock -->
+    <TextView
+        android:id="@+id/tvWeatherLocation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        android:fontFamily="@font/bebas_neue"
+        android:textColor="#EBC174"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:text="LOCATION: LOCATING...  ·  WEATHER: --°C"
+        app:layout_constraintBottom_toTopOf="@id/pbWeatherProgress"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <ProgressBar
+        android:id="@+id/pbWeatherProgress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="200dp"
+        android:layout_height="8dp"
+        android:layout_marginBottom="8dp"
+        android:max="100"
+        android:progress="100"
+        android:progressDrawable="@drawable/progress_bar_futuristic"
+        app:layout_constraintBottom_toTopOf="@id/tvNixieClock"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- Real functional clock overlay -->
     <androidx.compose.ui.platform.ComposeView
         android:id="@+id/tvNixieClock"
@@ -160,6 +188,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
+        android:fontFamily="@font/bebas_neue"
         android:textColor="#EBC174"
         android:textSize="12sp"
         android:text="YEAR PROGRESS: 0%"

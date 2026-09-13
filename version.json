@@ -1,6 +1,6 @@
 {
-  "versionCode": 27,
-  "versionName": "3.6",
+  "versionCode": 28,
+  "versionName": "3.7",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v3.6: GlassCalendar, Report Generator, Vitals tracking & UI sync updates. 🚀🛸✨"
+  "releaseNotes": "v3.7: Weather & AQI page, translucency UI polish & Open-Meteo forecasts. ☀️🌤️☁️"
 }

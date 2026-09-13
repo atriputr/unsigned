@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -41,6 +42,8 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private lateinit var tvClock: ComposeView
     private lateinit var pbYearProgress: ProgressBar
     private lateinit var tvYearPercent: TextView
+    private lateinit var pbWeatherProgress: ProgressBar
+    private lateinit var tvWeatherLocation: TextView
     private lateinit var cvUpcomingEvents: ComposeView
     private lateinit var composeOverlay: ComposeView
     private lateinit var bgThemeTint: View
@@ -101,7 +104,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
 
     private val locationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* silent: WeatherService already falls back to IP if denied */ }
+    ) { refreshWeather(force = true) }
 
     // Calendar / notifications / activity-recognition — used by the Permissions settings section.
     private val runtimePermissionLauncher = registerForActivityResult(
@@ -158,12 +161,21 @@ class ProfileSelectionActivity : AppCompatActivity() {
         tvClock = findViewById(R.id.tvNixieClock)
         pbYearProgress = findViewById(R.id.pbYearProgress)
         tvYearPercent = findViewById(R.id.tvYearPercent)
+        pbWeatherProgress = findViewById(R.id.pbWeatherProgress)
+        tvWeatherLocation = findViewById(R.id.tvWeatherLocation)
         cvUpcomingEvents = findViewById(R.id.cvUpcomingEvents)
         composeOverlay = findViewById(R.id.composeOverlay)
         bgThemeTint = findViewById(R.id.bgThemeTint)
         cvHomeSkin  = findViewById(R.id.cvHomeSkin)
         cvStatusBar = findViewById(R.id.cvStatusBar)
+
+        val bebasFont = FontFamily(Font(R.font.bebas_neue))
+        val onWeatherClick = View.OnClickListener { showWeatherOverlay(bebasFont, bebasFont) }
+        pbWeatherProgress.setOnClickListener(onWeatherClick)
+        tvWeatherLocation.setOnClickListener(onWeatherClick)
+
         applyThemeTint()
+        refreshWeather(force = false)
 
         // Check for updates
         updateManager = UpdateManager(this)
@@ -184,7 +196,6 @@ class ProfileSelectionActivity : AppCompatActivity() {
             }
         }
 
-        val bebasFont = FontFamily(Font(R.font.bebas_neue))
         val jerseyFont = FontFamily(Font(R.font.jersey_10_charted_regular))
 
         tvClock.setContent {
@@ -279,12 +290,23 @@ class ProfileSelectionActivity : AppCompatActivity() {
         val palette   = AppPalettes.byName(themeName)
         tvYearPercent.setTextColor(palette.onSurface.toArgb())
 
+        val dullTextColor = palette.onSurface.copy(alpha = 0.55f).toArgb()
+        tvWeatherLocation.setTextColor(dullTextColor)
+
         // DARK/Ashes uses a muted grey bar to match the ash aesthetic; other themes use their accent
         val isDark = themeName.equals("DARK", ignoreCase = true)
         val barFill = if (isDark) 0xFFB0B0B0.toInt() else palette.accentPrimary.toArgb()
         val barBack = if (isDark) 0xFF2A2A2A.toInt() else palette.divider.toArgb()
-        pbYearProgress.progressTintList = android.content.res.ColorStateList.valueOf(barFill)
-        pbYearProgress.progressBackgroundTintList = android.content.res.ColorStateList.valueOf(barBack)
+        val barFillList = ColorStateList.valueOf(barFill)
+        val barBackList = ColorStateList.valueOf(barBack)
+
+        pbYearProgress.progressTintList = barFillList
+        pbYearProgress.progressBackgroundTintList = barBackList
+
+        val weatherBarFill = ColorStateList.valueOf((barFill and 0x00FFFFFF) or 0x80000000.toInt())
+        val weatherBarBack = ColorStateList.valueOf((barBack and 0x00FFFFFF) or 0x40000000.toInt())
+        pbWeatherProgress.progressTintList = weatherBarFill
+        pbWeatherProgress.progressBackgroundTintList = weatherBarBack
 
         cvStatusBar.setContent {
             AppThemeProvider(themeName, appPrefs.value.languageCode) { StatusBarBox() }
@@ -1054,6 +1076,19 @@ class ProfileSelectionActivity : AppCompatActivity() {
         }
     }
 
+    private fun showWeatherOverlay(titleFont: FontFamily, contentFont: FontFamily) {
+        setThemedContent {
+            WeatherOverlay(
+                titleFont = titleFont,
+                contentFont = contentFont,
+                context = this@ProfileSelectionActivity,
+                onClose = {
+                    composeOverlay.visibility = View.GONE
+                }
+            )
+        }
+    }
+
     private fun updateYearProgress(now: Calendar) {
         val year = now.get(Calendar.YEAR)
         val startOfYear = Calendar.getInstance().apply {
@@ -1074,6 +1109,40 @@ class ProfileSelectionActivity : AppCompatActivity() {
         tvYearPercent.text = String.format(Locale.getDefault(), "%s: %.6f%%", yearLabel, progress)
     }
 
+    private fun refreshWeather(force: Boolean) {
+        lifecycleScope.launch {
+            val cached = FitDataRepository.loadWeatherCache()
+            if (cached.isValid && !cached.isStale() && !force) {
+                updateWeatherLocationUi(cached)
+            } else {
+                val weather = withContext(Dispatchers.IO) {
+                    WeatherService.getWeather(this@ProfileSelectionActivity, forceRefresh = force)
+                }
+                updateWeatherLocationUi(weather)
+            }
+        }
+    }
+
+    private fun updateWeatherLocationUi(weather: WeatherData) {
+        if (weather.isValid) {
+            val rawLoc = weather.locationName.trim()
+            val locName = if (rawLoc.isBlank() || rawLoc.equals("LOCATION", ignoreCase = true)) {
+                "DETECTED LOCATION"
+            } else rawLoc.uppercase()
+            val temp = String.format(Locale.getDefault(), "%.1f°C", weather.temperatureC)
+            val cond = weather.condition.uppercase()
+            tvWeatherLocation.text = if (cond.isNotBlank()) {
+                "LOCATION: $locName  ·  WEATHER: $temp $cond"
+            } else {
+                "LOCATION: $locName  ·  WEATHER: $temp"
+            }
+        } else {
+            val lang = appPrefs.value.languageCode
+            val strings = Localization.getStrings(lang)
+            tvWeatherLocation.text = "${strings.fetchingWeather.uppercase()}  ·  --°C"
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         // Every time we come back to the foreground we (a) start observing the phone
@@ -1081,6 +1150,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         // added in the Google/Samsung/etc calendar app while we were away shows up.
         startCalendarReverseSync()
         reconcileExternalCalendar()
+        refreshWeather(force = false)
     }
 
     override fun onPause() {

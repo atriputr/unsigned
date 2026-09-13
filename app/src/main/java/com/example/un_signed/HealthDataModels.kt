@@ -66,13 +66,40 @@ data class UserProfile(
         get() = (weightKg * 35).toInt()
 }
 
-// ── Weather (cached in FitDataRepository) ─────────────────────
+// ── Weather & Air Quality Models ─────────────────────────────
+data class HourlyForecast(
+    val timeLabel: String = "",
+    val tempC: Double = Double.NaN,
+    val condition: String = ""
+)
+
+data class DailyForecast(
+    val dayLabel: String = "",
+    val maxTempC: Double = Double.NaN,
+    val minTempC: Double = Double.NaN,
+    val condition: String = "",
+    val uvIndexMax: Double = Double.NaN
+)
+
 data class WeatherData(
     val temperatureC: Double = Double.NaN,
+    val feelsLikeC: Double = Double.NaN,
+    val humidityPercent: Int = 0,
+    val windSpeedKmh: Double = Double.NaN,
+    val uvIndex: Double = Double.NaN,
     val condition: String = "",
     val locationName: String = "",
     val latitude: Double = Double.NaN,
     val longitude: Double = Double.NaN,
+    val usAqi: Int = -1,
+    val aqiCategory: String = "",
+    val pm25: Double = Double.NaN,
+    val pm10: Double = Double.NaN,
+    val no2: Double = Double.NaN,
+    val o3: Double = Double.NaN,
+    val hourlyForecast: List<HourlyForecast> = emptyList(),
+    val dailyForecast: List<DailyForecast> = emptyList(),
+    val dataSource: String = "Open-Meteo Weather & Air Quality APIs",
     val fetchedAt: Long = 0L
 ) {
     val isValid: Boolean get() = !temperatureC.isNaN() && fetchedAt > 0
