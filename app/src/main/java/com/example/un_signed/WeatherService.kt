@@ -162,22 +162,48 @@ object WeatherService {
         else -> if (aqi > 500) "Hazardous" else "Unknown"
     }
 
-    /** Reverse-geocode via Open-Meteo (only if we have coords but no city name). */
+    /** Multi-source reverse-geocode (BigDataCloud → Nominatim → IP fallback). */
     private suspend fun reverseName(lat: Double, lon: Double): String = withContext(Dispatchers.IO) {
+        // 1. BigDataCloud free client API
         try {
-            val url = URL("https://geocoding-api.open-meteo.com/v1/reverse?latitude=$lat&longitude=$lon&count=1&language=en&format=json")
+            val url = URL("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=$lat&longitude=$lon&localityLanguage=en")
             val conn = url.openConnection() as HttpURLConnection
             conn.connectTimeout = 4_000
             conn.readTimeout = 4_000
-            if (conn.responseCode !in 200..299) return@withContext ""
-            val body = conn.inputStream.bufferedReader().use { it.readText() }
-            val results = JSONObject(body).optJSONArray("results") ?: return@withContext ""
-            if (results.length() == 0) return@withContext ""
-            val r = results.getJSONObject(0)
-            listOf(r.optString("name"), r.optString("admin1"))
-                .filter { it.isNotBlank() }
-                .joinToString(", ")
-        } catch (_: Exception) { "" }
+            conn.setRequestProperty("User-Agent", "UnsignedApp/1.0")
+            if (conn.responseCode in 200..299) {
+                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(body)
+                val city = json.optString("city").ifBlank { json.optString("locality") }.ifBlank { json.optString("principalSubdivision") }
+                val country = json.optString("countryName")
+                if (city.isNotBlank()) {
+                    return@withContext if (country.isNotBlank()) "$city, $country" else city
+                }
+            }
+        } catch (_: Exception) { }
+
+        // 2. OpenStreetMap Nominatim API
+        try {
+            val url = URL("https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lon&format=json")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 4_000
+            conn.readTimeout = 4_000
+            conn.setRequestProperty("User-Agent", "UnsignedApp/1.0")
+            if (conn.responseCode in 200..299) {
+                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(body)
+                val addr = json.optJSONObject("address")
+                if (addr != null) {
+                    val city = addr.optString("city").ifBlank { addr.optString("town") }.ifBlank { addr.optString("village") }.ifBlank { addr.optString("state_district") }
+                    val country = addr.optString("country")
+                    if (city.isNotBlank()) {
+                        return@withContext if (country.isNotBlank()) "$city, $country" else city
+                    }
+                }
+            }
+        } catch (_: Exception) { }
+
+        ""
     }
 
     private fun getNativeCityName(context: Context, lat: Double, lon: Double): String {
@@ -203,13 +229,20 @@ object WeatherService {
      */
     suspend fun getWeather(context: Context, forceRefresh: Boolean = false): WeatherData {
         val cache = FitDataRepository.loadWeatherCache()
-        if (!forceRefresh && cache.isValid && !cache.isStale(TTL_MS)) return cache
+        val isGenericName = cache.locationName.isBlank() ||
+            cache.locationName.equals("LOCATION", ignoreCase = true) ||
+            cache.locationName.equals("DETECTED LOCATION", ignoreCase = true) ||
+            cache.locationName.equals("MY LOCATION", ignoreCase = true)
+
+        if (!forceRefresh && cache.isValid && !cache.isStale(TTL_MS) && !isGenericName) {
+            return cache
+        }
 
         val loc = LocationHelper.resolve(context) ?: return cache
         val nativeName = getNativeCityName(context, loc.latitude, loc.longitude)
         val rawName = nativeName.ifBlank { loc.label.ifBlank { reverseName(loc.latitude, loc.longitude) } }
         val name = if (rawName.isBlank() || rawName.equals("LOCATION", ignoreCase = true) || rawName.equals("DETECTED LOCATION", ignoreCase = true)) {
-            "MY LOCATION"
+            reverseName(loc.latitude, loc.longitude).ifBlank { "CURRENT LOCATION" }
         } else rawName
 
         val fresh = fetchOpenMeteo(loc.latitude, loc.longitude, name) ?: return cache
