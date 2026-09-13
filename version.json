@@ -1,6 +1,6 @@
 {
-  "versionCode": 35,
-  "versionName": "4.4",
+  "versionCode": 36,
+  "versionName": "4.5",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v4.4: HomeWeatherStrip, UpdateOverlay enhancements, and skin updates. 🚀🛸✨"
+  "releaseNotes": "v4.5: Fixed Calendar permission launch crash & system calendar provider query safety. 📅🛡️✨"
 }

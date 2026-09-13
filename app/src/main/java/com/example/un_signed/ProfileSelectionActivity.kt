@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -329,12 +330,13 @@ class ProfileSelectionActivity : AppCompatActivity() {
             AppThemeProvider(themeName, appPrefs.value.languageCode) { StatusBarBox() }
         }
 
-        // DARK + Glass variants let the PNG background peek through (Glass adds a translucent
-        // palette wash on top). CREAM/AMBER fully cover the PNG with their own art.
-        val letBgShowThrough = themeName.equals("DARK", ignoreCase = true) ||
-            themeName.startsWith("GLASS", ignoreCase = true)
+        // DARK is the only theme that lets the baked PNG background peek through;
+        // every other theme (CREAM, AMBER, Glass Dark, Glass Light) paints its own
+        // full-bleed background inside HomeSkin and needs a black cover under it so
+        // the PNG doesn't bleed at the edges.
+        val letBgShowThrough = themeName.equals("DARK", ignoreCase = true)
         bgThemeTint.setBackgroundColor(
-            if (letBgShowThrough) palette.homeTint.toArgb() else 0xFF000000.toInt()
+            if (letBgShowThrough) 0x00000000 else 0xFF000000.toInt()
         )
 
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
@@ -1215,19 +1217,23 @@ class ProfileSelectionActivity : AppCompatActivity() {
         if (!PermissionsManager.hasCalendarPermission(this)) return
         calendarReconcileJob?.cancel()
         calendarReconcileJob = lifecycleScope.launch(Dispatchers.IO) {
-            kotlinx.coroutines.delay(250) // simple debounce vs observer bursts
-            val today = LocalDate.now()
-            val from = today.minusDays(30)
-            val to = today.plusDays(180)
-            val imported = SystemCalendarSync.importExternalEvents(this@ProfileSelectionActivity, from, to) ?: return@launch
+            try {
+                delay(250) // simple debounce vs observer bursts
+                val today = LocalDate.now()
+                val from = today.minusDays(30)
+                val to = today.plusDays(180)
+                val imported = SystemCalendarSync.importExternalEvents(this@ProfileSelectionActivity, from, to) ?: return@launch
 
-            withContext(Dispatchers.Main) {
-                val existing = allCalendarTasks.toMap()
-                val merged = SystemCalendarSync.mergeImported(existing, imported, from, to)
-                allCalendarTasks.clear()
-                allCalendarTasks.putAll(merged)
-                FitDataRepository.saveCalendarTasks(allCalendarTasks.toMap())
-            }
+                withContext(Dispatchers.Main) {
+                    try {
+                        val existing = allCalendarTasks.toMap()
+                        val merged = SystemCalendarSync.mergeImported(existing, imported, from, to)
+                        allCalendarTasks.clear()
+                        allCalendarTasks.putAll(merged)
+                        FitDataRepository.saveCalendarTasks(allCalendarTasks.toMap())
+                    } catch (_: Throwable) { }
+                }
+            } catch (_: Throwable) { }
         }
     }
 

@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.CalendarContract
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -166,32 +167,37 @@ object SystemCalendarSync {
 
         try {
             resolver.query(instancesUri, projection, null, null, "${CalendarContract.Instances.BEGIN} ASC")?.use { cursor ->
-                val idxEventId = cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_ID)
-                val idxTitle = cursor.getColumnIndexOrThrow(CalendarContract.Instances.TITLE)
-                val idxBegin = cursor.getColumnIndexOrThrow(CalendarContract.Instances.BEGIN)
-                val idxAllDay = cursor.getColumnIndexOrThrow(CalendarContract.Instances.ALL_DAY)
-                val idxCalId = cursor.getColumnIndexOrThrow(CalendarContract.Instances.CALENDAR_ID)
-                val idxCalName = cursor.getColumnIndexOrThrow(CalendarContract.Instances.CALENDAR_DISPLAY_NAME)
-                val idxVisible = cursor.getColumnIndexOrThrow(CalendarContract.Instances.VISIBLE)
+                val idxEventId = cursor.getColumnIndex(CalendarContract.Instances.EVENT_ID)
+                val idxTitle = cursor.getColumnIndex(CalendarContract.Instances.TITLE)
+                val idxBegin = cursor.getColumnIndex(CalendarContract.Instances.BEGIN)
+                val idxAllDay = cursor.getColumnIndex(CalendarContract.Instances.ALL_DAY)
+                val idxCalId = cursor.getColumnIndex(CalendarContract.Instances.CALENDAR_ID)
+                val idxCalName = cursor.getColumnIndex(CalendarContract.Instances.CALENDAR_DISPLAY_NAME)
+                val idxVisible = cursor.getColumnIndex(CalendarContract.Instances.VISIBLE)
 
                 while (cursor.moveToNext()) {
-                    val calId = cursor.getLong(idxCalId)
+                    val calId = if (idxCalId != -1) cursor.getLong(idxCalId) else continue
                     // Skip our own mirror calendar to prevent double-imports of app-created tasks.
                     if (ownCalendarId != null && calId == ownCalendarId) continue
-                    if (cursor.getInt(idxVisible) == 0) continue
+                    if (idxVisible != -1 && cursor.getInt(idxVisible) == 0) continue
 
-                    val title = cursor.getString(idxTitle)?.takeIf { it.isNotBlank() } ?: continue
-                    val begin = cursor.getLong(idxBegin)
-                    val allDay = cursor.getInt(idxAllDay) == 1
-                    val calName = cursor.getString(idxCalName).orEmpty()
-                    val eventId = cursor.getLong(idxEventId)
+                    val title = if (idxTitle != -1) cursor.getString(idxTitle)?.takeIf { it.isNotBlank() } else null
+                    if (title == null) continue
 
-                    val dt = LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(begin), zone)
+                    val begin = if (idxBegin != -1) cursor.getLong(idxBegin) else continue
+                    val allDay = if (idxAllDay != -1) cursor.getInt(idxAllDay) == 1 else false
+                    val calName = if (idxCalName != -1) cursor.getString(idxCalName).orEmpty() else ""
+                    val eventId = if (idxEventId != -1) cursor.getLong(idxEventId) else -1L
+
+                    val dt = try {
+                        LocalDateTime.ofInstant(Instant.ofEpochMilli(begin), zone)
+                    } catch (_: Exception) { continue }
+
                     val date = dt.toLocalDate()
                     val minutesOfDay = if (allDay) null else dt.hour * 60 + dt.minute
 
                     // Deterministic id so re-imports collapse onto the same CalendarTask.
-                    val stableId = UUID.nameUUIDFromBytes("cp:$calId:$eventId:${date}".toByteArray()).toString()
+                    val stableId = UUID.nameUUIDFromBytes("cp:$calId:$eventId:$date".toByteArray()).toString()
 
                     val task = CalendarTask(
                         id = stableId,
@@ -207,7 +213,7 @@ object SystemCalendarSync {
                     result.getOrPut(date) { mutableListOf() }.add(task)
                 }
             }
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             return null
         }
         return result

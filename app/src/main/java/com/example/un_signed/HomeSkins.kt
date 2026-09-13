@@ -159,10 +159,8 @@ fun HomeSkin(
         "CREAM" -> HelloKittySkin(titleFont, quickState, quickCallbacks)
         "AMBER" -> LokiAmberSkin(titleFont, quickState, quickCallbacks)
         "DARK"  -> DarkIndustrialSkin(titleFont, quickState, quickCallbacks)
-        // Glass themes reuse the industrial-dark skin structure — palette + prism borders
-        // applied by LocalPalette handle the rest via each overlay's chrome.
-        "GLASS_DARK", "GLASS_LIGHT", "GLASS" ->
-            DarkIndustrialSkin(titleFont, quickState, quickCallbacks)
+        "GLASS_DARK", "GLASS" -> GlassSkin(dark = true,  quickState = quickState, quickCallbacks = quickCallbacks)
+        "GLASS_LIGHT"          -> GlassSkin(dark = false, quickState = quickState, quickCallbacks = quickCallbacks)
         else -> Unit
     }
 }
@@ -1087,5 +1085,455 @@ private fun LokiPlate(
             )
             Text("◈", color = emerald, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  GLASS  ·  Apple Liquid × Windows Aero fusion  (dark + light modes)
+//  Frosted translucent surfaces, chromatic prism borders, aurora orbs,
+//  refined serif title. Feels like Vista's Aero Glass met SF Pro.
+// ══════════════════════════════════════════════════════════════════
+
+// Chromatic prism colours used throughout the glass skin
+private val PrismRose   = Color(0xFFFF8AA6)
+private val PrismAmber  = Color(0xFFFFB454)
+private val PrismMint   = Color(0xFFA6E3C6)
+private val PrismCyan   = Color(0xFF8ACBFF)
+private val PrismViolet = Color(0xFFB49CFF)
+
+private fun prismBrush(alpha: Float = 0.55f): Brush = Brush.linearGradient(
+    listOf(
+        PrismRose.copy(alpha = alpha),
+        PrismAmber.copy(alpha = alpha),
+        PrismMint.copy(alpha = alpha),
+        PrismCyan.copy(alpha = alpha + 0.10f),
+        PrismViolet.copy(alpha = alpha)
+    )
+)
+
+@Composable
+private fun GlassSkin(
+    dark: Boolean,
+    quickState: HomeQuickState,
+    quickCallbacks: HomeQuickCallbacks
+) {
+    val strings = LocalStrings.current
+    val scope   = rememberCoroutineScope()
+
+    // Palette per mode — colors are internal to this skin so it's fully self-contained.
+    val bgTop      = if (dark) Color(0xFF06132A) else Color(0xFFEFF5FE)
+    val bgBot      = if (dark) Color(0xFF020614) else Color(0xFFDCE7F8)
+    val onSurface  = if (dark) Color(0xFFF4F8FF) else Color(0xFF102341)
+    val subtle     = if (dark) Color(0xFFCCD9F5).copy(alpha = 0.75f) else Color(0xFF3A4E70).copy(alpha = 0.80f)
+    val faint      = if (dark) Color(0xFFA6BAE0).copy(alpha = 0.55f) else Color(0xFF6C82A8).copy(alpha = 0.70f)
+    val panelTop   = if (dark) Color(0xFFFFFFFF).copy(alpha = 0.14f) else Color(0xFFFFFFFF).copy(alpha = 0.80f)
+    val panelBot   = if (dark) Color(0xFF3B5FA8).copy(alpha = 0.10f) else Color(0xFFDCE9FB).copy(alpha = 0.80f)
+    val highlight  = if (dark) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.70f)
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(bgTop, bgBot)))
+    ) {
+        StatusBarBox()
+        val screenH = maxHeight
+        val screenW = maxWidth
+        val btnHeight = screenH * BTN_HEIGHT_FRAC * 1.05f
+        val sideMargin = 22.dp
+
+        // ── Aurora orbs backdrop ─────────────────────────────
+        AuroraOrbs(dark = dark)
+
+        // ── Title: elegant serif with soft chromatic glow ─────
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 30.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Prism divider mark above title
+            Canvas(modifier = Modifier.width(72.dp).height(3.dp)) {
+                drawRoundRect(
+                    brush = prismBrush(alpha = if (dark) 0.85f else 0.55f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2f, 2f)
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = strings.selectProfile,
+                color = onSurface,
+                fontSize = 27.sp,
+                fontFamily = GlassHeadingFont,
+                fontWeight = FontWeight.Bold,
+                fontStyle = FontStyle.Italic,
+                letterSpacing = 4.sp,
+                style = TextStyle(
+                    shadow = Shadow(
+                        color = PrismCyan.copy(alpha = if (dark) 0.55f else 0.35f),
+                        blurRadius = if (dark) 22f else 10f
+                    )
+                )
+            )
+            Text(
+                text = if (dark) "◈  a liquid interface awaits  ◈" else "◈  a luminous interface awaits  ◈",
+                color = subtle,
+                fontSize = 10.sp,
+                fontFamily = GlassContentFont,
+                letterSpacing = 3.sp,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        // ── Three frosted glass profile plates ────────────────
+        listOf(
+            Triple(BTN1_CENTER, strings.idealProfile, "◉"),
+            Triple(BTN2_CENTER, strings.customProfile, "⌘"),
+            Triple(BTN3_CENTER, strings.exportProgress, "⇪")
+        ).forEach { (fraction, label, glyph) ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = sideMargin)
+                    .height(btnHeight)
+                    .offset(y = screenH * fraction - btnHeight / 2f)
+            ) {
+                GlassPlate(
+                    label = label,
+                    glyph = glyph,
+                    dark = dark,
+                    onSurface = onSurface,
+                    subtle = subtle,
+                    panelTop = panelTop,
+                    panelBot = panelBot,
+                    highlight = highlight
+                )
+            }
+        }
+
+        // ── Bottom quick-action bar as frosted pills ──────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 14.dp, vertical = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            GlassQuickButton(
+                label = sleepLabel(quickState, strings),
+                subtitle = sleepSubtitle(quickState, strings),
+                glyph = sleepEmoji(quickState),
+                highlighted = quickState.sleepActive,
+                dark = dark,
+                onSurface = onSurface, subtle = subtle, faint = faint,
+                panelTop = panelTop, panelBot = panelBot, highlight = highlight,
+                gestureModifier = Modifier.sleepQuickGestures(scope, quickState, quickCallbacks),
+                modifier = Modifier.weight(1f)
+            )
+            GlassQuickButton(
+                label = strings.junk,
+                subtitle = junkSubtitle(quickState.junkCountToday, strings),
+                glyph = "◈",
+                highlighted = false,
+                dark = dark,
+                onSurface = onSurface, subtle = subtle, faint = faint,
+                panelTop = panelTop, panelBot = panelBot, highlight = highlight,
+                gestureModifier = Modifier.counterQuickGestures(
+                    scope,
+                    onIncrement = quickCallbacks.onJunkIncrement,
+                    onDecrement = quickCallbacks.onJunkDecrement,
+                    onReset = quickCallbacks.onJunkOpenDetailed
+                ),
+                modifier = Modifier.weight(1f)
+            )
+            GlassQuickButton(
+                label = strings.water,
+                subtitle = waterSubtitle(quickState.waterGlassesToday, quickState.waterTargetGlasses, strings),
+                glyph = "◇",
+                highlighted = false,
+                dark = dark,
+                onSurface = onSurface, subtle = subtle, faint = faint,
+                panelTop = panelTop, panelBot = panelBot, highlight = highlight,
+                gestureModifier = Modifier.counterQuickGestures(
+                    scope,
+                    onIncrement = quickCallbacks.onWaterIncrement,
+                    onDecrement = quickCallbacks.onWaterDecrement,
+                    onReset = quickCallbacks.onWaterReset
+                ),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+/**
+ * Slow-drifting radial glows in the prism palette — Vista's Aurora wallpaper +
+ * Apple's Liquid Glass depth. Positions animate very slowly so it feels alive
+ * without being distracting.
+ */
+@Composable
+private fun AuroraOrbs(dark: Boolean) {
+    val transition = rememberInfiniteTransition(label = "aurora")
+    val drift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 28_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "auroraDrift"
+    )
+
+    val opacityBase = if (dark) 0.38f else 0.22f
+
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val w = size.width
+        val h = size.height
+
+        // Cyan orb — top-left, slowly slides right
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(PrismCyan.copy(alpha = opacityBase), PrismCyan.copy(alpha = 0f)),
+                center = Offset(w * (0.15f + drift * 0.10f), h * 0.20f),
+                radius = w * 0.55f
+            ),
+            radius = w * 0.55f,
+            center = Offset(w * (0.15f + drift * 0.10f), h * 0.20f)
+        )
+
+        // Violet orb — right side, slowly moves down
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(PrismViolet.copy(alpha = opacityBase * 0.85f), PrismViolet.copy(alpha = 0f)),
+                center = Offset(w * 0.85f, h * (0.35f + drift * 0.08f)),
+                radius = w * 0.60f
+            ),
+            radius = w * 0.60f,
+            center = Offset(w * 0.85f, h * (0.35f + drift * 0.08f))
+        )
+
+        // Rose orb — bottom-center, breathes in size
+        val rBase = w * 0.50f
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(PrismRose.copy(alpha = opacityBase * 0.55f), PrismRose.copy(alpha = 0f)),
+                center = Offset(w * 0.50f, h * 0.90f),
+                radius = rBase + drift * 60f
+            ),
+            radius = rBase + drift * 60f,
+            center = Offset(w * 0.50f, h * 0.90f)
+        )
+
+        // Mint accent — top-right corner, low intensity
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(PrismMint.copy(alpha = opacityBase * 0.50f), PrismMint.copy(alpha = 0f)),
+                center = Offset(w * 0.95f, h * 0.05f),
+                radius = w * 0.30f
+            ),
+            radius = w * 0.30f,
+            center = Offset(w * 0.95f, h * 0.05f)
+        )
+    }
+}
+
+/**
+ * The signature glass plate: translucent frosted panel + a bright specular
+ * highlight running along the top edge (Aero glass hallmark) + a chromatic
+ * prism border (Apple Liquid Glass edge).
+ */
+@Composable
+private fun GlassPlate(
+    label: String,
+    glyph: String,
+    dark: Boolean,
+    onSurface: Color,
+    subtle: Color,
+    panelTop: Color,
+    panelBot: Color,
+    highlight: Color
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Soft drop shadow beneath the plate — sells the "floating" feel.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(y = 5.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(
+                    Color.Black.copy(alpha = if (dark) 0.35f else 0.10f)
+                )
+        )
+
+        // Actual glass body
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(20.dp))
+                .background(Brush.verticalGradient(listOf(panelTop, panelBot)))
+                .border(1.2.dp, prismBrush(alpha = if (dark) 0.65f else 0.45f), RoundedCornerShape(20.dp))
+                .padding(horizontal = 16.dp, vertical = 0.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Glyph inside a small frosted-cyan disc
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                PrismCyan.copy(alpha = if (dark) 0.42f else 0.22f),
+                                PrismViolet.copy(alpha = if (dark) 0.30f else 0.14f)
+                            )
+                        )
+                    )
+                    .border(0.8.dp, prismBrush(alpha = 0.60f), RoundedCornerShape(50)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    glyph,
+                    color = onSurface,
+                    fontSize = 17.sp,
+                    fontFamily = GlassHeadingFont,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(Modifier.width(14.dp))
+            Text(
+                label,
+                color = onSurface,
+                fontSize = 16.sp,
+                fontFamily = GlassHeadingFont,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 3.sp,
+                modifier = Modifier.weight(1f),
+                style = TextStyle(
+                    shadow = Shadow(
+                        color = if (dark) PrismCyan.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.6f),
+                        offset = if (dark) Offset(0f, 0f) else Offset(0f, 1f),
+                        blurRadius = if (dark) 6f else 2f
+                    )
+                )
+            )
+            Text("›", color = subtle, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        }
+
+        // Specular highlight — the bright horizontal sheen along the very top
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .padding(horizontal = 16.dp)
+                .offset(y = 2.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Transparent,
+                            highlight,
+                            highlight,
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+    }
+}
+
+@Composable
+private fun GlassQuickButton(
+    label: String,
+    subtitle: String,
+    glyph: String,
+    highlighted: Boolean,
+    dark: Boolean,
+    onSurface: Color,
+    subtle: Color,
+    faint: Color,
+    panelTop: Color,
+    panelBot: Color,
+    highlight: Color,
+    gestureModifier: Modifier,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(80.dp)
+    ) {
+        // Drop shadow
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(y = 3.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color.Black.copy(alpha = if (dark) 0.30f else 0.08f))
+        )
+
+        // Main frosted body
+        val activeTint = if (highlighted) {
+            Brush.verticalGradient(
+                listOf(
+                    PrismCyan.copy(alpha = if (dark) 0.40f else 0.35f),
+                    PrismViolet.copy(alpha = if (dark) 0.30f else 0.20f)
+                )
+            )
+        } else {
+            Brush.verticalGradient(listOf(panelTop, panelBot))
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(18.dp))
+                .background(activeTint)
+                .border(
+                    1.dp,
+                    prismBrush(alpha = if (highlighted) 0.75f else if (dark) 0.55f else 0.40f),
+                    RoundedCornerShape(18.dp)
+                )
+                .then(gestureModifier)
+                .padding(vertical = 8.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                glyph,
+                color = onSurface,
+                fontSize = 20.sp,
+                fontFamily = GlassHeadingFont,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                label,
+                color = onSurface,
+                fontSize = 11.sp,
+                fontFamily = GlassHeadingFont,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 2.sp
+            )
+            Text(
+                subtitle,
+                color = subtle,
+                fontSize = 8.sp,
+                fontFamily = GlassContentFont,
+                letterSpacing = 0.5.sp,
+                maxLines = 1
+            )
+        }
+
+        // Top specular sheen — the Aero glass hallmark
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.5.dp)
+                .padding(horizontal = 14.dp)
+                .offset(y = 2.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, highlight, highlight, Color.Transparent)
+                    )
+                )
+        )
     }
 }
