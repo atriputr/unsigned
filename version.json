@@ -1,6 +1,6 @@
 {
-  "versionCode": 33,
-  "versionName": "4.2",
+  "versionCode": 34,
+  "versionName": "4.3",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v4.2: Added animated horizontal reel ticker to 'SELECT PROFILE' glowing title (left-to-right glide). 🎞️🔥✨"
+  "releaseNotes": "v4.3: HomeWeatherStrip, font refinements, and live UI synchronizations. 🌤️🚀✨"
 }

@@ -44,11 +44,16 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private lateinit var tvYearPercent: TextView
     private lateinit var pbWeatherProgress: ProgressBar
     private lateinit var tvWeatherLocation: TextView
+    private lateinit var cvWeatherStrip: ComposeView
     private lateinit var cvUpcomingEvents: ComposeView
     private lateinit var composeOverlay: ComposeView
     private lateinit var bgThemeTint: View
     private lateinit var cvHomeSkin: ComposeView
     private lateinit var cvStatusBar: ComposeView
+
+    // Live weather state shared with the home strip
+    private val weatherState = mutableStateOf(WeatherData())
+    private val weatherLoading = mutableStateOf(false)
     private val timeHandler = Handler(Looper.getMainLooper())
     
     // State for Custom Profiles
@@ -163,6 +168,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         tvYearPercent = findViewById(R.id.tvYearPercent)
         pbWeatherProgress = findViewById(R.id.pbWeatherProgress)
         tvWeatherLocation = findViewById(R.id.tvWeatherLocation)
+        cvWeatherStrip = findViewById(R.id.cvWeatherStrip)
         cvUpcomingEvents = findViewById(R.id.cvUpcomingEvents)
         composeOverlay = findViewById(R.id.composeOverlay)
         bgThemeTint = findViewById(R.id.bgThemeTint)
@@ -173,6 +179,19 @@ class ProfileSelectionActivity : AppCompatActivity() {
         val onWeatherClick = View.OnClickListener { showWeatherOverlay(bebasFont, bebasFont) }
         pbWeatherProgress.setOnClickListener(onWeatherClick)
         tvWeatherLocation.setOnClickListener(onWeatherClick)
+
+        // Rich home weather widget (temp + condition + AQI + hourly sparkline).
+        weatherState.value = FitDataRepository.loadWeatherCache()
+        cvWeatherStrip.setContent {
+            AppThemeProvider(appPrefs.value.theme, appPrefs.value.languageCode) {
+                HomeWeatherStrip(
+                    weather = weatherState.value,
+                    tempUnit = appPrefs.value.tempUnit,
+                    isLoading = weatherLoading.value,
+                    onClick = { showWeatherOverlay(bebasFont, bebasFont) }
+                )
+            }
+        }
 
         applyThemeTint()
         refreshWeather(force = false)
@@ -310,10 +329,12 @@ class ProfileSelectionActivity : AppCompatActivity() {
             AppThemeProvider(themeName, appPrefs.value.languageCode) { StatusBarBox() }
         }
 
-        // DARK lets the PNG's top+bottom red gaming borders peek through; the Compose skin paints
-        // its own black mask over the middle. CREAM/AMBER fully cover the PNG with their own art.
+        // DARK + Glass variants let the PNG background peek through (Glass adds a translucent
+        // palette wash on top). CREAM/AMBER fully cover the PNG with their own art.
+        val letBgShowThrough = themeName.equals("DARK", ignoreCase = true) ||
+            themeName.startsWith("GLASS", ignoreCase = true)
         bgThemeTint.setBackgroundColor(
-            if (themeName.equals("DARK", ignoreCase = true)) 0x00000000 else 0xFF000000.toInt()
+            if (letBgShowThrough) palette.homeTint.toArgb() else 0xFF000000.toInt()
         )
 
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
@@ -1112,13 +1133,28 @@ class ProfileSelectionActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val cached = FitDataRepository.loadWeatherCache()
             if (cached.isValid && !cached.isStale() && !force) {
+                weatherState.value = cached
                 updateWeatherLocationUi(cached)
-            } else {
+                return@launch
+            }
+            weatherLoading.value = true
+            try {
                 val weather = withContext(Dispatchers.IO) {
                     WeatherService.getWeather(this@ProfileSelectionActivity, forceRefresh = force)
                 }
+                weatherState.value = weather
                 updateWeatherLocationUi(weather)
+            } finally {
+                weatherLoading.value = false
             }
+        }
+    }
+
+    /** Auto-refresh weather every 20 minutes while the activity is resumed. */
+    private val weatherAutoRefresh = object : Runnable {
+        override fun run() {
+            refreshWeather(force = false)
+            timeHandler.postDelayed(this, 20 * 60 * 1000L)
         }
     }
 
@@ -1150,12 +1186,16 @@ class ProfileSelectionActivity : AppCompatActivity() {
         startCalendarReverseSync()
         reconcileExternalCalendar()
         refreshWeather(force = false)
+        // Periodic auto-refresh (20 min) while resumed
+        timeHandler.removeCallbacks(weatherAutoRefresh)
+        timeHandler.postDelayed(weatherAutoRefresh, 20 * 60 * 1000L)
     }
 
     override fun onPause() {
         super.onPause()
         SystemCalendarSync.stopObserving(this, calendarObserver)
         calendarObserver = null
+        timeHandler.removeCallbacks(weatherAutoRefresh)
     }
 
     private fun startCalendarReverseSync() {

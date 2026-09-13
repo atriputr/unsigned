@@ -155,6 +155,10 @@ fun HomeSkin(
         "CREAM" -> HelloKittySkin(titleFont, quickState, quickCallbacks)
         "AMBER" -> LokiAmberSkin(titleFont, quickState, quickCallbacks)
         "DARK"  -> DarkIndustrialSkin(titleFont, quickState, quickCallbacks)
+        // Glass themes reuse the industrial-dark skin structure — palette + prism borders
+        // applied by LocalPalette handle the rest via each overlay's chrome.
+        "GLASS_DARK", "GLASS_LIGHT", "GLASS" ->
+            DarkIndustrialSkin(titleFont, quickState, quickCallbacks)
         else -> Unit
     }
 }

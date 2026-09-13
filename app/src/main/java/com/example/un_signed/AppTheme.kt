@@ -86,6 +86,63 @@ object AppPalettes {
         statusBar = Color(0xFFFFB6C1).copy(alpha = 0.4f) // Pinkish translucent
     )
 
+    /**
+     * GLASS_DARK — Liquid-Glass (Apple) × Aero (Windows Vista) hybrid.
+     *  · Deep blue-grey base, high translucent whites
+     *  · Chromatic prism borders on cards
+     *  · Cyan/violet aero accents
+     */
+    val GlassDark = ThemePalette(
+        name       = "GLASS_DARK",
+        isLight    = false,
+        scrim      = Color(0xFF03060E).copy(alpha = 0.60f),
+        appBackground = Color(0xFF060A18),
+        homeTint      = Color(0xFF0A0F22).copy(alpha = 0.35f),
+        surfaceTop = Color(0xFFFFFFFF).copy(alpha = 0.13f),
+        surfaceBot = Color(0xFF3B5FA8).copy(alpha = 0.10f),
+        border     = Color(0xFF8AB8FF).copy(alpha = 0.55f),
+        onSurface  = Color(0xFFF4F8FF),
+        subtle     = Color(0xFFCCD9F5).copy(alpha = 0.80f),
+        faint      = Color(0xFFA6BAE0).copy(alpha = 0.55f),
+        divider    = Color.White.copy(alpha = 0.14f),
+        chipBg     = Color(0xFF6DA0FF).copy(alpha = 0.08f),
+        fieldBg    = Color.White.copy(alpha = 0.10f),
+        fieldBorder= Color(0xFF7BB2FF).copy(alpha = 0.35f),
+        accentPrimary   = Color(0xFF66D9FF),   // aero cyan
+        accentSecondary = Color(0xFFB49CFF),   // liquid violet
+        danger  = Color(0xFFFF7B95),
+        success = Color(0xFF7BE0B7),
+        statusBar = Color(0xFF9BC8FF).copy(alpha = 0.28f)
+    )
+
+    /**
+     * GLASS_LIGHT — sunlit frosted glass.
+     *  · Off-white base with soft blue reflection
+     *  · Same prism border, dialled back for daylight
+     */
+    val GlassLight = ThemePalette(
+        name       = "GLASS_LIGHT",
+        isLight    = true,
+        scrim      = Color(0xFFB4C7E7).copy(alpha = 0.55f),
+        appBackground = Color(0xFFEAF1FB),
+        homeTint      = Color(0xFFF3F7FE).copy(alpha = 0.75f),
+        surfaceTop = Color(0xFFFFFFFF).copy(alpha = 0.72f),
+        surfaceBot = Color(0xFFE1EBFA).copy(alpha = 0.72f),
+        border     = Color(0xFF3E6FB8).copy(alpha = 0.42f),
+        onSurface  = Color(0xFF102341),
+        subtle     = Color(0xFF3A4E70).copy(alpha = 0.85f),
+        faint      = Color(0xFF6C82A8).copy(alpha = 0.70f),
+        divider    = Color(0xFF3A4E70).copy(alpha = 0.14f),
+        chipBg     = Color(0xFFFFFFFF).copy(alpha = 0.55f),
+        fieldBg    = Color(0xFFFFFFFF).copy(alpha = 0.65f),
+        fieldBorder= Color(0xFF3A4E70).copy(alpha = 0.22f),
+        accentPrimary   = Color(0xFF1E7BC7),
+        accentSecondary = Color(0xFF7A4FD1),
+        danger  = Color(0xFFC53147),
+        success = Color(0xFF1E9E6C),
+        statusBar = Color(0xFF9BC8FF).copy(alpha = 0.42f)
+    )
+
     val Amber = ThemePalette(
         name       = "AMBER",
         isLight    = false,
@@ -112,9 +169,32 @@ object AppPalettes {
     fun byName(name: String): ThemePalette = when (name.uppercase()) {
         "CREAM" -> Cream
         "AMBER" -> Amber
+        "GLASS_LIGHT", "GLASS-LIGHT", "GLASSLIGHT" -> GlassLight
+        "GLASS_DARK", "GLASS-DARK", "GLASSDARK", "GLASS" -> GlassDark
         else    -> Dark
     }
 }
+
+/** True while a Liquid-Glass / Aero variant is active — enables prism borders + serif fonts elsewhere. */
+val ThemePalette.isGlass: Boolean
+    get() = name.startsWith("GLASS", ignoreCase = true)
+
+/**
+ * Chromatic prism border — the rainbow-reflection edge that both Windows Vista's Aero cards
+ * and Apple's Liquid Glass panels use as their signature. Falls back to the palette's default
+ * gradient for non-glass themes so callers can use it unconditionally.
+ */
+fun ThemePalette.prismBorderBrush(): Brush = if (isGlass) {
+    Brush.linearGradient(
+        listOf(
+            Color(0xFFFF8AA6).copy(alpha = 0.55f),  // rose
+            Color(0xFFFFB454).copy(alpha = 0.55f),  // amber
+            Color(0xFFA6E3C6).copy(alpha = 0.55f),  // mint
+            Color(0xFF8ACBFF).copy(alpha = 0.65f),  // cyan
+            Color(0xFFB49CFF).copy(alpha = 0.55f)   // violet
+        )
+    )
+} else borderBrush()
 
 val LocalPalette = staticCompositionLocalOf { AppPalettes.Dark }
 

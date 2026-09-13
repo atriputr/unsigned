@@ -114,6 +114,21 @@ fun SettingsOverlay(
                         }
                     }
                 }
+                Spacer(Modifier.height(6.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Toggle("GLASS ☾", current.theme == "GLASS_DARK", contentFont, palette, Modifier.weight(1f)) {
+                        update(current.copy(theme = "GLASS_DARK"))
+                    }
+                    Toggle("GLASS ☀", current.theme == "GLASS_LIGHT", contentFont, palette, Modifier.weight(1f)) {
+                        update(current.copy(theme = "GLASS_LIGHT"))
+                    }
+                }
+                Text(
+                    "Glass — Apple Liquid + Windows Aero fusion",
+                    color = palette.subtle,
+                    fontSize = 10.sp,
+                    fontFamily = contentFont
+                )
 
                 // ── Units ────────────────────────────────
                 SectionHeader(LocalStrings.current.weightLabel, palette)
@@ -299,15 +314,27 @@ private fun MyPermissionsDialog(
 ) {
     val ctx = LocalContext.current
 
-    val hasLocation = remember {
+    // Re-poll on every open so freshly-granted permissions flip immediately.
+    var refreshTick by remember { mutableStateOf(0) }
+    @Suppress("DEPRECATION")
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) refreshTick++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val hasLocation = remember(refreshTick) {
         ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
-    val hasCalendar = remember { PermissionsManager.hasCalendarPermission(ctx) }
-    val hasNotifications = remember { PermissionsManager.hasNotificationPermission(ctx) }
-    val hasActivity = remember { PermissionsManager.hasActivityRecognitionPermission(ctx) }
-    val hasExactAlarm = remember { PermissionsManager.canScheduleExactAlarms(ctx) }
-    val hasInstall = remember { ctx.packageManager.canRequestPackageInstalls() }
+    val hasCalendar = remember(refreshTick) { PermissionsManager.hasCalendarPermission(ctx) }
+    val hasNotifications = remember(refreshTick) { PermissionsManager.hasNotificationPermission(ctx) }
+    val hasActivity = remember(refreshTick) { PermissionsManager.hasActivityRecognitionPermission(ctx) }
+    val hasExactAlarm = remember(refreshTick) { PermissionsManager.canScheduleExactAlarms(ctx) }
+    val hasInstall = remember(refreshTick) { ctx.packageManager.canRequestPackageInstalls() }
 
     fun openAppSettings() {
         try {
