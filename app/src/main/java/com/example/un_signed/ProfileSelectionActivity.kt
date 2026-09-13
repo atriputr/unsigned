@@ -43,7 +43,8 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private lateinit var pbYearProgress: ProgressBar
     private lateinit var tvYearPercent: TextView
     private lateinit var pbWeatherProgress: ProgressBar
-    private lateinit var tvWeatherLocation: TextView
+    private lateinit var cvWeatherLocation: ComposeView
+    private val weatherLocationText = mutableStateOf("FETCHING WEATHER...  ·  --°C")
     private lateinit var cvUpcomingEvents: ComposeView
     private lateinit var composeOverlay: ComposeView
     private lateinit var bgThemeTint: View
@@ -162,7 +163,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         pbYearProgress = findViewById(R.id.pbYearProgress)
         tvYearPercent = findViewById(R.id.tvYearPercent)
         pbWeatherProgress = findViewById(R.id.pbWeatherProgress)
-        tvWeatherLocation = findViewById(R.id.tvWeatherLocation)
+        cvWeatherLocation = findViewById(R.id.cvWeatherLocation)
         cvUpcomingEvents = findViewById(R.id.cvUpcomingEvents)
         composeOverlay = findViewById(R.id.composeOverlay)
         bgThemeTint = findViewById(R.id.bgThemeTint)
@@ -170,9 +171,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         cvStatusBar = findViewById(R.id.cvStatusBar)
 
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
-        val onWeatherClick = View.OnClickListener { showWeatherOverlay(bebasFont, bebasFont) }
-        pbWeatherProgress.setOnClickListener(onWeatherClick)
-        tvWeatherLocation.setOnClickListener(onWeatherClick)
+        pbWeatherProgress.setOnClickListener { showWeatherOverlay(bebasFont, bebasFont) }
 
         applyThemeTint()
         refreshWeather(force = false)
@@ -290,8 +289,20 @@ class ProfileSelectionActivity : AppCompatActivity() {
         val palette   = AppPalettes.byName(themeName)
         tvYearPercent.setTextColor(palette.onSurface.toArgb())
 
-        val dullTextColor = palette.onSurface.copy(alpha = 0.55f).toArgb()
-        tvWeatherLocation.setTextColor(dullTextColor)
+        val bebasFont = FontFamily(Font(R.font.bebas_neue))
+        cvWeatherLocation.setContent {
+            AppThemeProvider(themeName, appPrefs.value.languageCode) {
+                WeatherLocationReel(
+                    text = weatherLocationText.value,
+                    fontFamily = bebasFont,
+                    textColor = palette.onSurface.copy(alpha = 0.65f),
+                    onClick = {
+                        Haptics.click(this@ProfileSelectionActivity)
+                        showWeatherOverlay(bebasFont, bebasFont)
+                    }
+                )
+            }
+        }
 
         // DARK/Ashes uses a muted grey bar to match the ash aesthetic; other themes use their accent
         val isDark = themeName.equals("DARK", ignoreCase = true)
@@ -318,7 +329,6 @@ class ProfileSelectionActivity : AppCompatActivity() {
             if (themeName.equals("DARK", ignoreCase = true)) 0x00000000 else 0xFF000000.toInt()
         )
 
-        val bebasFont = FontFamily(Font(R.font.bebas_neue))
         cvHomeSkin.visibility = View.VISIBLE
         cvHomeSkin.setContent {
             AppThemeProvider(themeName, appPrefs.value.languageCode) {
@@ -1132,7 +1142,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
             } else rawLoc.uppercase()
             val temp = String.format(Locale.getDefault(), "%.1f°C", weather.temperatureC)
             val cond = weather.condition.uppercase()
-            tvWeatherLocation.text = if (cond.isNotBlank()) {
+            weatherLocationText.value = if (cond.isNotBlank()) {
                 "$locName  ·  WEATHER: $temp $cond"
             } else {
                 "$locName  ·  WEATHER: $temp"
@@ -1140,7 +1150,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         } else {
             val lang = appPrefs.value.languageCode
             val strings = Localization.getStrings(lang)
-            tvWeatherLocation.text = "${strings.fetchingWeather.uppercase()}  ·  --°C"
+            weatherLocationText.value = "${strings.fetchingWeather.uppercase()}  ·  --°C"
         }
     }
 

@@ -1,6 +1,6 @@
 {
-  "versionCode": 30,
-  "versionName": "3.9",
+  "versionCode": 31,
+  "versionName": "4.0",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v3.9: Native city geocoding, live location resolution & interactive permission manager. 📍⚙️✨"
+  "releaseNotes": "v4.0: Animated horizontal ticker reel for weather/location text (left-to-right glide) & UI enhancements. 🎞️🌤️✨"
 }

@@ -133,17 +133,12 @@
         app:layout_constraintStart_toStartOf="@id/btnLeft"
         app:layout_constraintEnd_toEndOf="@id/btnRight" />
 
-    <!-- Weather & Location above Clock -->
-    <TextView
-        android:id="@+id/tvWeatherLocation"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+    <!-- Weather & Location Reel above Clock -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/cvWeatherLocation"
+        android:layout_width="220dp"
+        android:layout_height="22dp"
         android:layout_marginBottom="4dp"
-        android:fontFamily="@font/bebas_neue"
-        android:textColor="#EBC174"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        android:text="LOCATION: LOCATING...  ·  WEATHER: --°C"
         app:layout_constraintBottom_toTopOf="@id/pbWeatherProgress"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

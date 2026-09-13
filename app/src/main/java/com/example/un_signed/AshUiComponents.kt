@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
@@ -43,6 +44,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1192,5 +1194,64 @@ fun StatusBarBox() {
                 .height(with(density) { topInset.toDp() })
                 .background(palette.statusBar)
         )
+    }
+}
+
+@Composable
+fun WeatherLocationReel(
+    text: String,
+    fontFamily: FontFamily,
+    textColor: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    var textWidthPx by remember { mutableFloatStateOf(300f) }
+
+    BoxWithConstraints(
+        modifier = modifier
+            .width(220.dp)
+            .height(22.dp)
+            .clipToBounds()
+            .clickable { onClick() },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        val density = LocalDensity.current
+        val containerWidthPx = with(density) { this@BoxWithConstraints.maxWidth.toPx() }
+
+        // Horizontal reel gliding from left (-textWidthPx) to right (+containerWidthPx)
+        val transition = rememberInfiniteTransition(label = "reel")
+        val offsetXPx by transition.animateFloat(
+            initialValue = -textWidthPx,
+            targetValue = containerWidthPx,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 6500, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "reelX"
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset { IntOffset(offsetXPx.toInt(), 0) },
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = text,
+                color = textColor,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = fontFamily,
+                letterSpacing = 1.sp,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.onGloballyPositioned { coordinates ->
+                    val w = coordinates.size.width.toFloat()
+                    if (w > 0f && w != textWidthPx) {
+                        textWidthPx = w
+                    }
+                }
+            )
+        }
     }
 }
