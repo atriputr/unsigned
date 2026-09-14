@@ -3,6 +3,7 @@ package com.example.un_signed
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -153,14 +154,15 @@ fun HomeSkin(
     themeName: String,
     titleFont: FontFamily,
     quickState: HomeQuickState,
-    quickCallbacks: HomeQuickCallbacks
+    quickCallbacks: HomeQuickCallbacks,
+    platePressState: PlatePressState = PlatePressState()
 ) {
     when (themeName.uppercase()) {
         "CREAM" -> HelloKittySkin(titleFont, quickState, quickCallbacks)
         "AMBER" -> LokiAmberSkin(titleFont, quickState, quickCallbacks)
         "DARK"  -> DarkIndustrialSkin(titleFont, quickState, quickCallbacks)
-        "GLASS_DARK", "GLASS" -> GlassSkin(dark = true,  quickState = quickState, quickCallbacks = quickCallbacks)
-        "GLASS_LIGHT"          -> GlassSkin(dark = false, quickState = quickState, quickCallbacks = quickCallbacks)
+        "GLASS_DARK", "GLASS" -> GlassSkin(dark = true,  quickState = quickState, quickCallbacks = quickCallbacks, platePressState = platePressState)
+        "GLASS_LIGHT"          -> GlassSkin(dark = false, quickState = quickState, quickCallbacks = quickCallbacks, platePressState = platePressState)
         else -> Unit
     }
 }
@@ -1101,6 +1103,17 @@ private val PrismMint   = Color(0xFFA6E3C6)
 private val PrismCyan   = Color(0xFF8ACBFF)
 private val PrismViolet = Color(0xFFB49CFF)
 
+/**
+ * State published by the Activity from setOnTouchListener on the three profile-click Views.
+ *  · [pressedIdx] = -1 when nothing is pressed, otherwise 0/1/2 for Ideal/Custom/Export.
+ *  · [touchFraction] is the finger position normalised to [0..1] on the pressed View.
+ * Non-Glass skins ignore this — it's a pure decoration signal.
+ */
+data class PlatePressState(
+    val pressedIdx: Int = -1,
+    val touchFraction: Offset = Offset(0.5f, 0.5f)
+)
+
 private fun prismBrush(alpha: Float = 0.55f): Brush = Brush.linearGradient(
     listOf(
         PrismRose.copy(alpha = alpha),
@@ -1115,7 +1128,8 @@ private fun prismBrush(alpha: Float = 0.55f): Brush = Brush.linearGradient(
 private fun GlassSkin(
     dark: Boolean,
     quickState: HomeQuickState,
-    quickCallbacks: HomeQuickCallbacks
+    quickCallbacks: HomeQuickCallbacks,
+    platePressState: PlatePressState = PlatePressState()
 ) {
     val strings = LocalStrings.current
     val scope   = rememberCoroutineScope()
@@ -1130,6 +1144,16 @@ private fun GlassSkin(
     val panelBot   = if (dark) Color(0xFF3B5FA8).copy(alpha = 0.10f) else Color(0xFFDCE9FB).copy(alpha = 0.80f)
     val highlight  = if (dark) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.70f)
 
+    // Live tilt from accelerometer/gravity — drives the parallax between wallpaper and glass.
+    val tilt by MotionParallax.rememberTilt(smoothing = 0.88f, maxTiltDeg = 30f)
+    // Independent shift magnitudes give the classic depth-layered feel:
+    //  · Wallpaper drifts a lot (feels behind glass)
+    //  · Glass content nudges opposite direction (feels floating over)
+    val bgShiftX = tilt.x * 55f
+    val bgShiftY = tilt.y * 55f
+    val fgShiftX = -tilt.x * 10f
+    val fgShiftY = -tilt.y * 10f
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -1138,8 +1162,43 @@ private fun GlassSkin(
         StatusBarBox()
         val screenH = maxHeight
         val screenW = maxWidth
-        val btnHeight = screenH * BTN_HEIGHT_FRAC * 1.05f
+        // Button centres sit ~7.1% apart on screen (0.1863 / 0.2571 / 0.3286). Sizing the plate
+        // at 0.72× BTN_HEIGHT_FRAC yields ~5.4% plate height, leaving ~1.7% (≈28-40dp on
+        // typical devices) of clear breathing room between adjacent plates — enough for the
+        // drop-shadow to sit without visually merging into the next plate.
+        val btnHeight = screenH * BTN_HEIGHT_FRAC * 0.72f
         val sideMargin = 22.dp
+
+        // ── Wallpaper (dark mode only) with parallax drift ────
+        if (dark) {
+            Image(
+                painter = painterResource(id = R.drawable.glass_bg_dark),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    // Slight overscale so parallax translation never reveals letterbox edges.
+                    .graphicsLayer {
+                        scaleX = 1.18f
+                        scaleY = 1.18f
+                        translationX = bgShiftX
+                        translationY = bgShiftY
+                    }
+            )
+            // Cool dark tint so the aurora orbs and glass elements read strongly.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xFF04081A).copy(alpha = 0.55f),
+                                Color(0xFF020614).copy(alpha = 0.75f)
+                            )
+                        )
+                    )
+            )
+        }
 
         // ── Aurora orbs backdrop ─────────────────────────────
         AuroraOrbs(dark = dark)
@@ -1148,7 +1207,11 @@ private fun GlassSkin(
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 30.dp),
+                .padding(top = 30.dp)
+                .graphicsLayer {
+                    translationX = fgShiftX
+                    translationY = fgShiftY
+                },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Prism divider mark above title
@@ -1189,18 +1252,25 @@ private fun GlassSkin(
             Triple(BTN1_CENTER, strings.idealProfile, "◉"),
             Triple(BTN2_CENTER, strings.customProfile, "⌘"),
             Triple(BTN3_CENTER, strings.exportProgress, "⇪")
-        ).forEach { (fraction, label, glyph) ->
+        ).forEachIndexed { idx, (fraction, label, glyph) ->
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = sideMargin)
                     .height(btnHeight)
                     .offset(y = screenH * fraction - btnHeight / 2f)
+                    .graphicsLayer {
+                        translationX = fgShiftX
+                        translationY = fgShiftY
+                    }
             ) {
+                val isPressed = platePressState.pressedIdx == idx
                 GlassPlate(
                     label = label,
                     glyph = glyph,
                     dark = dark,
+                    pressed = isPressed,
+                    touchFraction = if (isPressed) platePressState.touchFraction else null,
                     onSurface = onSurface,
                     subtle = subtle,
                     panelTop = panelTop,
@@ -1215,7 +1285,11 @@ private fun GlassSkin(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 14.dp, vertical = 24.dp),
+                .padding(horizontal = 14.dp, vertical = 24.dp)
+                .graphicsLayer {
+                    translationX = fgShiftX
+                    translationY = fgShiftY
+                },
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             GlassQuickButton(
@@ -1341,26 +1415,68 @@ private fun AuroraOrbs(dark: Boolean) {
  * highlight running along the top edge (Aero glass hallmark) + a chromatic
  * prism border (Apple Liquid Glass edge).
  */
+// Human-skin palette used for the "fingertip warmth" reflection under a press.
+private val SkinLight = Color(0xFFF4C7A5)   // top layer — bright peach
+private val SkinMid   = Color(0xFFD4A78B)   // mid — tan
+private val SkinDeep  = Color(0xFFBE8B69)   // deep — bronze-brown
+
 @Composable
 private fun GlassPlate(
     label: String,
     glyph: String,
     dark: Boolean,
+    pressed: Boolean,
+    touchFraction: Offset?,
     onSurface: Color,
     subtle: Color,
     panelTop: Color,
     panelBot: Color,
     highlight: Color
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Physical press feedback — plate compresses slightly + slight brightness dip.
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.965f else 1f,
+        animationSpec = tween(durationMillis = 140),
+        label = "plateScale"
+    )
+    val pressAlpha by animateFloatAsState(
+        targetValue = if (pressed) 1f else 0f,
+        animationSpec = tween(durationMillis = 180),
+        label = "pressAlpha"
+    )
+    // 3D tilt — camera-like rotation biased by where the finger is on the plate.
+    val tiltX by animateFloatAsState(
+        targetValue = if (pressed && touchFraction != null) (touchFraction.y - 0.5f) * -10f else 0f,
+        animationSpec = tween(durationMillis = 140),
+        label = "tiltX"
+    )
+    val tiltY by animateFloatAsState(
+        targetValue = if (pressed && touchFraction != null) (touchFraction.x - 0.5f) * 10f else 0f,
+        animationSpec = tween(durationMillis = 140),
+        label = "tiltY"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                rotationX = tiltX
+                rotationY = tiltY
+                cameraDistance = 14f * density
+            }
+    ) {
         // Soft drop shadow beneath the plate — sells the "floating" feel.
+        // Kept intentionally tight (1.dp offset) so it doesn't visually collide with the
+        // next plate below when three sit close together.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .offset(y = 5.dp)
+                .offset(y = if (pressed) 0.dp else 1.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(
-                    Color.Black.copy(alpha = if (dark) 0.35f else 0.10f)
+                    Color.Black.copy(alpha = if (dark) 0.22f else 0.06f)
                 )
         )
 
@@ -1370,7 +1486,56 @@ private fun GlassPlate(
                 .fillMaxSize()
                 .clip(RoundedCornerShape(20.dp))
                 .background(Brush.verticalGradient(listOf(panelTop, panelBot)))
-                .border(1.2.dp, prismBrush(alpha = if (dark) 0.65f else 0.45f), RoundedCornerShape(20.dp))
+                .drawBehind {
+                    // ── Human-skin fingertip warmth ─────────────────
+                    // A soft warm radial glow at exactly the touch position,
+                    // fading with pressAlpha so it eases in/out gracefully.
+                    if (touchFraction != null && pressAlpha > 0.01f) {
+                        val cx = size.width * touchFraction.x
+                        val cy = size.height * touchFraction.y
+                        val r = size.minDimension * 1.05f
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    SkinLight.copy(alpha = 0.42f * pressAlpha),
+                                    SkinMid.copy(alpha  = 0.24f * pressAlpha),
+                                    SkinDeep.copy(alpha = 0.10f * pressAlpha),
+                                    Color.Transparent
+                                ),
+                                center = Offset(cx, cy),
+                                radius = r
+                            ),
+                            radius = r,
+                            center = Offset(cx, cy)
+                        )
+                    }
+
+                    // ── Diagonal "slide 3D" specular sweep ──────────
+                    // A soft luminous band that rides across the plate on press,
+                    // biased by touch position → gives the surface a moving-light feel.
+                    if (pressAlpha > 0.01f) {
+                        val fx = touchFraction?.x ?: 0.5f
+                        val bandCentre = size.width * fx
+                        val bandHalfW = size.width * 0.25f
+                        val band = Brush.linearGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.10f * pressAlpha),
+                                Color.White.copy(alpha = 0.22f * pressAlpha),
+                                Color.White.copy(alpha = 0.10f * pressAlpha),
+                                Color.Transparent
+                            ),
+                            start = Offset(bandCentre - bandHalfW, 0f),
+                            end = Offset(bandCentre + bandHalfW, size.height)
+                        )
+                        drawRect(brush = band)
+                    }
+                }
+                .border(
+                    1.2.dp,
+                    prismBrush(alpha = if (pressed) (if (dark) 0.85f else 0.65f) else if (dark) 0.65f else 0.45f),
+                    RoundedCornerShape(20.dp)
+                )
                 .padding(horizontal = 16.dp, vertical = 0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {

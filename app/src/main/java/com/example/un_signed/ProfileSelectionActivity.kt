@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.MotionEvent
 import android.view.View
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -28,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -55,6 +57,10 @@ class ProfileSelectionActivity : AppCompatActivity() {
     // Live weather state shared with the home strip
     private val weatherState = mutableStateOf(WeatherData())
     private val weatherLoading = mutableStateOf(false)
+
+    // Live press state for the 3 profile buttons — drives the Glass-skin human-touch effect.
+    // Populated by setOnTouchListener on the XML click Views (only the Glass skin reads it).
+    private val platePressState = mutableStateOf(PlatePressState())
     private val timeHandler = Handler(Looper.getMainLooper())
     
     // State for Custom Profiles
@@ -261,6 +267,25 @@ class ProfileSelectionActivity : AppCompatActivity() {
             showExportOverlay(bebasFont, bebasFont)
         }
 
+        // Human-touch feedback for the Glass skin — reports where the finger is on each
+        // profile button. Returns false so the View still delivers its click normally.
+        val profileViewIds = listOf(R.id.btnIdealProfile, R.id.btnCustomProfile, R.id.btnExportProgress)
+        profileViewIds.forEachIndexed { idx, viewId ->
+            findViewById<View>(viewId).setOnTouchListener { v, event ->
+                val w = v.width.coerceAtLeast(1).toFloat()
+                val h = v.height.coerceAtLeast(1).toFloat()
+                val fx = (event.x / w).coerceIn(0f, 1f)
+                val fy = (event.y / h).coerceIn(0f, 1f)
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE ->
+                        platePressState.value = PlatePressState(idx, Offset(fx, fy))
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                        platePressState.value = PlatePressState()
+                }
+                false
+            }
+        }
+
         val onYearProgressClick = View.OnClickListener {
             showCalendarOverlay(fontFamily = bebasFont)
         }
@@ -370,7 +395,8 @@ class ProfileSelectionActivity : AppCompatActivity() {
                         onWaterIncrement   = { onWaterChange(+1) },
                         onWaterDecrement   = { onWaterChange(-1) },
                         onWaterReset       = { onWaterReset() }
-                    )
+                    ),
+                    platePressState = platePressState.value
                 )
             }
         }
