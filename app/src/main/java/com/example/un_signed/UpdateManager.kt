@@ -29,12 +29,69 @@ data class UpdateInfo(
     val versionCode: Int,
     val versionName: String,
     val apkUrl: String,
-    val releaseNotes: String
+    val releaseNotes: String,
+    /** Optional ISO date the version was published — used by Update Log. */
+    val date: String? = null
+)
+
+/** Root of the versions_history.json manifest, if it exists on the remote. */
+data class UpdateHistoryManifest(
+    val history: List<UpdateInfo> = emptyList()
 )
 
 class UpdateManager(private val context: Context) {
 
     private val versionUrl = "https://raw.githubusercontent.com/atriputr/unsigned/main/version.json"
+    private val historyUrl = "https://raw.githubusercontent.com/atriputr/unsigned/main/versions_history.json"
+
+    companion object {
+        /**
+         * Release notes for the CURRENT installed APK — hardcoded so Update Log can always show
+         * "what's in this version" without needing a network round-trip. Keep this in sync with
+         * the version bumps in build.gradle.kts + git history.
+         */
+        const val CURRENT_RELEASE_NOTES: String =
+            "Glass theme with Liquid×Aero fusion. MotionParallax sensor drift for the wallpaper. " +
+            "Fresh glass home skin. Refined update overlay with prism edges. " +
+            "Curved-film SELECT PROFILE reel. Home weather strip blended into the ashes UI."
+
+        /**
+         * Fallback local history — used when versions_history.json isn't reachable. Each entry
+         * points at a versioned APK under /archive/vX.Y/UNSIGNED.apk on the same GitHub repo, so
+         * as soon as the user publishes archive builds these become live.
+         */
+        private const val ARCHIVE_BASE = "https://raw.githubusercontent.com/atriputr/unsigned/main/archive"
+
+        val LOCAL_HISTORY: List<UpdateInfo> = listOf(
+            UpdateInfo(
+                versionCode = 27, versionName = "4.6",
+                apkUrl = "$ARCHIVE_BASE/v4.6/UNSIGNED.apk",
+                releaseNotes = "Glass theme (Liquid + Aero fusion). MotionParallax sensor drift. Fresh painted glass skin. Curved-film SELECT PROFILE reel.",
+                date = "2025-09-14"
+            ),
+            UpdateInfo(
+                versionCode = 26, versionName = "4.5",
+                apkUrl = "$ARCHIVE_BASE/v4.5/UNSIGNED.apk",
+                releaseNotes = "Fix Calendar permission launch crash. Safer system calendar query. Stability polish.",
+                date = "2025-09-05"
+            ),
+            UpdateInfo(
+                versionCode = 25, versionName = "4.4",
+                apkUrl = "$ARCHIVE_BASE/v4.4/UNSIGNED.apk",
+                releaseNotes = "HomeWeatherStrip + UpdateOverlay enhancements. In-app update deployment.",
+                date = "2025-08-25"
+            ),
+            UpdateInfo(
+                versionCode = 24, versionName = "4.3",
+                apkUrl = "$ARCHIVE_BASE/v4.3/UNSIGNED.apk",
+                releaseNotes = "HomeWeatherStrip, font refinements & in-app update build.",
+                date = "2025-08-18"
+            )
+        )
+    }
+
+    /** Cached history so the Update Log can render instantly once first fetched. */
+    private var cachedHistory: List<UpdateInfo>? = null
 
     suspend fun checkForUpdate(): UpdateInfo? = withContext(Dispatchers.IO) {
         try {
@@ -74,8 +131,52 @@ class UpdateManager(private val context: Context) {
         null
     }
 
+    /** Current installed version code (Android P+ uses long). */
+    fun currentVersionCode(): Int = try {
+        context.packageManager.getPackageInfo(context.packageName, 0).let {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) it.longVersionCode.toInt() else it.versionCode
+        }
+    } catch (_: Exception) { 0 }
+
+    fun currentVersionName(): String = try {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: ""
+    } catch (_: Exception) { "" }
+
     /**
-     * Uses system DownloadManager to download the APK. 
+     * Fetches the version history for Update Log. Tries the remote versions_history.json first;
+     * on any network failure falls back to the hardcoded [LOCAL_HISTORY] baked into the app.
+     * Result is sorted descending by versionCode and cached in-memory for the session.
+     */
+    suspend fun fetchHistory(): List<UpdateInfo> = withContext(Dispatchers.IO) {
+        cachedHistory?.let { return@withContext it }
+
+        val remote: List<UpdateInfo>? = try {
+            val url = URL("$historyUrl?t=${System.currentTimeMillis()}")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"; connectTimeout = 4000; readTimeout = 4000; useCaches = false
+            }
+            if (conn.responseCode == HttpURLConnection.HTTP_OK) {
+                val json = conn.inputStream.bufferedReader().use { it.readText() }
+                Gson().fromJson(json, UpdateHistoryManifest::class.java)?.history
+            } else null
+        } catch (_: Exception) { null }
+
+        val merged = (remote ?: LOCAL_HISTORY).sortedByDescending { it.versionCode }
+        cachedHistory = merged
+        merged
+    }
+
+    /**
+     * Rollback = install an older APK. Android forbids downgrade of a same-package signed app,
+     * so this workflow triggers a normal download + the OS install prompt; the user will need to
+     * uninstall the current build first. The overlay warns about this before invoking.
+     */
+    fun rollbackTo(info: UpdateInfo) {
+        downloadUpdate(info)
+    }
+
+    /**
+     * Uses system DownloadManager to download the APK.
      * This shows progress in the system status bar.
      */
     fun downloadUpdate(updateInfo: UpdateInfo) {

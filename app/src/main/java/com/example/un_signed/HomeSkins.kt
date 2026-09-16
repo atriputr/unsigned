@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -1456,7 +1457,14 @@ private fun GlassPlate(
         label = "tiltY"
     )
 
-    Box(
+    // Single shared shape — every visual layer (shadow, fill, border, specular sheen)
+    // clips or draws to THIS shape only, so nothing can appear as a mismatched outline.
+    val plateShape = RoundedCornerShape(20.dp)
+
+    // One unified stack — no separate shadow Box, no separate specular Box. The Compose
+    // `Modifier.shadow` is elevation-based and follows the shape exactly. The Aero top
+    // sheen is drawn *inside* via drawBehind so it inherits the same clip.
+    Row(
         modifier = Modifier
             .fillMaxSize()
             .graphicsLayer {
@@ -1466,142 +1474,118 @@ private fun GlassPlate(
                 rotationY = tiltY
                 cameraDistance = 14f * density
             }
-    ) {
-        // Soft drop shadow beneath the plate — sells the "floating" feel.
-        // Kept intentionally tight (1.dp offset) so it doesn't visually collide with the
-        // next plate below when three sit close together.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .offset(y = if (pressed) 0.dp else 1.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(
-                    Color.Black.copy(alpha = if (dark) 0.22f else 0.06f)
+            // Depth shadow — perfectly shape-matched, cheaper than a manual offset Box.
+            .shadow(
+                elevation = if (pressed) 1.dp else 4.dp,
+                shape = plateShape,
+                ambientColor = Color.Black.copy(alpha = if (dark) 0.55f else 0.20f),
+                spotColor    = Color.Black.copy(alpha = if (dark) 0.55f else 0.20f)
+            )
+            .clip(plateShape)
+            .background(Brush.verticalGradient(listOf(panelTop, panelBot)))
+            .drawBehind {
+                // ── Aero top specular sheen — inside the plate clip, so it can never spill.
+                val sheenPad  = size.width * 0.08f
+                val sheenY    = size.height * 0.08f
+                val sheenH    = 2.2.dp.toPx()
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        listOf(Color.Transparent, highlight, highlight, Color.Transparent)
+                    ),
+                    topLeft = Offset(sheenPad, sheenY),
+                    size = androidx.compose.ui.geometry.Size(size.width - sheenPad * 2f, sheenH)
                 )
-        )
 
-        // Actual glass body
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(20.dp))
-                .background(Brush.verticalGradient(listOf(panelTop, panelBot)))
-                .drawBehind {
-                    // ── Human-skin fingertip warmth ─────────────────
-                    // A soft warm radial glow at exactly the touch position,
-                    // fading with pressAlpha so it eases in/out gracefully.
-                    if (touchFraction != null && pressAlpha > 0.01f) {
-                        val cx = size.width * touchFraction.x
-                        val cy = size.height * touchFraction.y
-                        val r = size.minDimension * 1.05f
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    SkinLight.copy(alpha = 0.42f * pressAlpha),
-                                    SkinMid.copy(alpha  = 0.24f * pressAlpha),
-                                    SkinDeep.copy(alpha = 0.10f * pressAlpha),
-                                    Color.Transparent
-                                ),
-                                center = Offset(cx, cy),
-                                radius = r
-                            ),
-                            radius = r,
-                            center = Offset(cx, cy)
-                        )
-                    }
-
-                    // ── Diagonal "slide 3D" specular sweep ──────────
-                    // A soft luminous band that rides across the plate on press,
-                    // biased by touch position → gives the surface a moving-light feel.
-                    if (pressAlpha > 0.01f) {
-                        val fx = touchFraction?.x ?: 0.5f
-                        val bandCentre = size.width * fx
-                        val bandHalfW = size.width * 0.25f
-                        val band = Brush.linearGradient(
+                // ── Human-skin fingertip warmth ─────────────────
+                if (touchFraction != null && pressAlpha > 0.01f) {
+                    val cx = size.width * touchFraction.x
+                    val cy = size.height * touchFraction.y
+                    val r = size.minDimension * 1.05f
+                    drawCircle(
+                        brush = Brush.radialGradient(
                             colors = listOf(
-                                Color.Transparent,
-                                Color.White.copy(alpha = 0.10f * pressAlpha),
-                                Color.White.copy(alpha = 0.22f * pressAlpha),
-                                Color.White.copy(alpha = 0.10f * pressAlpha),
+                                SkinLight.copy(alpha = 0.42f * pressAlpha),
+                                SkinMid.copy(alpha  = 0.24f * pressAlpha),
+                                SkinDeep.copy(alpha = 0.10f * pressAlpha),
                                 Color.Transparent
                             ),
-                            start = Offset(bandCentre - bandHalfW, 0f),
-                            end = Offset(bandCentre + bandHalfW, size.height)
-                        )
-                        drawRect(brush = band)
-                    }
+                            center = Offset(cx, cy),
+                            radius = r
+                        ),
+                        radius = r,
+                        center = Offset(cx, cy)
+                    )
                 }
-                .border(
-                    1.2.dp,
-                    prismBrush(alpha = if (pressed) (if (dark) 0.85f else 0.65f) else if (dark) 0.65f else 0.45f),
-                    RoundedCornerShape(20.dp)
-                )
-                .padding(horizontal = 16.dp, vertical = 0.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Glyph inside a small frosted-cyan disc
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(
-                                PrismCyan.copy(alpha = if (dark) 0.42f else 0.22f),
-                                PrismViolet.copy(alpha = if (dark) 0.30f else 0.14f)
-                            )
-                        )
-                    )
-                    .border(0.8.dp, prismBrush(alpha = 0.60f), RoundedCornerShape(50)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    glyph,
-                    color = onSurface,
-                    fontSize = 17.sp,
-                    fontFamily = GlassHeadingFont,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(Modifier.width(14.dp))
-            Text(
-                label,
-                color = onSurface,
-                fontSize = 16.sp,
-                fontFamily = GlassHeadingFont,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 3.sp,
-                modifier = Modifier.weight(1f),
-                style = TextStyle(
-                    shadow = Shadow(
-                        color = if (dark) PrismCyan.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.6f),
-                        offset = if (dark) Offset(0f, 0f) else Offset(0f, 1f),
-                        blurRadius = if (dark) 6f else 2f
-                    )
-                )
-            )
-            Text("›", color = subtle, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-        }
 
-        // Specular highlight — the bright horizontal sheen along the very top
+                // ── Diagonal "slide 3D" specular sweep on press ──
+                if (pressAlpha > 0.01f) {
+                    val fx = touchFraction?.x ?: 0.5f
+                    val bandCentre = size.width * fx
+                    val bandHalfW = size.width * 0.25f
+                    val band = Brush.linearGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.White.copy(alpha = 0.10f * pressAlpha),
+                            Color.White.copy(alpha = 0.22f * pressAlpha),
+                            Color.White.copy(alpha = 0.10f * pressAlpha),
+                            Color.Transparent
+                        ),
+                        start = Offset(bandCentre - bandHalfW, 0f),
+                        end = Offset(bandCentre + bandHalfW, size.height)
+                    )
+                    drawRect(brush = band)
+                }
+            }
+            .border(
+                1.2.dp,
+                prismBrush(alpha = if (pressed) (if (dark) 0.85f else 0.65f) else if (dark) 0.65f else 0.45f),
+                plateShape
+            )
+            .padding(horizontal = 16.dp, vertical = 0.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Glyph inside a small frosted-cyan disc
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(2.dp)
-                .padding(horizontal = 16.dp)
-                .offset(y = 2.dp)
-                .clip(RoundedCornerShape(2.dp))
+                .size(36.dp)
+                .clip(RoundedCornerShape(50))
                 .background(
-                    Brush.horizontalGradient(
+                    Brush.verticalGradient(
                         listOf(
-                            Color.Transparent,
-                            highlight,
-                            highlight,
-                            Color.Transparent
+                            PrismCyan.copy(alpha = if (dark) 0.42f else 0.22f),
+                            PrismViolet.copy(alpha = if (dark) 0.30f else 0.14f)
                         )
                     )
                 )
+                .border(0.8.dp, prismBrush(alpha = 0.60f), RoundedCornerShape(50)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                glyph,
+                color = onSurface,
+                fontSize = 17.sp,
+                fontFamily = GlassHeadingFont,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Text(
+            label,
+            color = onSurface,
+            fontSize = 16.sp,
+            fontFamily = GlassHeadingFont,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 3.sp,
+            modifier = Modifier.weight(1f),
+            style = TextStyle(
+                shadow = Shadow(
+                    color = if (dark) PrismCyan.copy(alpha = 0.30f) else Color.White.copy(alpha = 0.6f),
+                    offset = if (dark) Offset(0f, 0f) else Offset(0f, 1f),
+                    blurRadius = if (dark) 6f else 2f
+                )
+            )
         )
+        Text("›", color = subtle, fontSize = 26.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -1621,84 +1605,75 @@ private fun GlassQuickButton(
     gestureModifier: Modifier,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    val quickShape = RoundedCornerShape(18.dp)
+    val activeTint = if (highlighted) {
+        Brush.verticalGradient(
+            listOf(
+                PrismCyan.copy(alpha = if (dark) 0.40f else 0.35f),
+                PrismViolet.copy(alpha = if (dark) 0.30f else 0.20f)
+            )
+        )
+    } else {
+        Brush.verticalGradient(listOf(panelTop, panelBot))
+    }
+
+    // One unified stack — shadow, fill, border, specular all share the SAME shape.
+    Column(
         modifier = modifier
             .height(80.dp)
-    ) {
-        // Drop shadow
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .offset(y = 3.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(Color.Black.copy(alpha = if (dark) 0.30f else 0.08f))
-        )
-
-        // Main frosted body
-        val activeTint = if (highlighted) {
-            Brush.verticalGradient(
-                listOf(
-                    PrismCyan.copy(alpha = if (dark) 0.40f else 0.35f),
-                    PrismViolet.copy(alpha = if (dark) 0.30f else 0.20f)
-                )
+            .shadow(
+                elevation = 3.dp,
+                shape = quickShape,
+                ambientColor = Color.Black.copy(alpha = if (dark) 0.55f else 0.20f),
+                spotColor    = Color.Black.copy(alpha = if (dark) 0.55f else 0.20f)
             )
-        } else {
-            Brush.verticalGradient(listOf(panelTop, panelBot))
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(18.dp))
-                .background(activeTint)
-                .border(
-                    1.dp,
-                    prismBrush(alpha = if (highlighted) 0.75f else if (dark) 0.55f else 0.40f),
-                    RoundedCornerShape(18.dp)
-                )
-                .then(gestureModifier)
-                .padding(vertical = 8.dp, horizontal = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                glyph,
-                color = onSurface,
-                fontSize = 20.sp,
-                fontFamily = GlassHeadingFont,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                label,
-                color = onSurface,
-                fontSize = 11.sp,
-                fontFamily = GlassHeadingFont,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 2.sp
-            )
-            Text(
-                subtitle,
-                color = subtle,
-                fontSize = 8.sp,
-                fontFamily = GlassContentFont,
-                letterSpacing = 0.5.sp,
-                maxLines = 1
-            )
-        }
-
-        // Top specular sheen — the Aero glass hallmark
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.5.dp)
-                .padding(horizontal = 14.dp)
-                .offset(y = 2.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(
-                    Brush.horizontalGradient(
+            .clip(quickShape)
+            .background(activeTint)
+            .drawBehind {
+                // Aero top sheen — drawn inside the plate clip so it inherits the shape.
+                val sheenPad = size.width * 0.10f
+                val sheenY   = size.height * 0.08f
+                val sheenH   = 1.6.dp.toPx()
+                drawRect(
+                    brush = Brush.horizontalGradient(
                         listOf(Color.Transparent, highlight, highlight, Color.Transparent)
-                    )
+                    ),
+                    topLeft = Offset(sheenPad, sheenY),
+                    size = androidx.compose.ui.geometry.Size(size.width - sheenPad * 2f, sheenH)
                 )
+            }
+            .border(
+                1.dp,
+                prismBrush(alpha = if (highlighted) 0.75f else if (dark) 0.55f else 0.40f),
+                quickShape
+            )
+            .then(gestureModifier)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            glyph,
+            color = onSurface,
+            fontSize = 20.sp,
+            fontFamily = GlassHeadingFont,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            label,
+            color = onSurface,
+            fontSize = 11.sp,
+            fontFamily = GlassHeadingFont,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 2.sp
+        )
+        Text(
+            subtitle,
+            color = subtle,
+            fontSize = 8.sp,
+            fontFamily = GlassContentFont,
+            letterSpacing = 0.5.sp,
+            maxLines = 1
         )
     }
 }

@@ -533,15 +533,26 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private fun showUpdateOverlay(info: UpdateInfo, updateManager: UpdateManager) {
         composeOverlay.visibility = View.VISIBLE
         composeOverlay.setContent {
-            UpdateOverlay(
-                info = info,
-                onUpdate = {
-                    updateManager.downloadUpdate(info)
-                    composeOverlay.visibility = View.GONE
-                },
-                onClose = {
-                    composeOverlay.visibility = View.GONE
-                }
+            AppThemeProvider(appPrefs.value.theme, appPrefs.value.languageCode) {
+                UpdateOverlay(
+                    info = info,
+                    onUpdate = {
+                        updateManager.downloadUpdate(info)
+                        composeOverlay.visibility = View.GONE
+                    },
+                    onClose = {
+                        composeOverlay.visibility = View.GONE
+                    }
+                )
+            }
+        }
+    }
+
+    private fun showUpdateLogOverlay() {
+        setThemedContent {
+            UpdateLogOverlay(
+                updateManager = updateManager,
+                onClose = { composeOverlay.visibility = View.GONE }
             )
         }
     }
@@ -715,14 +726,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                         }
                     }
                 },
-                onShowUpdateLog = {
-                    val info = pendingUpdate.value
-                    if (info != null) {
-                        showUpdateOverlay(info, updateManager)
-                    } else {
-                        Toast.makeText(this@ProfileSelectionActivity, "No update log available", Toast.LENGTH_SHORT).show()
-                    }
-                },
+                onShowUpdateLog = { showUpdateLogOverlay() },
                 onChangeLanguage = { showLanguagePicker(titleFont, contentFont) },
                 hasCalendarPermission = PermissionsManager.hasCalendarPermission(this),
                 hasReminderFitnessPermission = PermissionsManager.hasNotificationPermission(this) &&
