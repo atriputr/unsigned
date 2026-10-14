@@ -45,8 +45,6 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private lateinit var tvClock: ComposeView
     private lateinit var pbYearProgress: ProgressBar
     private lateinit var tvYearPercent: TextView
-    private lateinit var pbWeatherProgress: ProgressBar
-    private lateinit var tvWeatherLocation: TextView
     private lateinit var cvWeatherStrip: ComposeView
     private lateinit var cvUpcomingEvents: ComposeView
     private lateinit var composeOverlay: ComposeView
@@ -149,32 +147,54 @@ class ProfileSelectionActivity : AppCompatActivity() {
         setContentView(R.layout.activity_profile_selection)
 
         FitDataRepository.init(this)
-        currentSessionId = FitDataRepository.recordSessionStart()
-
-        // Restore persisted data
-        savedSubjects.addAll(FitDataRepository.loadSubjects())
-        savedCourses.addAll(FitDataRepository.loadCourses())
-        savedPractices.addAll(FitDataRepository.loadPractices())
-        savedHabits.addAll(FitDataRepository.loadHabits())
-        savedCustomProfiles.addAll(FitDataRepository.loadCustomProfiles())
-        allCalendarTasks.putAll(FitDataRepository.loadCalendarTasks())
-        val lectureState = FitDataRepository.loadLectureState()
-        activeLectureName.value = lectureState.name
-        activeLectureProgress.value = lectureState.progress
-        activeLectureTopics.addAll(lectureState.topics)
-        activeLectureDurationMin.value = lectureState.durationMin
-        savedJunkCount.value = FitDataRepository.loadJunkHistory()[LocalDate.now().toString()] ?: 0
-        userProfile.value = FitDataRepository.loadUserProfile()
+        // Only load the few tiny files that drive the FIRST frame synchronously (theme + profile +
+        // weather). Everything else is bulk-loaded on IO so first paint is never blocked.
         appPrefs.value = FitDataRepository.loadAppPreferences()
-        sleepSession.value = FitDataRepository.loadSleepSession()
-        waterGlassesToday.value = FitDataRepository.loadWaterEntry(LocalDate.now())?.glassesConsumed ?: 0
+        userProfile.value = FitDataRepository.loadUserProfile()
         Haptics.enabled = appPrefs.value.hapticsEnabled
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            currentSessionId = FitDataRepository.recordSessionStart()
+
+            val subjects   = FitDataRepository.loadSubjects()
+            val courses    = FitDataRepository.loadCourses()
+            val practices  = FitDataRepository.loadPractices()
+            val habits     = FitDataRepository.loadHabits()
+            val custom     = FitDataRepository.loadCustomProfiles()
+            val calTasks   = FitDataRepository.loadCalendarTasks()
+            val lecture    = FitDataRepository.loadLectureState()
+            val junkToday  = FitDataRepository.loadJunkHistory()[LocalDate.now().toString()] ?: 0
+            val sleep      = FitDataRepository.loadSleepSession()
+            val waterEntry = FitDataRepository.loadWaterEntry(LocalDate.now())
+            val weatherCache = FitDataRepository.loadWeatherCache()
+
+            // Compute goal + glassMl *once* here so the home skin never reads disk during composition.
+            val goal = waterEntry?.goalMl ?: WaterGoal.compute(userProfile.value, weatherCache.takeIf { it.isValid })
+            val glassMl = waterEntry?.glassMl ?: 250
+
+            withContext(Dispatchers.Main) {
+                savedSubjects.addAll(subjects)
+                savedCourses.addAll(courses)
+                savedPractices.addAll(practices)
+                savedHabits.addAll(habits)
+                savedCustomProfiles.addAll(custom)
+                allCalendarTasks.putAll(calTasks)
+                activeLectureName.value = lecture.name
+                activeLectureProgress.value = lecture.progress
+                activeLectureTopics.addAll(lecture.topics)
+                activeLectureDurationMin.value = lecture.durationMin
+                savedJunkCount.value = junkToday
+                sleepSession.value = sleep
+                waterGlassesToday.value = waterEntry?.glassesConsumed ?: 0
+                waterGoalCached = goal
+                waterGlassMlCached = glassMl
+                if (weatherCache.isValid) weatherState.value = weatherCache
+            }
+        }
 
         tvClock = findViewById(R.id.tvNixieClock)
         pbYearProgress = findViewById(R.id.pbYearProgress)
         tvYearPercent = findViewById(R.id.tvYearPercent)
-        pbWeatherProgress = findViewById(R.id.pbWeatherProgress)
-        tvWeatherLocation = findViewById(R.id.tvWeatherLocation)
         cvWeatherStrip = findViewById(R.id.cvWeatherStrip)
         cvUpcomingEvents = findViewById(R.id.cvUpcomingEvents)
         composeOverlay = findViewById(R.id.composeOverlay)
@@ -183,9 +203,6 @@ class ProfileSelectionActivity : AppCompatActivity() {
         cvStatusBar = findViewById(R.id.cvStatusBar)
 
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
-        val onWeatherClick = View.OnClickListener { showWeatherOverlay(bebasFont, bebasFont) }
-        pbWeatherProgress.setOnClickListener(onWeatherClick)
-        tvWeatherLocation.setOnClickListener(onWeatherClick)
 
         // Rich home weather widget (temp + condition + AQI + hourly sparkline).
         weatherState.value = FitDataRepository.loadWeatherCache()
@@ -334,22 +351,13 @@ class ProfileSelectionActivity : AppCompatActivity() {
         val themeName = appPrefs.value.theme
         val palette   = AppPalettes.byName(themeName)
         tvYearPercent.setTextColor(palette.onSurface.toArgb())
-        tvWeatherLocation.setTextColor(palette.onSurface.copy(alpha = 0.55f).toArgb())
 
         // DARK/Ashes uses a muted grey bar to match the ash aesthetic; other themes use their accent
         val isDark = themeName.equals("DARK", ignoreCase = true)
         val barFill = if (isDark) 0xFFB0B0B0.toInt() else palette.accentPrimary.toArgb()
         val barBack = if (isDark) 0xFF2A2A2A.toInt() else palette.divider.toArgb()
-        val barFillList = ColorStateList.valueOf(barFill)
-        val barBackList = ColorStateList.valueOf(barBack)
-
-        pbYearProgress.progressTintList = barFillList
-        pbYearProgress.progressBackgroundTintList = barBackList
-
-        val weatherBarFill = ColorStateList.valueOf((barFill and 0x00FFFFFF) or 0x80000000.toInt())
-        val weatherBarBack = ColorStateList.valueOf((barBack and 0x00FFFFFF) or 0x40000000.toInt())
-        pbWeatherProgress.progressTintList = weatherBarFill
-        pbWeatherProgress.progressBackgroundTintList = weatherBarBack
+        pbYearProgress.progressTintList = ColorStateList.valueOf(barFill)
+        pbYearProgress.progressBackgroundTintList = ColorStateList.valueOf(barBack)
 
         cvStatusBar.setContent {
             AppThemeProvider(themeName, appPrefs.value.languageCode) { StatusBarBox() }
@@ -368,11 +376,8 @@ class ProfileSelectionActivity : AppCompatActivity() {
         cvHomeSkin.visibility = View.VISIBLE
         cvHomeSkin.setContent {
             AppThemeProvider(themeName, appPrefs.value.languageCode) {
-                // Compute derived state
-                val waterEntry = FitDataRepository.loadWaterEntry(LocalDate.now())
-                val goalMl = waterEntry?.goalMl ?: WaterGoal.compute(userProfile.value, FitDataRepository.loadWeatherCache().takeIf { it.isValid })
-                val glassMl = waterEntry?.glassMl ?: 250
-                val targetGlasses = ((goalMl + glassMl - 1) / glassMl).coerceAtLeast(1)
+                // Target glasses derived from the in-memory cache — NO disk IO during composition.
+                val targetGlasses = ((waterGoalCached + waterGlassMlCached - 1) / waterGlassMlCached).coerceAtLeast(1)
 
                 HomeSkin(
                     themeName = themeName,
@@ -403,13 +408,29 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     // ── Quick action handlers ────────────────────────────────────
+    //
+    // All of these:
+    //   1. Mutate the backing Compose state on Main (which auto-recomposes HomeSkin)
+    //   2. Persist to disk on Dispatchers.IO (never blocks UI thread)
+    //   3. No longer call applyThemeTint() — Compose handles the UI refresh via state reads.
+    //      applyThemeTint() is now reserved purely for theme / palette changes.
+
+    private val ioScope get() = lifecycleScope
+
+    private fun persist(block: suspend () -> Unit) {
+        ioScope.launch(Dispatchers.IO) { runCatching { block() } }
+    }
+
+    /** Water goal needs weather cache — compute goal with the already-loaded weatherState. */
+    private fun currentWaterGoal(existing: WaterDailyLog?): Int =
+        existing?.goalMl ?: WaterGoal.compute(userProfile.value, weatherState.value.takeIf { it.isValid })
+
     private fun onSleepBegin() {
         if (sleepSession.value.active) return
         Haptics.click(this)
         val newState = SleepSessionState(active = true, startedAtEpochMs = System.currentTimeMillis(), disturbanceCount = 0)
         sleepSession.value = newState
-        FitDataRepository.saveSleepSession(newState)
-        applyThemeTint()
+        persist { FitDataRepository.saveSleepSession(newState) }
     }
 
     private fun onSleepDisturbed() {
@@ -418,8 +439,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
         Haptics.tick(this)
         val newState = s.copy(disturbanceCount = s.disturbanceCount + 1)
         sleepSession.value = newState
-        FitDataRepository.saveSleepSession(newState)
-        applyThemeTint()
+        persist { FitDataRepository.saveSleepSession(newState) }
     }
 
     private fun onSleepEnd() {
@@ -427,27 +447,30 @@ class ProfileSelectionActivity : AppCompatActivity() {
         if (!s.active) return
         Haptics.success(this)
         val endMs = System.currentTimeMillis()
-        if (endMs > s.startedAtEpochMs) {
-            val entry = SleepEntry(
-                wakeDateIso = LocalDate.now().toString(),
-                bedtimeMs = s.startedAtEpochMs,
-                wakeMs = endMs,
-                disturbances = s.disturbanceCount
-            )
-            val all = FitDataRepository.loadSleepEntries().filter { it.wakeDateIso != entry.wakeDateIso } + entry
-            FitDataRepository.saveSleepEntries(all)
-        }
+        val startMs = s.startedAtEpochMs
+        val disturbances = s.disturbanceCount
         sleepSession.value = SleepSessionState()
-        FitDataRepository.clearSleepSession()
-        applyThemeTint()
+        persist {
+            if (endMs > startMs) {
+                val entry = SleepEntry(
+                    wakeDateIso = LocalDate.now().toString(),
+                    bedtimeMs = startMs,
+                    wakeMs = endMs,
+                    disturbances = disturbances
+                )
+                val all = FitDataRepository.loadSleepEntries().filter { it.wakeDateIso != entry.wakeDateIso } + entry
+                FitDataRepository.saveSleepEntries(all)
+            }
+            FitDataRepository.clearSleepSession()
+        }
     }
 
     private fun onJunkChange(delta: Int) {
         Haptics.tick(this)
         val newCount = (savedJunkCount.value + delta).coerceAtLeast(0)
         savedJunkCount.value = newCount
-        FitDataRepository.saveJunkEntry(LocalDate.now(), newCount)
-        applyThemeTint()
+        val today = LocalDate.now()
+        persist { FitDataRepository.saveJunkEntry(today, newCount) }
     }
 
     private fun showJunkLogOverlay() {
@@ -459,46 +482,51 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 contentFont = bebasFont,
                 profile = userProfile.value,
                 onSaved = { _ ->
-                    // Also bump the simple daily junk counter so streaks/insights stay in sync
                     val newCount = savedJunkCount.value + 1
                     savedJunkCount.value = newCount
-                    FitDataRepository.saveJunkEntry(LocalDate.now(), newCount)
+                    val today = LocalDate.now()
+                    persist { FitDataRepository.saveJunkEntry(today, newCount) }
                     Haptics.success(this@ProfileSelectionActivity)
-                    applyThemeTint()
                 },
                 onClose = { composeOverlay.visibility = View.GONE }
             )
         }
     }
 
+    // Keep water goal/glassMl cached in memory so onWaterChange doesn't disk-read on every tap.
+    private var waterGoalCached: Int = 2000
+    private var waterGlassMlCached: Int = 250
+
     private fun onWaterChange(delta: Int) {
         Haptics.tick(this)
-        val today = LocalDate.now()
-        val existing = FitDataRepository.loadWaterEntry(today)
-        val goalMl = existing?.goalMl ?: WaterGoal.compute(userProfile.value, FitDataRepository.loadWeatherCache().takeIf { it.isValid })
-        val glassMl = existing?.glassMl ?: 250
-        val newGlasses = ((existing?.glassesConsumed ?: 0) + delta).coerceAtLeast(0)
+        val newGlasses = (waterGlassesToday.value + delta).coerceAtLeast(0)
         waterGlassesToday.value = newGlasses
-        FitDataRepository.saveWaterEntry(
-            today,
-            WaterDailyLog(
-                date = today.toString(),
-                glassesConsumed = newGlasses,
-                glassMl = glassMl,
-                goalMl = goalMl,
-                temperatureC = existing?.temperatureC
+        val today = LocalDate.now()
+        val goal = waterGoalCached
+        val glass = waterGlassMlCached
+        persist {
+            val existing = FitDataRepository.loadWaterEntry(today)
+            FitDataRepository.saveWaterEntry(
+                today,
+                WaterDailyLog(
+                    date = today.toString(),
+                    glassesConsumed = newGlasses,
+                    glassMl = existing?.glassMl ?: glass,
+                    goalMl = existing?.goalMl ?: goal,
+                    temperatureC = existing?.temperatureC
+                )
             )
-        )
-        applyThemeTint()
+        }
     }
 
     private fun onWaterReset() {
         Haptics.success(this)
         val today = LocalDate.now()
         waterGlassesToday.value = 0
-        // Passing count=0 to saveWaterEntry causes it to remove the entry entirely (see repo impl)
-        FitDataRepository.saveWaterEntry(today, WaterDailyLog(date = today.toString(), glassesConsumed = 0))
-        applyThemeTint()
+        persist {
+            // Passing count=0 to saveWaterEntry causes it to remove the entry entirely (see repo impl)
+            FitDataRepository.saveWaterEntry(today, WaterDailyLog(date = today.toString(), glassesConsumed = 0))
+        }
     }
 
     private fun showSleepManageOverlay() {
@@ -1163,10 +1191,9 @@ class ProfileSelectionActivity : AppCompatActivity() {
 
     private fun refreshWeather(force: Boolean) {
         lifecycleScope.launch {
-            val cached = FitDataRepository.loadWeatherCache()
+            val cached = withContext(Dispatchers.IO) { FitDataRepository.loadWeatherCache() }
             if (cached.isValid && !cached.isStale() && !force) {
                 weatherState.value = cached
-                updateWeatherLocationUi(cached)
                 return@launch
             }
             weatherLoading.value = true
@@ -1175,7 +1202,6 @@ class ProfileSelectionActivity : AppCompatActivity() {
                     WeatherService.getWeather(this@ProfileSelectionActivity, forceRefresh = force)
                 }
                 weatherState.value = weather
-                updateWeatherLocationUi(weather)
             } finally {
                 weatherLoading.value = false
             }
@@ -1187,26 +1213,6 @@ class ProfileSelectionActivity : AppCompatActivity() {
         override fun run() {
             refreshWeather(force = false)
             timeHandler.postDelayed(this, 20 * 60 * 1000L)
-        }
-    }
-
-    private fun updateWeatherLocationUi(weather: WeatherData) {
-        if (weather.isValid) {
-            val rawLoc = weather.locationName.trim()
-            val locName = if (rawLoc.isBlank() || rawLoc.equals("LOCATION", ignoreCase = true) || rawLoc.equals("DETECTED LOCATION", ignoreCase = true)) {
-                "MY LOCATION"
-            } else rawLoc.uppercase()
-            val temp = String.format(Locale.getDefault(), "%.1f°C", weather.temperatureC)
-            val cond = weather.condition.uppercase()
-            tvWeatherLocation.text = if (cond.isNotBlank()) {
-                "$locName  ·  WEATHER: $temp $cond"
-            } else {
-                "$locName  ·  WEATHER: $temp"
-            }
-        } else {
-            val lang = appPrefs.value.languageCode
-            val strings = Localization.getStrings(lang)
-            tvWeatherLocation.text = "${strings.fetchingWeather.uppercase()}  ·  --°C"
         }
     }
 
