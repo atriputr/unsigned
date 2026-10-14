@@ -1,6 +1,6 @@
 {
-  "versionCode": 38,
-  "versionName": "4.7",
+  "versionCode": 39,
+  "versionName": "4.8",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v4.7: UpdateLogOverlay, UpdateManager enhancements, and skin polish. 🚀🛸✨"
+  "releaseNotes": "v4.8: HomeWeatherStrip enhancements, UI polish & performance sync. 🌤️🚀✨"
 }

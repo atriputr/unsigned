@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
@@ -41,7 +42,12 @@ fun HomeWeatherStrip(
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 2.dp)
     ) {
-        // ── Line 1: emoji · temp · condition · feels ─── AQI dot + value ──
+        // ── Line 1: [emoji] temp · CONDITION ············ ● AQI50 ──
+        //
+        //  · Weather text takes weight(1f) and TRUNCATES with ellipsis — never
+        //    pushes the AQI chip into a thin column (the old bug).
+        //  · AQI chip has an explicit widthIn(min=56.dp) so even on narrow
+        //    phones it stays a single horizontal pill, never wraps per-letter.
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -61,21 +67,16 @@ fun HomeWeatherStrip(
                     fontSize = 11.sp,
                     fontFamily = NokiaFont,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
+                    letterSpacing = 1.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
-                if (!weather.feelsLikeC.isNaN() &&
-                    kotlin.math.abs(weather.feelsLikeC - weather.temperatureC) >= 1.0) {
-                    Text(
-                        text = "  ·  FEELS ${Units.displayTemp(weather.feelsLikeC, tempUnit, 0)}",
-                        color = palette.faint,
-                        fontSize = 10.sp,
-                        fontFamily = NokiaFont,
-                        letterSpacing = 1.sp
-                    )
-                }
-                Spacer(Modifier.weight(1f))
+                // Flex spacer pushes AQI to the right edge; also guarantees
+                // the AQI chip never shares a tight column with the text.
+                Spacer(Modifier.weight(1f).widthIn(min = 8.dp))
                 if (weather.usAqi >= 0) {
-                    AqiInline(weather.usAqi, weather.aqiCategory, palette)
+                    AqiInline(weather.usAqi, palette)
                 }
             } else {
                 Text(
@@ -89,16 +90,29 @@ fun HomeWeatherStrip(
             }
         }
 
-        // ── Line 2: location (very muted, italic) ─────────
-        if (valid && weather.locationName.isNotBlank()) {
-            Text(
-                text = weather.locationName.uppercase(),
-                color = palette.faint,
-                fontSize = 9.sp,
-                fontFamily = NokiaFont,
-                letterSpacing = 2.sp,
-                modifier = Modifier.padding(top = 1.dp)
-            )
+        // ── Line 2: LOCATION · FEELS 33°C · AQI CATEGORY (all one subtitle) ──
+        if (valid) {
+            val parts = mutableListOf<String>()
+            if (weather.locationName.isNotBlank()) parts += weather.locationName.uppercase()
+            if (!weather.feelsLikeC.isNaN() &&
+                kotlin.math.abs(weather.feelsLikeC - weather.temperatureC) >= 1.0) {
+                parts += "FEELS ${Units.displayTemp(weather.feelsLikeC, tempUnit, 0)}"
+            }
+            if (weather.aqiCategory.isNotBlank() && weather.usAqi >= 0) {
+                parts += weather.aqiCategory.uppercase()
+            }
+            if (parts.isNotEmpty()) {
+                Text(
+                    text = parts.joinToString(" · "),
+                    color = palette.faint,
+                    fontSize = 9.sp,
+                    fontFamily = NokiaFont,
+                    letterSpacing = 2.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 1.dp)
+                )
+            }
         }
 
         // ── Line 3: hair-thin sparkline (instrument trace) ─
@@ -114,11 +128,12 @@ fun HomeWeatherStrip(
 }
 
 /**
- * AQI shown as a small colored dot + monospace number — no chunky pill,
- * so it doesn't compete with the retro-industrial reel above.
+ * AQI chip — dot + monospace number only. Category label lives on the subtitle line
+ * so this chip stays tight. `widthIn(min=56.dp)` guarantees the Row never collapses
+ * into a per-letter vertical column when the parent is tight on space.
  */
 @Composable
-private fun AqiInline(aqi: Int, category: String, palette: ThemePalette) {
+private fun AqiInline(aqi: Int, palette: ThemePalette) {
     val dotColor = when {
         aqi <= 50 -> Color(0xFF8FE087)
         aqi <= 100 -> Color(0xFFFFE082)
@@ -127,7 +142,10 @@ private fun AqiInline(aqi: Int, category: String, palette: ThemePalette) {
         aqi <= 300 -> Color(0xFFCE93D8)
         else -> Color(0xFFE1BEE7)
     }
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.widthIn(min = 56.dp)
+    ) {
         Box(
             Modifier
                 .size(6.dp)
@@ -141,17 +159,9 @@ private fun AqiInline(aqi: Int, category: String, palette: ThemePalette) {
             fontSize = 10.sp,
             fontFamily = NokiaFont,
             fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
+            letterSpacing = 1.sp,
+            maxLines = 1
         )
-        if (category.isNotBlank()) {
-            Text(
-                text = " · ${category.uppercase().take(10)}",
-                color = palette.faint,
-                fontSize = 9.sp,
-                fontFamily = NokiaFont,
-                letterSpacing = 1.sp
-            )
-        }
     }
 }
 
