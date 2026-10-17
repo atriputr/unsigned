@@ -39,6 +39,7 @@ fun SettingsOverlay(
     onEditProfile: () -> Unit,
     onWeightLog: () -> Unit,
     onVitalsLog: () -> Unit,
+    onSyncWithFit: () -> Unit,
     onCheckUpdate: () -> Unit,
     onShowUpdateLog: () -> Unit,
     onChangeLanguage: () -> Unit,
@@ -273,8 +274,29 @@ fun SettingsOverlay(
                 ) {
                     Haptics.click(ctx); onChangeLanguage()
                 }
-                ActionButton("MY PERMISSIONS", contentFont, palette) {
-                    Haptics.click(ctx); showMyPermissions = true
+                // Split row — MY PERMISSIONS (left) · SYNC WITH FIT (right).
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SplitActionButton(
+                        label = "MY PERMISSIONS",
+                        accent = false,
+                        font = contentFont,
+                        palette = palette,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Haptics.click(ctx); showMyPermissions = true
+                    }
+                    SplitActionButton(
+                        label = "SYNC WITH FIT",
+                        accent = true,
+                        font = contentFont,
+                        palette = palette,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Haptics.click(ctx); onSyncWithFit()
+                    }
                 }
                 ActionButton(LocalStrings.current.checkUpdate, contentFont, palette) {
                     Haptics.click(ctx); onCheckUpdate()
@@ -320,10 +342,13 @@ private fun MyPermissionsDialog(
     val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) refreshTick++
+            // Any exception from the recomposition triggered by refreshTick++ would propagate
+            // out of the Lifecycle dispatcher thread and crash the process. Swallow and let
+            // the next real tick retry.
+            runCatching { if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) refreshTick++ }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        runCatching { lifecycleOwner.lifecycle.addObserver(observer) }
+        onDispose { runCatching { lifecycleOwner.lifecycle.removeObserver(observer) } }
     }
 
     val hasLocation = remember(refreshTick) {
@@ -608,5 +633,41 @@ private fun ActionButton(label: String, font: FontFamily, palette: ThemePalette,
             Text(label, color = palette.onSurface, fontSize = 14.sp, fontFamily = font, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
             Text("›", color = palette.subtle, fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
+    }
+}
+
+/** Half-width variant used when stacking two buttons side-by-side in a Row.
+ *  `accent=true` paints with the primary accent (for CTAs like "SYNC WITH FIT"). */
+@Composable
+private fun SplitActionButton(
+    label: String,
+    accent: Boolean,
+    font: FontFamily,
+    palette: ThemePalette,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val bg = if (accent) palette.accentPrimary.copy(alpha = 0.22f) else palette.chipBg
+    val border = if (accent) palette.accentPrimary.copy(alpha = 0.65f) else palette.fieldBorder
+    val textColor = if (accent) palette.accentPrimary else palette.onSurface
+    Box(
+        modifier = modifier
+            .height(44.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(bg)
+            .border(1.dp, border, RoundedCornerShape(10.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            color = textColor,
+            fontSize = 11.sp,
+            fontFamily = font,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.5.sp,
+            maxLines = 1
+        )
     }
 }

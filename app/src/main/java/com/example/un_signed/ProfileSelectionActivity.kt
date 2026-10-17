@@ -145,6 +145,12 @@ class ProfileSelectionActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Install a last-resort uncaught exception logger so the next crash on a user device
+        // leaves a readable trace in the system log (adb logcat -s UN_SIGNED_CRASH) AND a copy
+        // in app-private storage (filesDir/crash.log) — survives app relaunch. Does NOT suppress
+        // the crash — defers to the system default handler so the OS crash dialog still shows.
+        installCrashLogger()
+
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile_selection)
@@ -750,6 +756,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 onEditProfile = { showProfileOverlay(titleFont, contentFont, isOnboarding = false) },
                 onWeightLog   = { showWeightLogOverlay(titleFont, contentFont) },
                 onVitalsLog   = { showVitalsOverlay(titleFont, contentFont) },
+                onSyncWithFit = { showFitSyncOverlay() },
                 onCheckUpdate = {
                     lifecycleScope.launch(Dispatchers.Main) {
                         val info = updateManager.checkForUpdate()
@@ -815,6 +822,22 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 titleFont = titleFont,
                 contentFont = contentFont,
                 onClose = { showSettingsOverlay(titleFont, contentFont) }
+            )
+        }
+    }
+
+    // ── SYNC WITH FIT ───────────────────────────────────────────────
+    // Dedicated launcher for Health Connect permissions; result is logged + ignored
+    // (user can tap RE-SYNC to re-run after granting).
+    private val hcPermissionLauncher = registerForActivityResult(
+        FitSyncManager.requestPermissionsContract()
+    ) { /* overlay refreshes via its own hasAllPermissions() check on next kickoff */ }
+
+    private fun showFitSyncOverlay() {
+        setThemedContent {
+            FitSyncOverlay(
+                onRequestPermissions = { hcPermissionLauncher.launch(FitSyncManager.READ_PERMISSIONS) },
+                onClose = { composeOverlay.visibility = View.GONE }
             )
         }
     }
@@ -1246,13 +1269,17 @@ class ProfileSelectionActivity : AppCompatActivity() {
         // Every time we come back to the foreground we (a) start observing the phone
         // calendar for live changes and (b) immediately reconcile so anything the user
         // added in the Google/Samsung/etc calendar app while we were away shows up.
-        startCalendarReverseSync()
-        reconcileExternalCalendar()
-        refreshWeather(force = false)
-        refreshFitness()
-        // Periodic auto-refresh (20 min) while resumed — covers weather + biometrics.
-        timeHandler.removeCallbacks(weatherAutoRefresh)
-        timeHandler.postDelayed(weatherAutoRefresh, 20 * 60 * 1000L)
+        // Each sub-call is guarded independently so a glitch in one subsystem can never
+        // take the whole onResume down (e.g. the Sony Xperia calendar-grant crash where
+        // the Calendar Provider fired a bad change event right on permission grant).
+        runCatching { startCalendarReverseSync() }
+        runCatching { reconcileExternalCalendar() }
+        runCatching { refreshWeather(force = false) }
+        runCatching { refreshFitness() }
+        runCatching {
+            timeHandler.removeCallbacks(weatherAutoRefresh)
+            timeHandler.postDelayed(weatherAutoRefresh, 20 * 60 * 1000L)
+        }
     }
 
     override fun onPause() {
@@ -1273,29 +1300,46 @@ class ProfileSelectionActivity : AppCompatActivity() {
     /**
      * Debounced pull from the phone Calendar Provider. Reads a rolling window
      * (30 days back → 180 days ahead), merges results with existing tasks, and
-     * persists. Runs on IO; UI state is updated back on Main.
+     * persists.
+     *
+     * Hardening notes (crashes seen on Sony Xperia 5 III after granting calendar perm):
+     *   · First reconcile deliberately waits 600 ms so the onCreate IO coroutine has time
+     *     to populate `allCalendarTasks` with locally-stored tasks before we overwrite.
+     *   · The map snapshot + merge happens on Main (SnapshotStateMap requires it),
+     *     but the Gson+disk WRITE goes back to IO — large imports previously stalled
+     *     the main thread long enough to be ANR-killed on budget devices.
+     *   · Every stage in its own try/catch; a corrupt row in one calendar never takes
+     *     the sync down for the rest of the device.
      */
     private fun reconcileExternalCalendar() {
         if (!PermissionsManager.hasCalendarPermission(this)) return
         calendarReconcileJob?.cancel()
         calendarReconcileJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
-                delay(250) // simple debounce vs observer bursts
+                delay(600) // debounce + give onCreate IO batch time to finish
                 val today = LocalDate.now()
                 val from = today.minusDays(30)
                 val to = today.plusDays(180)
-                val imported = SystemCalendarSync.importExternalEvents(this@ProfileSelectionActivity, from, to) ?: return@launch
+                val imported = runCatching {
+                    SystemCalendarSync.importExternalEvents(this@ProfileSelectionActivity, from, to)
+                }.getOrNull() ?: return@launch
 
-                withContext(Dispatchers.Main) {
-                    try {
+                // Main — just the Compose state swap. Snapshot the merged map first.
+                val mergedForSave: Map<LocalDate, List<CalendarTask>> = try {
+                    withContext(Dispatchers.Main) {
                         val existing = allCalendarTasks.toMap()
                         val merged = SystemCalendarSync.mergeImported(existing, imported, from, to)
                         allCalendarTasks.clear()
                         allCalendarTasks.putAll(merged)
-                        FitDataRepository.saveCalendarTasks(allCalendarTasks.toMap())
-                    } catch (_: Throwable) { }
+                        merged
+                    }
+                } catch (_: Throwable) {
+                    return@launch
                 }
-            } catch (_: Throwable) { }
+
+                // IO — serialize + write the (potentially large) map without blocking UI.
+                runCatching { FitDataRepository.saveCalendarTasks(mergedForSave) }
+            } catch (_: Throwable) { /* swallow — observer will re-fire on next change */ }
         }
     }
 
@@ -1306,5 +1350,31 @@ class ProfileSelectionActivity : AppCompatActivity() {
         SystemCalendarSync.stopObserving(this, calendarObserver)
         calendarObserver = null
         super.onDestroy()
+    }
+
+    /**
+     * Chain a crash logger ahead of the default uncaught-exception handler. The crash still
+     * propagates (so the OS crash dialog shows), but by the time it does we've written:
+     *   · a logcat line tagged UN_SIGNED_CRASH (grab with `adb logcat -s UN_SIGNED_CRASH`)
+     *   · a plain-text copy to filesDir/crash.log for retrieval later
+     *
+     * Safe to call multiple times — subsequent installs chain to the previously-installed
+     * handler (which should be the system default on first call, or our own on later calls).
+     */
+    private fun installCrashLogger() {
+        val existing = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val stamp = java.time.LocalDateTime.now().toString()
+                val sw = java.io.StringWriter()
+                throwable.printStackTrace(java.io.PrintWriter(sw))
+                val body = "[$stamp] thread=${thread.name}\n$sw"
+                android.util.Log.e("UN_SIGNED_CRASH", body)
+                runCatching {
+                    java.io.File(filesDir, "crash.log").writeText(body)
+                }
+            } catch (_: Throwable) { /* never let the logger itself hide the real crash */ }
+            existing?.uncaughtException(thread, throwable)
+        }
     }
 }

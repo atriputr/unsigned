@@ -228,7 +228,17 @@ data class FitnessSample(
     // Nullable because not every device/user grants or supplies these.
     val heartRateBpm: Int? = null,           // latest HR reading today
     val spo2Percent: Int? = null,            // latest blood-oxygen % today
-    val bodyTempC: Double? = null            // latest body temperature today (°C)
+    val bodyTempC: Double? = null,           // latest body temperature today (°C)
+    // ── Pulse-grade biometrics (populated by Sync-with-FIT) ──
+    val hrvMs: Double? = null,               // HRV RMSSD (ms) — Recovery baseline
+    val restingHrBpm: Int? = null,           // resting HR — RHR baseline
+    val respRateBpm: Double? = null,         // respiratory rate — anomaly monitor
+    val vo2Max: Double? = null,              // VO2 max (ml/kg/min) — fitness level
+    val bodyFatPercent: Double? = null,      // body fat % — Pulse Age factor
+    val leanMassKg: Double? = null,          // lean body mass (kg) — Pulse Age factor
+    val totalKcal: Int? = null,              // total calories (active + BMR), from HC
+    val sleepMinutes: Int? = null,           // last-night sleep duration from HC
+    val exerciseMinutes: Int? = null         // exercise minutes today (HC sessions)
 )
 
 // ── Blood pressure (BP) reading ──────────────────────────────

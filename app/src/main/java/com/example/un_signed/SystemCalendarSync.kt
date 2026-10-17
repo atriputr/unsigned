@@ -265,7 +265,13 @@ object SystemCalendarSync {
         if (!PermissionsManager.hasCalendarPermission(ctx)) return null
         val handler = Handler(Looper.getMainLooper())
         val observer = object : ContentObserver(handler) {
-            override fun onChange(selfChange: Boolean, uri: Uri?) { onChange() }
+            override fun onChange(selfChange: Boolean, uri: Uri?) {
+                // CRITICAL: any exception thrown here propagates back into the system binder
+                // thread that fired the notification → process-wide crash. On Sony Xperia a
+                // bad CalendarContract row has been seen to blow up during user permission
+                // grant (the OS fires an initial change event the moment access opens).
+                try { onChange() } catch (_: Throwable) { }
+            }
         }
         return try {
             ctx.contentResolver.registerContentObserver(
