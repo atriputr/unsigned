@@ -1,5 +1,8 @@
 package com.example.un_signed
 
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -57,9 +60,15 @@ fun FitSyncOverlay(
     var error by remember { mutableStateOf<String?>(null) }
     var running by remember { mutableStateOf(false) }
     var grantedAll by remember { mutableStateOf<Boolean?>(null) }
+    // availability: AVAILABLE | NEEDS_UPDATE | UNAVAILABLE  — Health Connect provider status.
+    var availability by remember {
+        mutableStateOf(runCatching { FitSyncManager.availability(ctx) }
+            .getOrDefault(FitnessDataRepository.Availability.UNAVAILABLE))
+    }
 
     fun kickoff() {
         if (running) return
+        if (availability != FitnessDataRepository.Availability.AVAILABLE) return
         running = true
         result = null
         error = null
@@ -76,12 +85,35 @@ fun FitSyncOverlay(
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (!FitSyncManager.hasAllPermissions(ctx)) {
-            // Nudge for permissions first, let user re-run from the panel.
-            grantedAll = false
+    /**
+     * Opens the Google Play Store listing for Health Connect (works on Android < 14 where
+     * HC isn't preinstalled). Falls back to the browser if Play Store isn't available.
+     */
+    fun openPlayStoreForHealthConnect() {
+        val pkg = "com.google.android.apps.healthdata"
+        val marketUri = Uri.parse("market://details?id=$pkg")
+        val webUri = Uri.parse("https://play.google.com/store/apps/details?id=$pkg")
+        val intents = listOf(
+            Intent(Intent.ACTION_VIEW, marketUri).setPackage("com.android.vending")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(Intent.ACTION_VIEW, marketUri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(Intent.ACTION_VIEW, webUri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+        for (i in intents) {
+            try { ctx.startActivity(i); return } catch (_: Exception) { }
         }
-        kickoff()
+        Toast.makeText(ctx, "Install Health Connect from Play Store manually", Toast.LENGTH_LONG).show()
+    }
+
+    LaunchedEffect(Unit) {
+        // Re-check availability every time the overlay opens — user may have installed HC
+        // between opens.
+        availability = runCatching { FitSyncManager.availability(ctx) }
+            .getOrDefault(FitnessDataRepository.Availability.UNAVAILABLE)
+        if (availability == FitnessDataRepository.Availability.AVAILABLE) {
+            if (!FitSyncManager.hasAllPermissions(ctx)) grantedAll = false
+            kickoff()
+        }
     }
 
     Box(
@@ -132,6 +164,22 @@ fun FitSyncOverlay(
             Spacer(Modifier.height(18.dp))
 
             when {
+                availability == FitnessDataRepository.Availability.UNAVAILABLE -> {
+                    HealthConnectUnavailablePanel(
+                        needsUpdate = false,
+                        titleFont = titleFont,
+                        contentFont = contentFont,
+                        palette = palette
+                    )
+                }
+                availability == FitnessDataRepository.Availability.NEEDS_UPDATE -> {
+                    HealthConnectUnavailablePanel(
+                        needsUpdate = true,
+                        titleFont = titleFont,
+                        contentFont = contentFont,
+                        palette = palette
+                    )
+                }
                 error != null -> {
                     Text(
                         text = "✕  ${error}",
@@ -160,7 +208,32 @@ fun FitSyncOverlay(
             // ── Buttons ─────────────────────────────────────
             Spacer(Modifier.height(18.dp))
 
-            if (!running && result != null) {
+            // Branch 1: HC missing → single CTA to Play Store.
+            if (availability != FitnessDataRepository.Availability.AVAILABLE) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    PanelButton(
+                        label = if (availability == FitnessDataRepository.Availability.NEEDS_UPDATE)
+                            "UPDATE HEALTH CONNECT" else "INSTALL HEALTH CONNECT",
+                        accent = true,
+                        titleFont = titleFont,
+                        palette = palette,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Haptics.click(ctx)
+                        openPlayStoreForHealthConnect()
+                    }
+                    PanelButton(
+                        label = "CLOSE",
+                        accent = false,
+                        titleFont = titleFont,
+                        palette = palette,
+                        modifier = Modifier.weight(1f)
+                    ) { Haptics.click(ctx); onClose() }
+                }
+            } else if (!running && result != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -174,7 +247,16 @@ fun FitSyncOverlay(
                             modifier = Modifier.weight(1f)
                         ) {
                             Haptics.click(ctx)
-                            onRequestPermissions()
+                            // Toast so the user knows the tap registered even if the HC sheet
+                            // takes a second to appear. On devices where the launcher silently
+                            // no-ops (e.g. HC uninstalled since overlay opened), we fall back
+                            // to Play Store.
+                            Toast.makeText(ctx, "Opening Health Connect permissions…", Toast.LENGTH_SHORT).show()
+                            try {
+                                onRequestPermissions()
+                            } catch (_: Throwable) {
+                                openPlayStoreForHealthConnect()
+                            }
                         }
                     } else {
                         PanelButton(
@@ -313,6 +395,52 @@ private fun PanelButton(
             fontFamily = titleFont,
             fontWeight = FontWeight.ExtraBold,
             letterSpacing = 2.sp
+        )
+    }
+}
+
+/**
+ * Shown instead of the sync progress when the Health Connect provider is missing (not
+ * installed on Android < 14 by default) or needs an update. The user needs to go to Play
+ * Store first — the HC permission launcher is a no-op otherwise.
+ */
+@Composable
+private fun HealthConnectUnavailablePanel(
+    needsUpdate: Boolean,
+    titleFont: androidx.compose.ui.text.font.FontFamily,
+    contentFont: androidx.compose.ui.text.font.FontFamily,
+    palette: ThemePalette
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(palette.chipBg)
+            .border(1.dp, palette.danger.copy(alpha = 0.45f), RoundedCornerShape(14.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = if (needsUpdate) "⚠  HEALTH CONNECT NEEDS UPDATE" else "⚠  HEALTH CONNECT NOT INSTALLED",
+            color = palette.danger,
+            fontSize = 11.sp,
+            fontFamily = titleFont,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 2.sp
+        )
+        Text(
+            text = if (needsUpdate) {
+                "The Health Connect app on this device is out of date. Update it from the Play " +
+                    "Store, then return here and re-open Sync With FIT."
+            } else {
+                "This device doesn't have Google Health Connect installed yet. On Android 13 " +
+                    "and older it's an optional download — install it from the Play Store, " +
+                    "connect your Fit/band account there, then return here."
+            },
+            color = palette.onSurface.copy(alpha = 0.85f),
+            fontSize = 12.sp,
+            fontFamily = contentFont,
+            lineHeight = 17.sp
         )
     }
 }

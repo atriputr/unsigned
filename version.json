@@ -1,6 +1,6 @@
 {
-  "versionCode": 42,
-  "versionName": "5.1",
+  "versionCode": 43,
+  "versionName": "5.2",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v5.1: FitSyncManager, calendar sync improvements, and permission enhancements. 🛡️📅✨"
+  "releaseNotes": "v5.2: FitSyncOverlay enhancements & ProfileSelectionActivity integration. 👟💪✨"
 }

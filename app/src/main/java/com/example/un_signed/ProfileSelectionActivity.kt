@@ -836,7 +836,20 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private fun showFitSyncOverlay() {
         setThemedContent {
             FitSyncOverlay(
-                onRequestPermissions = { hcPermissionLauncher.launch(FitSyncManager.READ_PERMISSIONS) },
+                onRequestPermissions = {
+                    // Guard: on devices where Health Connect provider is missing, the launch is
+                    // a silent no-op. The overlay's availability check should prevent us from
+                    // reaching here but keep the belt-and-suspenders Toast as a last resort.
+                    try {
+                        hcPermissionLauncher.launch(FitSyncManager.READ_PERMISSIONS)
+                    } catch (_: Throwable) {
+                        Toast.makeText(
+                            this@ProfileSelectionActivity,
+                            "Install Health Connect from the Play Store, then re-open Sync With FIT.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                },
                 onClose = { composeOverlay.visibility = View.GONE }
             )
         }
