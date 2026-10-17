@@ -22,19 +22,26 @@ import androidx.compose.ui.unit.sp
 import java.util.Locale
 
 /**
- * Home-page weather trace — designed to *disappear* into the ashes aesthetic.
- * No card, no border, no chunky badge — just a single low-contrast text row
- * with a hair-thin sparkline drawn beneath it like an instrument trace.
+ * Home-page status trace — designed to *disappear* into the ashes aesthetic.
+ * No card, no border, no chunky badge — just low-contrast text rows plus an
+ * optional biometrics line pulled live from Health Connect.
+ *
+ * @param fitness Latest Health-Connect snapshot; HR / SpO2 / body temp show in
+ *                a dedicated row when any of them is non-null. Pass null to hide.
  */
 @Composable
 fun HomeWeatherStrip(
     weather: WeatherData,
     tempUnit: String,
     isLoading: Boolean,
+    fitness: FitnessSample? = null,
     onClick: () -> Unit
 ) {
     val palette = LocalPalette.current
     val valid = weather.isValid
+    val hasBiometrics = fitness != null && (
+        fitness.heartRateBpm != null || fitness.spo2Percent != null || fitness.bodyTempC != null
+    )
 
     Column(
         modifier = Modifier
@@ -122,6 +129,67 @@ fun HomeWeatherStrip(
                 temps = weather.hourlyForecast.map { it.tempC },
                 strokeColor = palette.accentPrimary.copy(alpha = 0.55f),
                 baseColor = palette.faint.copy(alpha = 0.20f)
+            )
+        }
+
+        // ── Line 4: live biometrics from Health Connect ────
+        // Only shown when the user has actually synced a watch/band + granted the perms.
+        if (hasBiometrics) {
+            Spacer(Modifier.height(4.dp))
+            BiometricsRow(fitness!!, tempUnit, palette)
+        }
+    }
+}
+
+/**
+ * Compact biometrics line — HR + SpO2 + body temp with faint accent colors so
+ * they read as instrument sensors rather than UI badges. Each metric is skipped
+ * individually when its reading is null (one missing watch sensor doesn't blank
+ * the whole row).
+ */
+@Composable
+private fun BiometricsRow(fitness: FitnessSample, tempUnit: String, palette: ThemePalette) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val chunks = buildList {
+            fitness.heartRateBpm?.let { add("♥" to "$it BPM") }
+            fitness.spo2Percent?.let  { add("◉" to "SpO₂ $it%") }
+            fitness.bodyTempC?.let    {
+                val display = Units.displayTemp(it, tempUnit, 1)
+                add("🌡" to display)
+            }
+        }
+        chunks.forEachIndexed { i, (glyph, value) ->
+            if (i > 0) {
+                Text(
+                    text = "  ·  ",
+                    color = palette.faint,
+                    fontSize = 10.sp,
+                    fontFamily = NokiaFont
+                )
+            }
+            // Glyph colored to hint at the metric; HR red, SpO2 cyan, temp amber.
+            val glyphColor = when (i) {
+                0 -> if (fitness.heartRateBpm != null) Color(0xFFFF6B88) else palette.subtle
+                1 -> if (fitness.spo2Percent  != null) Color(0xFF6ACBEA) else palette.subtle
+                else -> if (fitness.bodyTempC != null) Color(0xFFFFB454) else palette.subtle
+            }
+            Text(
+                text = glyph,
+                color = glyphColor,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(end = 3.dp)
+            )
+            Text(
+                text = value,
+                color = palette.subtle,
+                fontSize = 10.sp,
+                fontFamily = NokiaFont,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                maxLines = 1
             )
         }
     }

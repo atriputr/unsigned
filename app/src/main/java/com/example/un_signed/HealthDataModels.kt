@@ -223,7 +223,12 @@ data class FitnessSample(
     val activeKcal: Int = 0,                 // active calories burnt (Health Connect only)
     val distanceMeters: Int = 0,             // distance covered (Health Connect only)
     val source: String = "unavailable",      // health_connect | step_sensor | unavailable
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    // ── Live biometrics (Health Connect watch/band sync) ─────
+    // Nullable because not every device/user grants or supplies these.
+    val heartRateBpm: Int? = null,           // latest HR reading today
+    val spo2Percent: Int? = null,            // latest blood-oxygen % today
+    val bodyTempC: Double? = null            // latest body temperature today (°C)
 )
 
 // ── Blood pressure (BP) reading ──────────────────────────────

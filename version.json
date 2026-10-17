@@ -1,6 +1,6 @@
 {
-  "versionCode": 40,
-  "versionName": "4.9",
+  "versionCode": 41,
+  "versionName": "5.0",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v4.9: ProfileSelectionActivity layout adjustments and ProGuard rules update. ⚙️🚀✨"
+  "releaseNotes": "v5.0: Major release with HomeWeatherStrip integration, FitnessDataRepository upgrades & Manifest updates. 🌟🚀✨"
 }

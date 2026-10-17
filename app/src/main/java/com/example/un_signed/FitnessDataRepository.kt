@@ -6,9 +6,13 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.BodyTemperatureRecord
 import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.AggregateRequest
+import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Instant
 import java.time.LocalDate
@@ -24,7 +28,10 @@ object FitnessDataRepository {
     private val readPermissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
-        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class)
+        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+        HealthPermission.getReadPermission(HeartRateRecord::class),
+        HealthPermission.getReadPermission(OxygenSaturationRecord::class),
+        HealthPermission.getReadPermission(BodyTemperatureRecord::class)
     )
 
     enum class Availability { AVAILABLE, NEEDS_UPDATE, UNAVAILABLE }
@@ -79,15 +86,23 @@ object FitnessDataRepository {
                     val kcal = response[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories?.toInt() ?: 0
                     val meters = response[DistanceRecord.DISTANCE_TOTAL]?.inMeters?.toInt() ?: 0
 
-                    // Only trust the response if we got *some* signal (avoid overwriting sensor
-                    // fallback with all-zero placeholders when HC has no data yet today).
-                    if (steps > 0 || kcal > 0 || meters > 0) {
+                    // Latest biometrics (HR / SpO2 / body temp) from today — nullable, every
+                    // reader runs independently so one missing permission doesn't blank the rest.
+                    val hr   = latestHeartRate(hc, granted, filter)
+                    val spo2 = latestSpo2(hc, granted, filter)
+                    val temp = latestBodyTemp(hc, granted, filter)
+
+                    // Trust the response if we got *any* signal — biometrics count too.
+                    if (steps > 0 || kcal > 0 || meters > 0 || hr != null || spo2 != null || temp != null) {
                         val sample = FitnessSample(
                             dateIso = today.toString(),
                             steps = steps,
                             activeKcal = kcal,
                             distanceMeters = meters,
-                            source = "health_connect"
+                            source = "health_connect",
+                            heartRateBpm = hr,
+                            spo2Percent = spo2,
+                            bodyTempC = temp
                         )
                         FitDataRepository.upsertFitnessSample(sample)
                         return sample
@@ -137,5 +152,70 @@ object FitnessDataRepository {
         val kg = if (profile.weightKg > 0) profile.weightKg else 70.0
         val kcal = (steps * 0.04 * (kg / 70.0)).toInt()
         return kcal to meters
+    }
+
+    // ── Biometric readers (HR / SpO2 / Body temp) ─────────────────────────
+    //
+    // All three return the *latest* sample from today (not an aggregate), because:
+    //   · HR averages over a day are misleading (sleep vs peak workout varies 3×)
+    //   · SpO2 + temp are typically spot-measured — "most recent" is what's clinically useful
+    //
+    // Each is wrapped in its own try/catch + permission guard so one failing read never
+    // takes down the others. Returns null when permission is missing or no sample today.
+
+    private suspend fun latestHeartRate(
+        hc: HealthConnectClient,
+        granted: Set<String>,
+        filter: TimeRangeFilter
+    ): Int? {
+        if (!granted.contains(HealthPermission.getReadPermission(HeartRateRecord::class))) return null
+        return try {
+            val records = hc.readRecords(ReadRecordsRequest(HeartRateRecord::class, filter))
+                .records
+            // Each HeartRateRecord carries a series of samples. Walk them all and pick the latest.
+            var latestTs = Long.MIN_VALUE
+            var latestBpm: Long? = null
+            for (rec in records) {
+                for (s in rec.samples) {
+                    val t = s.time.toEpochMilli()
+                    if (t > latestTs) {
+                        latestTs = t
+                        latestBpm = s.beatsPerMinute
+                    }
+                }
+            }
+            latestBpm?.toInt()
+        } catch (_: Exception) { null }
+    }
+
+    private suspend fun latestSpo2(
+        hc: HealthConnectClient,
+        granted: Set<String>,
+        filter: TimeRangeFilter
+    ): Int? {
+        if (!granted.contains(HealthPermission.getReadPermission(OxygenSaturationRecord::class))) return null
+        return try {
+            hc.readRecords(ReadRecordsRequest(OxygenSaturationRecord::class, filter))
+                .records
+                .maxByOrNull { it.time.toEpochMilli() }
+                ?.percentage
+                ?.value
+                ?.toInt()
+        } catch (_: Exception) { null }
+    }
+
+    private suspend fun latestBodyTemp(
+        hc: HealthConnectClient,
+        granted: Set<String>,
+        filter: TimeRangeFilter
+    ): Double? {
+        if (!granted.contains(HealthPermission.getReadPermission(BodyTemperatureRecord::class))) return null
+        return try {
+            hc.readRecords(ReadRecordsRequest(BodyTemperatureRecord::class, filter))
+                .records
+                .maxByOrNull { it.time.toEpochMilli() }
+                ?.temperature
+                ?.inCelsius
+        } catch (_: Exception) { null }
     }
 }

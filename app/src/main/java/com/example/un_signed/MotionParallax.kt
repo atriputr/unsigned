@@ -97,6 +97,10 @@ object MotionParallax {
                     val dx = if (abs(nx) < 0.02f) 0f else nx
                     val dy = if (abs(ny) < 0.02f) 0f else ny
 
+                    // Only emit when the change is perceptible (>= ~0.75% of range).
+                    // Suppresses sub-pixel noise that would wake the draw thread needlessly.
+                    val prev = tiltState.value
+                    if (abs(dx - prev.x) < 0.0075f && abs(dy - prev.y) < 0.0075f) return
                     tiltState.value = Offset(dx, dy)
                 }
 
@@ -104,7 +108,10 @@ object MotionParallax {
             }
 
             if (sensor != null && sensorManager != null) {
-                sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME)
+                // SENSOR_DELAY_UI (~16 Hz) is more than enough for a parallax effect — half the
+                // CPU cost of SENSOR_DELAY_GAME, and the dead-zone + delta-gate above suppress
+                // the rest. Also saves battery meaningfully in the background.
+                sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
             }
 
             onDispose {

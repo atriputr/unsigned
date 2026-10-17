@@ -55,6 +55,9 @@ class ProfileSelectionActivity : AppCompatActivity() {
     // Live weather state shared with the home strip
     private val weatherState = mutableStateOf(WeatherData())
     private val weatherLoading = mutableStateOf(false)
+    // Live biometrics (HR / SpO2 / body temp) from Health Connect, driven by the same
+    // auto-refresh runnable as weather. Null until the first HC poll succeeds.
+    private val fitnessState = mutableStateOf<FitnessSample?>(null)
 
     // Live press state for the 3 profile buttons — drives the Glass-skin human-touch effect.
     // Populated by setOnTouchListener on the XML click Views (only the Glass skin reads it).
@@ -204,7 +207,8 @@ class ProfileSelectionActivity : AppCompatActivity() {
 
         val bebasFont = FontFamily(Font(R.font.bebas_neue))
 
-        // Rich home weather widget (temp + condition + AQI + hourly sparkline).
+        // Rich home weather widget (temp + condition + AQI + hourly sparkline +
+        // live biometrics from Health Connect: HR / SpO2 / body temp).
         weatherState.value = FitDataRepository.loadWeatherCache()
         cvWeatherStrip.setContent {
             AppThemeProvider(appPrefs.value.theme, appPrefs.value.languageCode) {
@@ -212,6 +216,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                     weather = weatherState.value,
                     tempUnit = appPrefs.value.tempUnit,
                     isLoading = weatherLoading.value,
+                    fitness = fitnessState.value,
                     onClick = { showWeatherOverlay(bebasFont, bebasFont) }
                 )
             }
@@ -219,6 +224,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
 
         applyThemeTint()
         refreshWeather(force = false)
+        refreshFitness()
 
         // Check for updates
         updateManager = UpdateManager(this)
@@ -538,12 +544,13 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 activeSession = sleepSession.value,
                 onDiscardActive = {
                     sleepSession.value = SleepSessionState()
-                    FitDataRepository.clearSleepSession()
-                    applyThemeTint()
+                    persist { FitDataRepository.clearSleepSession() }
                 },
                 onDeleteEntry = { entry ->
-                    val remaining = FitDataRepository.loadSleepEntries().filter { it.id != entry.id }
-                    FitDataRepository.saveSleepEntries(remaining)
+                    persist {
+                        val remaining = FitDataRepository.loadSleepEntries().filter { it.id != entry.id }
+                        FitDataRepository.saveSleepEntries(remaining)
+                    }
                 },
                 onClose = { composeOverlay.visibility = View.GONE }
             )
@@ -734,7 +741,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                     val themeChanged = p.theme != appPrefs.value.theme
                     appPrefs.value = p
                     Haptics.enabled = p.hapticsEnabled
-                    FitDataRepository.saveAppPreferences(p)
+                    persist { FitDataRepository.saveAppPreferences(p) }
                     if (themeChanged) {
                         applyThemeTint()
                         showSettingsOverlay(titleFont, contentFont)
@@ -775,7 +782,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 onLanguageSelect = { code ->
                     val updated = appPrefs.value.copy(languageCode = code)
                     appPrefs.value = updated
-                    FitDataRepository.saveAppPreferences(updated)
+                    persist { FitDataRepository.saveAppPreferences(updated) }
                     applyThemeTint()
                     // Re-open settings to show updated language
                     showSettingsOverlay(titleFont, contentFont)
@@ -1208,10 +1215,28 @@ class ProfileSelectionActivity : AppCompatActivity() {
         }
     }
 
-    /** Auto-refresh weather every 20 minutes while the activity is resumed. */
+    /**
+     * Pulls the latest biometrics snapshot from Health Connect (HR / SpO2 / body temp)
+     * and feeds the home strip. Cheap — one aggregate + 3 "latest" record reads.
+     * No permission → silent return (fitnessState stays null, strip hides the row).
+     */
+    private fun refreshFitness() {
+        lifecycleScope.launch {
+            val sample = withContext(Dispatchers.IO) {
+                runCatching { FitnessDataRepository.getTodayFitness(this@ProfileSelectionActivity) }
+                    .getOrNull()
+            }
+            if (sample != null && sample.source != "unavailable") {
+                fitnessState.value = sample
+            }
+        }
+    }
+
+    /** Auto-refresh weather + biometrics every 20 minutes while the activity is resumed. */
     private val weatherAutoRefresh = object : Runnable {
         override fun run() {
             refreshWeather(force = false)
+            refreshFitness()
             timeHandler.postDelayed(this, 20 * 60 * 1000L)
         }
     }
@@ -1224,7 +1249,8 @@ class ProfileSelectionActivity : AppCompatActivity() {
         startCalendarReverseSync()
         reconcileExternalCalendar()
         refreshWeather(force = false)
-        // Periodic auto-refresh (20 min) while resumed
+        refreshFitness()
+        // Periodic auto-refresh (20 min) while resumed — covers weather + biometrics.
         timeHandler.removeCallbacks(weatherAutoRefresh)
         timeHandler.postDelayed(weatherAutoRefresh, 20 * 60 * 1000L)
     }

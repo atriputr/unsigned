@@ -249,7 +249,10 @@ private fun SelectProfileReel(
                 letterSpacing = 2.sp,
                 maxLines = 1,
                 softWrap = false,
-                style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 40f)),
+                // Blur reduced 40f → 12f — perceptually identical "neon spill" but ~10× cheaper
+                // to rasterise every frame. The reel paints 4 Text layers 60× / sec, so this
+                // single change is the biggest win on the home screen GPU budget.
+                style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 12f)),
                 modifier = Modifier.onGloballyPositioned { coordinates ->
                     val w = coordinates.size.width.toFloat()
                     if (w > 0f && w != textWidthPx) {
@@ -267,7 +270,7 @@ private fun SelectProfileReel(
                 letterSpacing = 2.sp,
                 maxLines = 1,
                 softWrap = false,
-                style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 18f))
+                style = TextStyle(shadow = Shadow(color = redNeon, blurRadius = 8f))
             )
             // Crisp core
             Text(
@@ -1146,14 +1149,11 @@ private fun GlassSkin(
     val highlight  = if (dark) Color.White.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.70f)
 
     // Live tilt from accelerometer/gravity — drives the parallax between wallpaper and glass.
-    val tilt by MotionParallax.rememberTilt(smoothing = 0.88f, maxTiltDeg = 30f)
-    // Independent shift magnitudes give the classic depth-layered feel:
-    //  · Wallpaper drifts a lot (feels behind glass)
-    //  · Glass content nudges opposite direction (feels floating over)
-    val bgShiftX = tilt.x * 55f
-    val bgShiftY = tilt.y * 55f
-    val fgShiftX = -tilt.x * 10f
-    val fgShiftY = -tilt.y * 10f
+    // IMPORTANT: we deliberately keep the raw `State<Offset>` here instead of destructuring via
+    // `by delegate`. Reading `tiltState.value` *inside* a `graphicsLayer` lambda registers the
+    // observer in the DRAW phase, so every sensor tick triggers only a cheap redraw instead of
+    // recomposing the entire GlassSkin tree (~50 Hz × dozens of plates = enormous waste).
+    val tiltState = MotionParallax.rememberTilt(smoothing = 0.88f, maxTiltDeg = 30f)
 
     BoxWithConstraints(
         modifier = Modifier
@@ -1182,8 +1182,8 @@ private fun GlassSkin(
                     .graphicsLayer {
                         scaleX = 1.18f
                         scaleY = 1.18f
-                        translationX = bgShiftX
-                        translationY = bgShiftY
+                        translationX = tiltState.value.x * 55f
+                        translationY = tiltState.value.y * 55f
                     }
             )
             // Cool dark tint so the aurora orbs and glass elements read strongly.
@@ -1210,8 +1210,8 @@ private fun GlassSkin(
                 .align(Alignment.TopCenter)
                 .padding(top = 30.dp)
                 .graphicsLayer {
-                    translationX = fgShiftX
-                    translationY = fgShiftY
+                    translationX = -tiltState.value.x * 10f
+                    translationY = -tiltState.value.y * 10f
                 },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -1261,8 +1261,8 @@ private fun GlassSkin(
                     .height(btnHeight)
                     .offset(y = screenH * fraction - btnHeight / 2f)
                     .graphicsLayer {
-                        translationX = fgShiftX
-                        translationY = fgShiftY
+                        translationX = -tiltState.value.x * 10f
+                        translationY = -tiltState.value.y * 10f
                     }
             ) {
                 val isPressed = platePressState.pressedIdx == idx
@@ -1288,8 +1288,8 @@ private fun GlassSkin(
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 14.dp, vertical = 24.dp)
                 .graphicsLayer {
-                    translationX = fgShiftX
-                    translationY = fgShiftY
+                    translationX = -tiltState.value.x * 10f
+                    translationY = -tiltState.value.y * 10f
                 },
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
