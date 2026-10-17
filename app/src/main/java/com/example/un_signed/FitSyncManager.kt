@@ -1,6 +1,8 @@
 package com.example.un_signed
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
@@ -431,6 +433,69 @@ object FitSyncManager {
     }
 
     fun resetProgress() { _progress.value = Progress("", 0f) }
+
+    // ── Direct provider navigation (fallbacks when the permission launcher is a no-op) ─────
+    //
+    // Pulse Mobile learned this the hard way: on some Android OEM builds and some HC versions,
+    // the permission-sheet intent silently never resolves. The reliable escape hatch is to open
+    // Health Connect's main settings activity directly — from there the user can navigate to
+    // "Permissions" for our app manually.
+
+    const val HC_PACKAGE = "com.google.android.apps.healthdata"
+    const val FIT_PACKAGE = "com.google.android.apps.fitness"
+    private const val HC_SETTINGS_ACTION = "androidx.health.ACTION_HEALTH_CONNECT_SETTINGS"
+    private const val HC_MANAGE_ACTION = "androidx.health.ACTION_MANAGE_HEALTH_DATA"
+
+    /**
+     * Open the Health Connect app's own settings. Returns true if an activity was launched.
+     * Falls back through: our-app permissions → HC main → Play Store listing.
+     */
+    fun openHealthConnectSettings(ctx: Context): Boolean {
+        val candidates = listOf(
+            Intent(HC_SETTINGS_ACTION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(HC_MANAGE_ACTION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            ctx.packageManager.getLaunchIntentForPackage(HC_PACKAGE)?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+        for (intent in candidates) {
+            if (intent == null) continue
+            try { ctx.startActivity(intent); return true } catch (_: Throwable) { }
+        }
+        return openPlayStoreForPackage(ctx, HC_PACKAGE)
+    }
+
+    /** Open Google Fit app so the user can confirm it's actually populated with Fitbit/band data. */
+    fun openGoogleFit(ctx: Context): Boolean {
+        val launch = ctx.packageManager.getLaunchIntentForPackage(FIT_PACKAGE)
+            ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (launch != null) {
+            try { ctx.startActivity(launch); return true } catch (_: Throwable) { }
+        }
+        return openPlayStoreForPackage(ctx, FIT_PACKAGE)
+    }
+
+    private fun openPlayStoreForPackage(ctx: Context, pkg: String): Boolean {
+        val fallbacks = listOf(
+            Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg"))
+                .setPackage("com.android.vending")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$pkg"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+        for (i in fallbacks) {
+            try { ctx.startActivity(i); return true } catch (_: Throwable) { }
+        }
+        return false
+    }
+
+    /**
+     * Force an eager HC client init before any permission launch. Some HC versions / OEM
+     * builds silently reject permission intents if the client has never been constructed.
+     */
+    fun ensureInitialized(ctx: Context): Boolean = try {
+        client(ctx) != null
+    } catch (_: Throwable) { false }
 
     /** Permission-gate helper — returns null when permission for [recordClass] isn't granted. */
     private inline fun <T> read(

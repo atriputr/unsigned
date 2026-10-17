@@ -845,7 +845,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                     } catch (_: Throwable) {
                         Toast.makeText(
                             this@ProfileSelectionActivity,
-                            "Install Health Connect from the Play Store, then re-open Sync With FIT.",
+                            "Install the Health app from the Play Store, then re-open Sync With Health.",
                             Toast.LENGTH_LONG
                         ).show()
                     }

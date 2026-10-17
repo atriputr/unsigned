@@ -1,6 +1,6 @@
 {
-  "versionCode": 43,
-  "versionName": "5.2",
+  "versionCode": 44,
+  "versionName": "5.3",
   "apkUrl": "https://raw.githubusercontent.com/atriputr/unsigned/main/UNSIGNED.apk",
-  "releaseNotes": "v5.2: FitSyncOverlay enhancements & ProfileSelectionActivity integration. 👟💪✨"
+  "releaseNotes": "v5.3: FitSyncManager, FitSyncOverlay, ProfileSelectionActivity & SettingsOverlay integration. 👟⚙️✨"
 }

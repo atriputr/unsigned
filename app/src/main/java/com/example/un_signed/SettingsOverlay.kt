@@ -289,7 +289,7 @@ fun SettingsOverlay(
                         Haptics.click(ctx); showMyPermissions = true
                     }
                     SplitActionButton(
-                        label = "SYNC WITH FIT",
+                        label = "SYNC WITH HEALTH",
                         accent = true,
                         font = contentFont,
                         palette = palette,
@@ -637,7 +637,7 @@ private fun ActionButton(label: String, font: FontFamily, palette: ThemePalette,
 }
 
 /** Half-width variant used when stacking two buttons side-by-side in a Row.
- *  `accent=true` paints with the primary accent (for CTAs like "SYNC WITH FIT"). */
+ *  `accent=true` paints with the primary accent (for CTAs like "SYNC WITH HEALTH"). */
 @Composable
 private fun SplitActionButton(
     label: String,

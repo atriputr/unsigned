@@ -138,7 +138,7 @@ fun FitSyncOverlay(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "SYNC WITH FIT",
+                text = "SYNC WITH HEALTH",
                 color = palette.onSurface,
                 fontSize = 22.sp,
                 fontFamily = titleFont,
@@ -153,7 +153,7 @@ fun FitSyncOverlay(
                 )
             )
             Text(
-                text = "importing biometrics from Health Connect",
+                text = "importing biometrics from the Health app",
                 color = palette.faint,
                 fontSize = 10.sp,
                 fontFamily = contentFont,
@@ -216,7 +216,7 @@ fun FitSyncOverlay(
                 ) {
                     PanelButton(
                         label = if (availability == FitnessDataRepository.Availability.NEEDS_UPDATE)
-                            "UPDATE HEALTH CONNECT" else "INSTALL HEALTH CONNECT",
+                            "UPDATE HEALTH APP" else "INSTALL HEALTH APP",
                         accent = true,
                         titleFont = titleFont,
                         palette = palette,
@@ -234,6 +234,7 @@ fun FitSyncOverlay(
                     ) { Haptics.click(ctx); onClose() }
                 }
             } else if (!running && result != null) {
+                // Primary row — Grant / Re-sync + Close
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -247,16 +248,19 @@ fun FitSyncOverlay(
                             modifier = Modifier.weight(1f)
                         ) {
                             Haptics.click(ctx)
-                            // Toast so the user knows the tap registered even if the HC sheet
-                            // takes a second to appear. On devices where the launcher silently
-                            // no-ops (e.g. HC uninstalled since overlay opened), we fall back
-                            // to Play Store.
-                            Toast.makeText(ctx, "Opening Health Connect permissions…", Toast.LENGTH_SHORT).show()
-                            try {
-                                onRequestPermissions()
-                            } catch (_: Throwable) {
-                                openPlayStoreForHealthConnect()
-                            }
+                            // Eager-init the HC client first — some HC versions silently
+                            // ignore the permission intent otherwise. Also give the user
+                            // immediate feedback that the tap registered.
+                            FitSyncManager.ensureInitialized(ctx)
+                            Toast.makeText(ctx, "Opening Health Connect…", Toast.LENGTH_SHORT).show()
+                            val launched = try {
+                                onRequestPermissions(); true
+                            } catch (_: Throwable) { false }
+                            // Belt-and-suspenders: after a brief delay, if nothing happened
+                            // (user is still on this screen) they can tap OPEN HEALTH CONNECT
+                            // below as a manual escape hatch — no automatic fallback here to
+                            // avoid double-launching the sheet.
+                            if (!launched) FitSyncManager.openHealthConnectSettings(ctx)
                         }
                     } else {
                         PanelButton(
@@ -280,6 +284,32 @@ fun FitSyncOverlay(
                         Haptics.click(ctx); onClose()
                     }
                 }
+
+                // Secondary row — direct Health app navigation. Guaranteed escape hatch when
+                // the Jetpack permission launcher no-ops on a given device/HC version combo.
+                Spacer(Modifier.height(8.dp))
+                PanelButton(
+                    label = "OPEN HEALTH APP",
+                    accent = false,
+                    titleFont = titleFont,
+                    palette = palette,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Haptics.click(ctx)
+                    if (!FitSyncManager.openHealthConnectSettings(ctx)) {
+                        Toast.makeText(ctx, "Can't reach the Health app — install it from the Play Store.", Toast.LENGTH_LONG).show()
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "If GRANT PERMISSIONS doesn't open the sheet, tap OPEN HEALTH APP and grant access to Unsigned manually under Permissions.",
+                    color = palette.faint,
+                    fontSize = 10.sp,
+                    fontFamily = contentFont,
+                    fontStyle = FontStyle.Italic,
+                    lineHeight = 14.sp
+                )
             } else if (!running) {
                 PanelButton(
                     label = "CANCEL",
@@ -421,7 +451,7 @@ private fun HealthConnectUnavailablePanel(
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
-            text = if (needsUpdate) "⚠  HEALTH CONNECT NEEDS UPDATE" else "⚠  HEALTH CONNECT NOT INSTALLED",
+            text = if (needsUpdate) "⚠  HEALTH APP NEEDS UPDATE" else "⚠  HEALTH APP NOT INSTALLED",
             color = palette.danger,
             fontSize = 11.sp,
             fontFamily = titleFont,
@@ -430,12 +460,12 @@ private fun HealthConnectUnavailablePanel(
         )
         Text(
             text = if (needsUpdate) {
-                "The Health Connect app on this device is out of date. Update it from the Play " +
-                    "Store, then return here and re-open Sync With FIT."
+                "The Health app on this device is out of date. Update it from the Play " +
+                    "Store, then return here and re-open Sync With Health."
             } else {
-                "This device doesn't have Google Health Connect installed yet. On Android 13 " +
+                "This device doesn't have the Google Health app installed yet. On Android 13 " +
                     "and older it's an optional download — install it from the Play Store, " +
-                    "connect your Fit/band account there, then return here."
+                    "then return here."
             },
             color = palette.onSurface.copy(alpha = 0.85f),
             fontSize = 12.sp,
