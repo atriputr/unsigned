@@ -36,7 +36,7 @@ import kotlinx.coroutines.launch
  *
  * The caller is responsible for requesting Health Connect permissions BEFORE opening this
  * overlay — if permissions are missing the sync still runs but each row returns null and the
- * summary reflects "No metrics available from Fit yet".
+ * summary reflects "No metrics available from Health yet".
  */
 @Composable
 fun FitSyncOverlay(

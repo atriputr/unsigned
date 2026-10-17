@@ -122,7 +122,7 @@ object FitSyncManager {
                 if (weightSynced) add("Weight")
                 if (heightSynced) add("Height")
             }
-            return if (present.isEmpty()) "No metrics available from Fit yet"
+            return if (present.isEmpty()) "No metrics available from Health yet"
             else present.joinToString(" · ")
         }
     }
@@ -362,7 +362,7 @@ object FitSyncManager {
                             diastolic = r.diastolic.inMillimetersOfMercury.toInt(),
                             pulse = 0,
                             timestamp = r.time.toEpochMilli(),
-                            notes = "imported from Fit"
+                            notes = "imported from Health"
                         )
                     }
                 if (fresh.isNotEmpty()) {
@@ -387,7 +387,7 @@ object FitSyncManager {
                             mgPerDl = r.level.inMilligramsPerDeciliter.toInt(),
                             context = "Random",
                             timestamp = r.time.toEpochMilli(),
-                            notes = "imported from Fit"
+                            notes = "imported from Health"
                         )
                     }
                 if (fresh.isNotEmpty()) {
