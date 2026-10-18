@@ -12,11 +12,20 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.un_signed"
+        // applicationId renamed from `com.example.un_signed` → `com.atriputr.unsigned`
+        // because Health Connect (and most Google services) silently reject apps
+        // under the `com.example.*` namespace — reserved for sample / debug code.
+        // After this change the Android OS treats this APK as a fresh app:
+        //   · existing install at the old id must be uninstalled first
+        //   · Health Connect permission grants, Settings → App Info, etc. all reset
+        //   · locally-stored JSON data lives under /data/data/com.atriputr.unsigned/
+        // The Kotlin `namespace` deliberately stays as `com.example.un_signed` so
+        // every source file + the R class keep working without a bulk rename.
+        applicationId = "com.atriputr.unsigned"
         minSdk = 29
         targetSdk = 36
-        versionCode = 45
-        versionName = "5.4"
+        versionCode = 46
+        versionName = "5.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

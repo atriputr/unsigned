@@ -40,6 +40,7 @@ fun SettingsOverlay(
     onWeightLog: () -> Unit,
     onVitalsLog: () -> Unit,
     onSyncWithFit: () -> Unit,
+    onViewCrashLog: () -> Unit,
     onCheckUpdate: () -> Unit,
     onShowUpdateLog: () -> Unit,
     onChangeLanguage: () -> Unit,
@@ -303,6 +304,9 @@ fun SettingsOverlay(
                 }
                 ActionButton(LocalStrings.current.updateLog, contentFont, palette) {
                     Haptics.click(ctx); onShowUpdateLog()
+                }
+                ActionButton("VIEW LAST CRASH", contentFont, palette) {
+                    Haptics.click(ctx); onViewCrashLog()
                 }
             }
 

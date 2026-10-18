@@ -125,13 +125,23 @@ class ProfileSelectionActivity : AppCompatActivity() {
     ) { /* SettingsOverlay re-reads granted state on next recomposition */ }
 
     private fun requestCalendarPermission() {
-        val missing = PermissionsManager.missingCalendarPermissions(this)
-        if (missing.isNotEmpty()) runtimePermissionLauncher.launch(missing.toTypedArray())
+        try {
+            val missing = PermissionsManager.missingCalendarPermissions(this)
+            if (missing.isNotEmpty()) runtimePermissionLauncher.launch(missing.toTypedArray())
+        } catch (t: Throwable) {
+            // Some OEM builds throw IllegalStateException from the ActivityResultRegistry
+            // mid-permission-transition. Log + swallow so the activity doesn't die.
+            android.util.Log.e("UN_SIGNED_CRASH", "requestCalendarPermission threw", t)
+        }
     }
 
     private fun requestReminderAndFitnessPermissions() {
-        val missing = PermissionsManager.missingReminderAndFitnessPermissions(this)
-        if (missing.isNotEmpty()) runtimePermissionLauncher.launch(missing.toTypedArray())
+        try {
+            val missing = PermissionsManager.missingReminderAndFitnessPermissions(this)
+            if (missing.isNotEmpty()) runtimePermissionLauncher.launch(missing.toTypedArray())
+        } catch (t: Throwable) {
+            android.util.Log.e("UN_SIGNED_CRASH", "requestReminderAndFitnessPermissions threw", t)
+        }
     }
 
     private val updateTimeRunnable = object : Runnable {
@@ -757,6 +767,7 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 onWeightLog   = { showWeightLogOverlay(titleFont, contentFont) },
                 onVitalsLog   = { showVitalsOverlay(titleFont, contentFont) },
                 onSyncWithFit = { showFitSyncOverlay() },
+                onViewCrashLog = { showCrashLogOverlay() },
                 onCheckUpdate = {
                     lifecycleScope.launch(Dispatchers.Main) {
                         val info = updateManager.checkForUpdate()
@@ -832,6 +843,12 @@ class ProfileSelectionActivity : AppCompatActivity() {
     private val hcPermissionLauncher = registerForActivityResult(
         FitSyncManager.requestPermissionsContract()
     ) { /* overlay refreshes via its own hasAllPermissions() check on next kickoff */ }
+
+    private fun showCrashLogOverlay() {
+        setThemedContent {
+            CrashLogOverlay(onClose = { composeOverlay.visibility = View.GONE })
+        }
+    }
 
     private fun showFitSyncOverlay() {
         setThemedContent {
@@ -1381,11 +1398,19 @@ class ProfileSelectionActivity : AppCompatActivity() {
                 val stamp = java.time.LocalDateTime.now().toString()
                 val sw = java.io.StringWriter()
                 throwable.printStackTrace(java.io.PrintWriter(sw))
-                val body = "[$stamp] thread=${thread.name}\n$sw"
-                android.util.Log.e("UN_SIGNED_CRASH", body)
-                runCatching {
-                    java.io.File(filesDir, "crash.log").writeText(body)
+                // Device fingerprint helps diagnose OEM-specific crashes (Sony Xperia et al)
+                val device = buildString {
+                    append("device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n")
+                    append("android: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})\n")
+                    append("app: ${packageName} v${runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "?"}\n")
+                    append("thread: ${thread.name}\n")
                 }
+                val body = "[$stamp]\n$device\n$sw"
+                android.util.Log.e("UN_SIGNED_CRASH", body)
+                // Try both locations — filesDir is reliable but may not be ready if crash is
+                // super-early; cacheDir is a parallel backup.
+                runCatching { java.io.File(filesDir, "crash.log").writeText(body) }
+                runCatching { java.io.File(cacheDir, "crash.log").writeText(body) }
             } catch (_: Throwable) { /* never let the logger itself hide the real crash */ }
             existing?.uncaughtException(thread, throwable)
         }
